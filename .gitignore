@@ -1,0 +1,21 @@
+# Frontend
+pet app/node_modules/
+pet app/dist/
+
+# Backend
+pet-api/node_modules/
+
+# Environment
+pet-api/.env
+pet app/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
