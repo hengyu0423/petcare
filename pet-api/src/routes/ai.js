@@ -76,4 +76,79 @@ ${symptoms}
   }
 })
 
+router.post('/weekly-report', async (req, res) => {
+  const { pet, feedingStats, healthConsults, expenses } = req.body
+
+  try {
+    const age = pet.birth_date ? (() => {
+      const months = Math.floor((Date.now() - new Date(pet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
+      return months < 12 ? `${months} 個月` : `${Math.floor(months / 12)} 歲`
+    })() : '年齡不明'
+
+    const prompt = `你是一位專業的寵物健康顧問，請根據以下一週的數據，為飼主生成一份完整的寵物健康週報。請用繁體中文，不要使用 # 符號，語氣親切專業。
+
+寵物資料：
+- 名字：${pet.name}
+- 種類：${pet.species}
+- 品種：${pet.breed || '不明'}
+- 年齡：${age}
+- 體重：${pet.weight ? pet.weight + ' kg' : '不明'}
+
+本週飲食數據：
+${feedingStats.length > 0 ? feedingStats.map(s => 
+  `- ${s.date}：${Number(s.total_calories||0).toFixed(0)} kcal，餵食 ${s.meal_count} 次`
+).join('\n') : '本週無餵食記錄'}
+
+本週健康諮詢紀錄：
+${healthConsults.length > 0 ? healthConsults.map(m =>
+  `${m.role === 'user' ? '飼主' : 'AI'}：${m.content.slice(0, 100)}${m.content.length > 100 ? '...' : ''}`
+).join('\n') : '本週無健康諮詢'}
+
+本週醫療/寵物支出：
+${expenses.length > 0 ? expenses.map(e =>
+  `- ${e.category}：${e.title} RM${Number(e.amount).toFixed(2)}`
+).join('\n') : '本週無支出記錄'}
+
+請生成以下格式的週報（不要使用 # 符號，用 **粗體** 作為標題）：
+
+**🐾 ${pet.name} 的本週健康週報**
+
+**📊 本週總結**
+（用2-3句話總結本週整體狀況）
+
+**🍽️ 飲食分析**
+（分析本週飲食規律性、熱量是否達標、有無異常）
+
+**💊 健康狀況**
+（根據諮詢紀錄分析健康狀況，如無諮詢則說明）
+
+**💰 本週花費**
+（分析本週支出是否合理）
+
+**⭐ 本週亮點**
+（列出本週值得表揚的好事）
+
+**⚠️ 需要注意**
+（列出需要改善或關注的事項）
+
+**📋 下週建議**
+（給飼主具體可執行的建議）`
+
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: '你是一位專業的寵物健康顧問，請用繁體中文生成詳細的健康週報。' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.5,
+      max_tokens: 1500,
+    })
+
+    const report = completion.choices[0]?.message?.content || '無法生成週報'
+    res.json({ success: true, data: { report } })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ success: false, error: 'AI 生成失敗' })
+  }
+})
 module.exports = router

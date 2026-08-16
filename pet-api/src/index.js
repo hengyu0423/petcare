@@ -7,7 +7,8 @@ const app = express()
 const PORT = process.env.PORT || 4000
 
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ limit: '10mb', extended: true }))
 
 // 自動建立資料表
 const initDB = async () => {
@@ -84,6 +85,33 @@ const initDB = async () => {
       content TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS posts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      image_url TEXT,
+      pet_id INTEGER REFERENCES pets(id) ON DELETE SET NULL,
+      likes_count INTEGER DEFAULT 0,
+      comments_count INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS post_likes (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(post_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS post_comments (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   `)
   console.log('✅ 資料表準備完成')
 }
@@ -98,6 +126,7 @@ app.use('/api/ai', require('./routes/ai'))
 app.use('/api/food', require('./routes/food'))
 app.use('/api/feeding', require('./routes/feeding'))
 app.use('/api/consultations', require('./routes/consultations'))
+app.use('/api/posts', require('./routes/posts'))
 
 app.get('/api/ping', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')

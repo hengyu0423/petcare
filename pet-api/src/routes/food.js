@@ -4,20 +4,15 @@ const pool = require('../db')
 const Groq = require('groq-sdk')
 const multer = require('multer')
 
-const path = require('path')
-const vision = require('@google-cloud/vision')
-
-const visionClient = new vision.ImageAnnotatorClient({
-  keyFilename: path.join(__dirname, '../../google-service-account.json')
-})
-
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 const upload = multer({ storage: multer.memoryStorage() })
+const { GoogleGenAI } = require('@google/genai')
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+})
 
 router.use(requireAuth)
-console.log(
-  path.join(__dirname, '../google-service-account.json')
-)
+
 // ✅ 文字分析用的模型
 const DEFAULT_GROQ_MODEL = process.env.GROQ_MODEL || 'qwen/qwen3.6-27b'
 
@@ -105,23 +100,187 @@ function toSafeNumber(val, fallback = 0) {
 }
 
 function getFallbackNutrition(foodName = '未知食物') {
-  const normalizedName = String(foodName || '').toLowerCase()
+  const normalizedName = String(foodName || '').toLowerCase().trim()
 
-  if (normalizedName.includes('鮭魚') || normalizedName.includes('salmon')) {
-    return { ...buildDefaultNutrition(foodName), calories_per_100g: 208, protein_pct: 20, fat_pct: 12, carb_pct: 0, fiber_pct: 0 }
+  if (
+    normalizedName.includes('花椰菜') ||
+    normalizedName.includes('花菜') ||
+    normalizedName.includes('cauliflower')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 25,
+      protein_pct: 1.9,
+      fat_pct: 0.3,
+      carb_pct: 5,
+      fiber_pct: 2
+    }
   }
-  if (normalizedName.includes('雞胸') || normalizedName.includes('雞肉') || normalizedName.includes('chicken')) {
-    return { ...buildDefaultNutrition(foodName), calories_per_100g: 165, protein_pct: 31, fat_pct: 3.6, carb_pct: 0, fiber_pct: 0 }
+
+  if (
+    normalizedName.includes('鮭魚') ||
+    normalizedName.includes('三文魚') ||
+    normalizedName.includes('salmon')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 208,
+      protein_pct: 20,
+      fat_pct: 12,
+      carb_pct: 0,
+      fiber_pct: 0
+    }
   }
-  if (normalizedName.includes('牛肉') || normalizedName.includes('beef')) {
-    return { ...buildDefaultNutrition(foodName), calories_per_100g: 250, protein_pct: 26, fat_pct: 15, carb_pct: 0, fiber_pct: 0 }
+
+  if (
+    normalizedName.includes('雞胸') ||
+    normalizedName.includes('雞肉') ||
+    normalizedName.includes('chicken')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 165,
+      protein_pct: 31,
+      fat_pct: 3.6,
+      carb_pct: 0,
+      fiber_pct: 0
+    }
   }
-  if (normalizedName.includes('罐頭') || normalizedName.includes('wet') || normalizedName.includes('濕')) {
-    return { ...buildDefaultNutrition(foodName), calories_per_100g: 90, protein_pct: 10, fat_pct: 4, carb_pct: 3, fiber_pct: 1 }
+
+  if (
+    normalizedName.includes('牛肉') ||
+    normalizedName.includes('beef')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 250,
+      protein_pct: 26,
+      fat_pct: 15,
+      carb_pct: 0,
+      fiber_pct: 0
+    }
   }
-  if (normalizedName.includes('乾糧') || normalizedName.includes('dry') || normalizedName.includes('飼料') || normalizedName.includes('糧')) {
-    return { ...buildDefaultNutrition(foodName), calories_per_100g: 360, protein_pct: 25, fat_pct: 12, carb_pct: 40, fiber_pct: 3 }
+
+  if (
+    normalizedName.includes('豬肉') ||
+    normalizedName.includes('pork')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 242,
+      protein_pct: 27,
+      fat_pct: 14,
+      carb_pct: 0,
+      fiber_pct: 0
+    }
   }
+
+  if (
+    normalizedName.includes('雞蛋') ||
+    normalizedName.includes('蛋') ||
+    normalizedName.includes('egg')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 143,
+      protein_pct: 12.6,
+      fat_pct: 9.5,
+      carb_pct: 0.7,
+      fiber_pct: 0
+    }
+  }
+
+  if (
+    normalizedName.includes('白飯') ||
+    normalizedName.includes('米飯') ||
+    normalizedName.includes('rice')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 130,
+      protein_pct: 2.7,
+      fat_pct: 0.3,
+      carb_pct: 28,
+      fiber_pct: 0.4
+    }
+  }
+
+  if (
+    normalizedName.includes('地瓜') ||
+    normalizedName.includes('番薯') ||
+    normalizedName.includes('sweet potato')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 86,
+      protein_pct: 1.6,
+      fat_pct: 0.1,
+      carb_pct: 20.1,
+      fiber_pct: 3
+    }
+  }
+
+  if (
+    normalizedName.includes('南瓜') ||
+    normalizedName.includes('pumpkin')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 26,
+      protein_pct: 1,
+      fat_pct: 0.1,
+      carb_pct: 6.5,
+      fiber_pct: 0.5
+    }
+  }
+
+  if (
+    normalizedName.includes('紅蘿蔔') ||
+    normalizedName.includes('胡蘿蔔') ||
+    normalizedName.includes('carrot')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 41,
+      protein_pct: 0.9,
+      fat_pct: 0.2,
+      carb_pct: 9.6,
+      fiber_pct: 2.8
+    }
+  }
+
+  if (
+    normalizedName.includes('罐頭') ||
+    normalizedName.includes('wet') ||
+    normalizedName.includes('濕食') ||
+    normalizedName.includes('濕')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 90,
+      protein_pct: 10,
+      fat_pct: 4,
+      carb_pct: 3,
+      fiber_pct: 1
+    }
+  }
+
+  if (
+    normalizedName.includes('乾糧') ||
+    normalizedName.includes('dry') ||
+    normalizedName.includes('飼料') ||
+    normalizedName.includes('糧')
+  ) {
+    return {
+      ...buildDefaultNutrition(foodName),
+      calories_per_100g: 360,
+      protein_pct: 25,
+      fat_pct: 12,
+      carb_pct: 40,
+      fiber_pct: 3
+    }
+  }
+
   return buildDefaultNutrition(foodName)
 }
 
@@ -130,7 +289,7 @@ function getFallbackNutrition(foodName = '未知食物') {
 // 根據食物名稱分析營養成分
 async function analyzeNutrition(foodName) {
   if (!process.env.GROQ_API_KEY) {
-    return buildDefaultNutrition(foodName)
+    return getFallbackNutrition(foodName)
   }
 
   try {
@@ -140,35 +299,76 @@ async function analyzeNutrition(foodName) {
         {
           role: 'system',
           content: `
-你是寵物營養專家。
-根據食物名稱估算每100g營養。
-只能回傳JSON，不要思考過程。
+你是營養資料分析模型。
+
+任務：
+根據食物名稱，估算每100克的營養資料。
+
+規則：
+1. 必須提供合理的營養數值。
+2. 不可以因為不知道品牌而把營養數值設為0。
+3. 一般天然食物使用常見食品營養資料估算。
+4. 只有真的無法判斷食物時，才允許營養數值全部為0。
+5. 最終只能輸出JSON。
+6. 不要輸出Markdown。
+7. 不要輸出<think>。
+8. 不要輸出分析過程。
+
+注意：
+protein_pct、fat_pct、carb_pct、fiber_pct
+代表「每100g中的克數」，不是百分比。
+
+格式：
 {
-  "food_name":"",
-  "brand":"",
-  "category":"other",
-  "calories_per_100g":0,
-  "protein_pct":0,
-  "fat_pct":0,
-  "carb_pct":0,
-  "fiber_pct":0,
-  "estimated_weight_g":100
+  "food_name": "",
+  "brand": "",
+  "category": "other",
+  "calories_per_100g": 0,
+  "protein_pct": 0,
+  "fat_pct": 0,
+  "carb_pct": 0,
+  "fiber_pct": 0,
+  "estimated_weight_g": 100
+}
+
+例如：
+花椰菜：
+{
+  "food_name": "花椰菜",
+  "brand": "",
+  "category": "other",
+  "calories_per_100g": 25,
+  "protein_pct": 1.9,
+  "fat_pct": 0.3,
+  "carb_pct": 5,
+  "fiber_pct": 2,
+  "estimated_weight_g": 100
 }
 `
         },
-        { role: 'user', content: foodName }
+        {
+          role: 'user',
+          content: String(foodName || '').trim()
+        }
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 300
     })
 
-    const content = completion.choices?.[0]?.message?.content || '{}'
+    const content = completion.choices?.[0]?.message?.content || ''
+
+    console.log('Groq 原始營養結果:')
+    console.log(content)
+
     const parsed = extractJsonObject(content)
+
+    console.log('Groq JSON:', parsed)
 
     if (parsed) {
       const nutrition = {
         ...buildDefaultNutrition(foodName),
         ...parsed,
+        food_name: parsed.food_name || foodName,
         calories_per_100g: toSafeNumber(parsed.calories_per_100g),
         protein_pct: toSafeNumber(parsed.protein_pct),
         fat_pct: toSafeNumber(parsed.fat_pct),
@@ -177,12 +377,25 @@ async function analyzeNutrition(foodName) {
         estimated_weight_g: toSafeNumber(parsed.estimated_weight_g, 100)
       }
 
+      /*
+       * 如果 AI 有成功提供熱量，
+       * 就視為有效結果。
+       */
       if (nutrition.calories_per_100g > 0) {
         return nutrition
       }
+
+      /*
+       * AI 回傳 JSON 但全部是 0，
+       * 代表結果無效，改用 fallback。
+       */
+      console.log(
+        `Groq 營養資料無效，使用 fallback: ${foodName}`
+      )
     }
 
     return getFallbackNutrition(foodName)
+
   } catch (err) {
     console.error('analyzeNutrition error:', err)
     return getFallbackNutrition(foodName)
@@ -191,91 +404,70 @@ async function analyzeNutrition(foodName) {
 
 // ✅ AI 圖片辨識食物名稱
 async function detectFood(req) {
-
-  if (!req.file?.buffer) {
-    return "未知食物"
-  }
+  if (!req.file?.buffer) return '未知食物'
 
   try {
+    const base64Image = req.file.buffer.toString('base64')
 
-    const [result] = await visionClient.annotateImage({
-
-      image: {
-        content: req.file.buffer
-      },
-
-      features: [
+    const response = await gemini.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: [
         {
-          type: "LABEL_DETECTION",
-          maxResults: 10
+          inlineData: {
+            mimeType: req.file.mimetype,
+            data: base64Image
+          }
         },
         {
-          type: "OBJECT_LOCALIZATION",
-          maxResults: 10
+          text: `
+你是一個專業的食物圖片辨識模型。
+
+請分析這張圖片中的食物。
+
+只需要回答最可能的食物名稱。
+不要輸出分析過程。
+不要輸出 JSON。
+不要加任何其他文字。
+
+例如：
+圖片是雞胸肉 → 雞胸肉
+圖片是炒飯 → 海鮮炒飯
+圖片是狗飼料 → 狗糧
+圖片是貓罐頭 → 貓罐頭
+
+如果無法判斷，回答：
+未知食物
+`
         }
       ]
-
     })
 
-    const labels =
-      result.labelAnnotations?.map(x => x.description) || []
+    const foodName = normalizeText(response.text || '')
+      .replace(/^食物(?:名稱)?[:：\s]*/i, '')
+      .replace(/^辨識結果[:：\s]*/i, '')
+      .replace(/^答案[:：\s]*/i, '')
+      .replace(/^[`"'「」]+|[`"'「」]+$/g, '')
+      .trim()
 
-    const objects =
-      result.localizedObjectAnnotations?.map(x => x.name) || []
+    console.log('Gemini Food:', JSON.stringify(foodName))
 
-    console.log("Vision Labels:", labels)
+    if (
+      foodName &&
+      foodName !== '未知食物' &&
+      foodName !== 'unknown' &&
+      foodName !== 'unknown food'
+    ) {
+      return foodName
+    }
 
-    console.log("Vision Objects:", objects)
-
-    const foodName = mapVisionLabels(labels, objects)
-
-    console.log("Food:", foodName)
-
-    return foodName
-
+    return '未知食物'
   } catch (err) {
-
-    console.error("Google Vision error:", err)
-
-    return "未知食物"
-
+    console.error('Gemini Vision error:', err)
+    return '未知食物'
   }
-
 }
 
-function mapVisionLabels(labels, objects) {
-  const all = [
-    ...labels,
-    ...objects
-  ].map(x => x.toLowerCase())
 
-  console.log("All Vision Results:", all)
-
-  // ===== 魚類 =====
-  if (all.includes("salmon")) return "鮭魚"
-  if (all.includes("tuna")) return "鮪魚"
-  if (all.includes("fish")) return "魚肉"
-  if (all.includes("seafood")) return "海鮮"
-
-  // ===== 肉類 =====
-  if (all.includes("chicken")) return "雞胸肉"
-  if (all.includes("beef")) return "牛肉"
-  if (all.includes("pork")) return "豬肉"
-  if (all.includes("meat")) return "肉類"
-
-  // ===== 蛋 =====
-  if (all.includes("egg")) return "雞蛋"
-
-  // ===== 飯 =====
-  if (all.includes("rice")) return "白飯"
-
-  // ===== 寵物食品 =====
-  if (all.includes("cat food")) return "貓糧"
-  if (all.includes("dog food")) return "狗糧"
-  if (all.includes("pet food")) return "寵物食品"
-
-  return "未知食物"
-}
 
 /* ───────── 預設食物 ───────── */
 
@@ -363,11 +555,19 @@ router.post('/init-presets', async (req, res) => {
 router.post('/ai-analyze-image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file?.buffer) {
-      return res.status(400).json({ success: false, error: '沒有圖片' })
+      return res.status(400).json({
+        success: false,
+        error: '沒有圖片'
+      })
     }
 
     const foodName = await detectFood(req)
+
+    console.log('1. Gemini 食物名稱:', JSON.stringify(foodName))
+
     const nutrition = await analyzeNutrition(foodName)
+
+    console.log('2. 營養分析結果:', nutrition)
 
     const normalizedResult = {
       ...nutrition,
@@ -376,9 +576,15 @@ router.post('/ai-analyze-image', upload.single('image'), async (req, res) => {
       notes: nutrition.notes || `已辨識為 ${foodName}`
     }
 
-    return res.json({ success: true, data: normalizedResult })
+    console.log('3. 最終回傳前端:', normalizedResult)
+
+    return res.json({
+      success: true,
+      data: normalizedResult
+    })
   } catch (err) {
     console.error('ai-analyze-image error:', err)
+
     return res.status(500).json({
       success: false,
       error: 'AI分析失敗',

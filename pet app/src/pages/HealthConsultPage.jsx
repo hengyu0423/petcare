@@ -13,8 +13,6 @@ const QUICK_PROMPTS = [
   { label: '咳嗽', text: '一直在咳嗽或打噴嚏，是感冒嗎？' },
 ]
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
-
 export default function HealthConsultPage() {
   const qc = useQueryClient()
   const [selectedPet, setSelectedPet] = useState(null)
@@ -63,7 +61,7 @@ export default function HealthConsultPage() {
     await addMessage.mutateAsync({ petId: selectedPet.id, role: 'user', content })
 
     const pet = selectedPet
-    const systemPrompt = `你是一位專業的獸醫助手，專門為寵物飼主提供醫療諮詢和建議。
+  const systemPrompt = `你是一位專業的獸醫助手，專門為寵物飼主提供醫療諮詢和建議。
 
 目前諮詢的寵物資料：
 - 名字：${pet.name}
@@ -73,10 +71,22 @@ export default function HealthConsultPage() {
 - 年齡：${getAge(pet.birth_date)}
 - 體重：${pet.weight ? pet.weight + ' kg' : '不明'}
 
-請用繁體中文回答，語氣專業但親切易懂。針對症狀給出：
-1. **初步評估** — 可能的原因
-2. **建議處理** — 居家照護方式
-3. **就醫時機** — 何時需要立即就醫
+重要規則：
+1. 你只能針對寵物提供建議，不要提及人類或主人的健康問題
+2. 所有建議必須針對上述寵物的具體狀況
+3. 如果問題與寵物健康無關，請禮貌地說明你只能回答寵物相關的健康問題
+4. 回答時不要使用 # 或 ## 或 ### 標題符號，直接用粗體文字代替
+5. 請用繁體中文回答，語氣專業但親切易懂
+
+回答格式：
+**初步評估**
+（針對${pet.name}的症狀分析）
+
+**建議處理**
+（具體的居家照護方式）
+
+**就醫時機**
+（何時需要帶${pet.name}去看獸醫）
 
 結尾務必提醒此分析僅供參考，不能替代專業獸醫診斷。`
 
@@ -88,27 +98,24 @@ export default function HealthConsultPage() {
     recentMessages.push({ role: 'user', content })
 
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [{ role: 'system', content: systemPrompt }, ...recentMessages],
-          max_tokens: 1200,
-          temperature: 0.4
-        })
+      const response = await api.post('/consultations/ai', {
+        systemPrompt,
+        messages: recentMessages
       })
-      const data = await response.json()
-      if (data.error) throw new Error(data.error.message)
-      const aiText = data.choices[0].message.content
+      const aiText = response.data.data.content
 
       // 儲存 AI 回覆到資料庫
-      await addMessage.mutateAsync({ petId: selectedPet.id, role: 'ai', content: aiText })
+      await addMessage.mutateAsync({
+        petId: selectedPet.id,
+        role: 'ai',
+        content: aiText
+      })  
     } catch (err) {
-      await addMessage.mutateAsync({ petId: selectedPet.id, role: 'ai', content: `❌ 發生錯誤：${err.message}` })
+      await addMessage.mutateAsync({
+        petId: selectedPet.id,
+        role: 'ai',
+        content: `❌ 發生錯誤：${err.response?.data?.message || err.message}`
+      })
     } finally {
       setLoading(false)
     }
@@ -116,16 +123,16 @@ export default function HealthConsultPage() {
 
   const formatAI = (text) => {
     let badge = ''
-    if (/緊急|立即就醫|危險|嚴重/i.test(text)) {
-      badge = '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-red-50 text-red-500 px-2 py-0.5 rounded-full mb-2">🔴 建議緊急就醫</span><br/>'
-    } else if (/觀察|注意|建議就醫/i.test(text)) {
-      badge = '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full mb-2">🟡 建議觀察或就醫</span><br/>'
+    if (/立即就醫|緊急就醫|馬上送醫|危及生命|非常危險|急診/i.test(text)) {
+     badge = '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-red-50 text-red-500 px-2 py-0.5 rounded-full mb-2">🔴 建議緊急就醫</span><br/>'
+    } else if (/超過24小時|持續惡化|建議盡快就醫|需要就醫|應該就醫/i.test(text)) {
+      badge = '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full mb-2">🟡 建議近期就醫</span><br/>'
     } else {
-      badge = '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full mb-2">🟢 一般諮詢</span><br/>'
+      badge = '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full mb-2">🟢 狀況正常</span><br/>'
     }
     const formatted = text
+      .replace(/#{1,6}\s*/g, '')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/^## (.+)$/gm, '<p class="font-bold text-gray-700 mt-3 mb-1">$1</p>')
       .replace(/^- (.+)$/gm, '<span class="block pl-2">• $1</span>')
       .replace(/\n/g, '<br/>')
     return badge + formatted

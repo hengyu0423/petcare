@@ -32,6 +32,9 @@ export default function DietPage() {
   const [form, setForm] = useState({ foodItemId: '', foodName: '', amountG: '', fedAt: new Date().toISOString().slice(0,16), notes: '' })
   const [selectedFood, setSelectedFood] = useState(null)
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
+  const [dietAdvice, setDietAdvice] = useState('')
+  const [loadingAdvice, setLoadingAdvice] = useState(false)
+  const [adviceError, setAdviceError] = useState('')
 
   const { data: pets = [] } = useQuery({
     queryKey: ['pets'],
@@ -56,6 +59,12 @@ export default function DietPage() {
   const { data: dailyStats = [] } = useQuery({
     queryKey: ['feeding-stats', selectedPet?.id],
     queryFn: () => api.get(`/feeding/pet/${selectedPet.id}/daily-stats`).then(r => r.data.data),
+    enabled: !!selectedPet
+  })
+
+  const { data: consultations = [] } = useQuery({
+    queryKey: ['consultations', selectedPet?.id],
+    queryFn: () => api.get(`/consultations/pet/${selectedPet.id}`).then(r => r.data.data),
     enabled: !!selectedPet
   })
 
@@ -89,9 +98,7 @@ export default function DietPage() {
     setAiAnalyzing(true)
     try {
       const { data } = await api.post('/food/ai-analyze', { foodName: form.foodName })
-      if (data.success) {
-        setSelectedFood({ ...data.data, name: form.foodName })
-      }
+      if (data.success) setSelectedFood({ ...data.data, name: form.foodName })
     } catch (err) {
       console.error(err)
     } finally { setAiAnalyzing(false) }
@@ -127,6 +134,22 @@ export default function DietPage() {
     return d === today ? '今日' : d
   }
 
+  const getAdvice = async () => {
+    if (!selectedPet) return
+    setLoadingAdvice(true); setAdviceError(''); setDietAdvice('')
+    try {
+      const recentConsults = consultations
+        .slice(-10)
+        .map(m => `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`)
+        .join('\n')
+      const healthSummary = recentConsults || '目前沒有健康諮詢紀錄，請根據寵物基本資料提供一般飲食建議。'
+      const { data } = await api.post('/food/diet-advice', { pet: selectedPet, healthSummary })
+      setDietAdvice(data.data.advice)
+    } catch (err) {
+      setAdviceError('無法取得建議，請稍後再試')
+    } finally { setLoadingAdvice(false) }
+  }
+
   const todayCalories = records.reduce((s, r) => s + Number(r.calories || 0), 0)
   const todayProtein  = records.reduce((s, r) => s + Number(r.protein_g || 0), 0)
   const todayFat      = records.reduce((s, r) => s + Number(r.fat_g || 0), 0)
@@ -145,7 +168,7 @@ export default function DietPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {pets.map(pet => (
-            <button key={pet.id} onClick={() => setSelectedPet(pet)}
+            <button key={pet.id} onClick={() => { setSelectedPet(pet); setDietAdvice(''); setAdviceError('') }}
               className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                 selectedPet?.id === pet.id
                   ? 'bg-green-50 border-green-300'
@@ -347,6 +370,80 @@ export default function DietPage() {
                 )}
               </div>
             )}
+
+            {/* AI 飲食建議 */}
+            <div className="bg-white border border-gray-200 rounded-xl p-5 mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🤖</span>
+                  <h2 className="text-sm font-bold text-gray-800">AI 個人化飲食建議</h2>
+                  <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">Powered by Groq</span>
+                </div>
+                <button onClick={getAdvice} disabled={loadingAdvice}
+                  className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50">
+                  {loadingAdvice ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                      </svg>
+                      分析中...
+                    </>
+                  ) : '✨ 取得建議'}
+                </button>
+              </div>
+
+              {!dietAdvice && !loadingAdvice && !adviceError && (
+                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                  <p className="text-xs text-gray-400">
+                    點擊「取得建議」，AI 將根據{' '}
+                    <span className="text-green-600 font-medium">{selectedPet?.name}</span>{' '}
+                    的健康諮詢紀錄，提供個人化飲食建議
+                  </p>
+                  {consultations.length > 0 && (
+                    <p className="text-xs text-green-500 mt-1">
+                      已找到 {consultations.length} 筆健康諮詢紀錄
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {loadingAdvice && (
+                <div className="bg-gray-50 rounded-xl p-6 text-center">
+                  <div className="flex gap-1.5 justify-center mb-2">
+                    {[0,1,2].map(i => (
+                      <div key={i} className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
+                        style={{ animationDelay: `${i * 0.15}s` }} />
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400">AI 正在分析健康紀錄...</p>
+                </div>
+              )}
+
+              {adviceError && (
+                <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                  <p className="text-xs text-red-500">{adviceError}</p>
+                </div>
+              )}
+
+              {dietAdvice && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                  <div className="text-sm text-gray-700 leading-relaxed"
+                    dangerouslySetInnerHTML={{
+                      __html: dietAdvice
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\n/g, '<br/>')
+                    }} />
+                  <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between">
+                    <p className="text-xs text-gray-400">⚠️ 此建議僅供參考，請諮詢專業獸醫</p>
+                    <button onClick={getAdvice} className="text-xs text-green-500 hover:underline font-medium">
+                      重新分析
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </div>
