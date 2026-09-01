@@ -64,6 +64,9 @@ export default function Layout() {
           <NavLink to="/weekly-report" className={linkCls}>
             <span className="text-base">📋</span> 健康週報
           </NavLink>
+          <NavLink to="/pet-cam" className={linkCls}>
+            <span className="text-base">📹</span> 即時監控
+          </NavLink>
         </nav>
 
         {/* Footer */}

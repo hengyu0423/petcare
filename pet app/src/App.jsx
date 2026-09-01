@@ -13,6 +13,7 @@ import DietPage from './pages/DietPage'
 import FoodDatabasePage from './pages/FoodDatabasePage' 
 import CommunityPage from './pages/CommunityPage'
 import WeeklyReportPage from './pages/WeeklyReportPage'
+import PetCam from './pages/petCam'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore(s => s.token)
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="food-database" element={<FoodDatabasePage />} />
         <Route path="community" element={<CommunityPage />} />
         <Route path="weekly-report" element={<WeeklyReportPage />} />
+        <Route path="pet-cam" element={<PetCam />} />
       </Route>
     </Routes>
   )
