@@ -14,7 +14,7 @@ const gemini = new GoogleGenAI({
 router.use(requireAuth)
 
 // ✅ 文字分析用的模型
-const DEFAULT_GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+const DEFAULT_GROQ_MODEL = process.env.GROQ_MODEL || 'qwen/qwen3.6-27b'
 
 /* ───────── 工具函式 ───────── */
 
@@ -590,57 +590,6 @@ router.post('/ai-analyze-image', upload.single('image'), async (req, res) => {
       error: 'AI分析失敗',
       detail: err.message
     })
-  }
-})
-
-router.post('/diet-advice', async (req, res) => {
-  const { pet, healthSummary } = req.body
-  try {
-    const age = pet.birth_date ? (() => {
-      const months = Math.floor((Date.now() - new Date(pet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
-      return months < 12 ? `${months} 個月` : `${Math.floor(months / 12)} 歲`
-    })() : '年齡不明'
-
-    const completion = await groq.chat.completions.create({
-      model: DEFAULT_GROQ_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: '你是一位專業的寵物營養師。請直接輸出飲食建議，不要輸出任何思考過程。只用繁體中文回答，不要使用 # 符號。'
-        },
-        {
-          role: 'user',
-          content: `寵物：${pet.name}，${pet.species}，${pet.breed || ''}，${age}，${pet.weight ? pet.weight + 'kg' : ''}
-
-健康紀錄：${healthSummary}
-
-請直接輸出以下四個部分：
-
-**每日建議熱量**
-（估算每日所需熱量）
-
-**建議食物種類**
-（適合吃什麼，避免什麼）
-
-**餵食注意事項**
-（針對目前健康狀況）
-
-**建議補充營養素**
-（如有需要）`
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 800,
-    })
-
-    const raw = completion.choices[0]?.message?.content || '無法取得建議'
-    let advice = normalizeText(raw)
-    const start = advice.search(/\*\*每日/)
-    if (start > 0) advice = advice.slice(start)
-    res.json({ success: true, data: { advice: advice.trim() } })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ success: false, error: 'AI 分析失敗' })
   }
 })
 

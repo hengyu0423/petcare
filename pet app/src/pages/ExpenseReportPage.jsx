@@ -26,7 +26,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       {label && <p className="font-bold text-gray-600 mb-1">{label}</p>}
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }} className="font-semibold">
-          {p.name}: TWD {Number(p.value).toFixed(2)}
+          {p.name}: RM {Number(p.value).toFixed(2)}
         </p>
       ))}
     </div>
@@ -129,7 +129,7 @@ export default function ExpenseReportPage() {
           {/* 統計卡片 */}
           <div className="grid grid-cols-4 gap-4">
             {[
-              { label: '總支出', value: `TWD ${total.toFixed(2)}`, color: 'text-green-500', bg: 'bg-green-50', icon: '💰' },
+              { label: '總支出', value: `RM ${total.toFixed(2)}`, color: 'text-green-500', bg: 'bg-green-50', icon: '💰' },
               { label: '寵物數量', value: `${petNames.length} 隻`, color: 'text-blue-500', bg: 'bg-blue-50', icon: '🐾' },
               { label: '最高花費', value: topPet ? topPet.name : '—', color: 'text-purple-500', bg: 'bg-purple-50', icon: '🏆' },
               { label: '最多類別', value: topCat ? topCat.emoji + ' ' + topCat.name : '—', color: 'text-green-500', bg: 'bg-green-50', icon: '📂' },
@@ -178,7 +178,7 @@ export default function ExpenseReportPage() {
                           <span className="text-sm text-gray-600">{d.emoji} {d.name}</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-bold text-gray-800">TWD {d.value.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-gray-800">RM {d.value.toFixed(2)}</span>
                           <span className="text-xs text-gray-400 ml-2">{pct.toFixed(1)}%</span>
                         </div>
                       </div>
@@ -224,7 +224,7 @@ export default function ExpenseReportPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between mb-1">
                             <span className="text-sm font-semibold text-gray-700 truncate">{p.name}</span>
-                            <span className="text-sm font-bold text-gray-800 ml-2 shrink-0">TWD {Number(p.total).toFixed(2)}</span>
+                            <span className="text-sm font-bold text-gray-800 ml-2 shrink-0">RM {Number(p.total).toFixed(2)}</span>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full rounded-full"
