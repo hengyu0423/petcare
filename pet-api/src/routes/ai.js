@@ -2,88 +2,153 @@ const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const Groq = require('groq-sdk')
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY
+})
 
 router.use(requireAuth)
 
+// ==============================
+// AI 健康分析
+// ==============================
 router.post('/health-analysis', async (req, res) => {
   const { pet, symptoms } = req.body
 
   if (!pet || !symptoms) {
-    return res.status(400).json({ success: false, error: '請提供寵物資料和症狀描述' })
+    return res.status(400).json({
+      success: false,
+      error: '請提供寵物資料和症狀描述'
+    })
   }
 
   try {
-    const age = pet.birth_date ? (() => {
-      const months = Math.floor((Date.now() - new Date(pet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
-      return months < 12 ? `${months} 個月大` : `${Math.floor(months / 12)} 歲`
-    })() : '年齡不明'
+    const age = pet.birth_date
+      ? (() => {
+          const months = Math.floor(
+            (Date.now() - new Date(pet.birth_date)) /
+            (1000 * 60 * 60 * 24 * 30.4)
+          )
 
-    const prompt = `你是一位專業的獸醫助手，請根據以下寵物資料和症狀描述，提供詳細的醫療分析和建議。
+          return months < 12
+            ? `${months} 個月大`
+            : `${Math.floor(months / 12)} 歲`
+        })()
+      : '年齡不明'
+
+   const prompt = `
+請根據以下寵物資料與症狀，提供簡短、直接的健康建議。
 
 寵物資料：
-- 名字：${pet.name}
-- 種類：${pet.species}
-- 品種：${pet.breed || '不明'}
-- 性別：${pet.gender || '不明'}
-- 年齡：${age}
-- 體重：${pet.weight ? pet.weight + ' kg' : '不明'}
+名字：${pet.name}
+種類：${pet.species}
+品種：${pet.breed || '不明'}
+性別：${pet.gender || '不明'}
+年齡：${age}
+體重：${pet.weight ? pet.weight + ' kg' : '不明'}
 
-飼主描述的症狀或問題：
+症狀：
 ${symptoms}
 
-請提供以下格式的分析（請用繁體中文回答）：
+回答規則：
+1. 只輸出最終答案，絕對不要顯示思考過程、推理步驟或分析流程。
+2. 不要出現 "thinking process"、"Analyze User Input"、"Reasoning" 等內容。
+3. 使用繁體中文。
+4. 不要重複寵物基本資料或症狀。
+5. 回答控制在約 80～150 字。
+6. 最多只使用以下三個區塊。
+7. 每個區塊最多 1～2 句。
 
-## 初步評估
-（根據症狀描述，給出初步判斷）
+格式：
 
-## 可能的原因
-（列出2-4個最可能的原因）
+**初步評估**
+簡短說明目前可能的狀況。
 
-## 建議處理方式
-（具體的居家處理建議）
+**建議**
+提供最重要的 1～2 個處理方式。
 
-## 何時需要立即就醫
-（列出需要緊急就醫的警示症狀）
+**就醫提醒**
+只有需要時才說明什麼情況應就醫。
 
-## 預防建議
-（未來如何預防類似狀況）
+不要提供額外前言、結尾、免責聲明或分析過程。
+`
 
-⚠️ 免責聲明：此分析僅供參考，不能替代專業獸醫診斷。如症狀嚴重或持續，請立即就醫。`
+const completion = await groq.chat.completions.create({
+  model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
+  messages: [
+    {
+      role: 'system',
+      content: `
+你是一位寵物健康助手。
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: '你是一位經驗豐富的獸醫助手，專門為寵物飼主提供醫療諮詢和建議。請用繁體中文回答，語氣專業但親切易懂。'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 1500,
+你必須遵守以下規則：
+- 使用繁體中文。
+- 回答簡短直接。
+- 只輸出給飼主看的最終答案。
+- 絕對不要輸出內部思考、推理過程、分析步驟。
+- 不要解釋你如何得到答案。
+- 不要輸出英文分析。
+- 回答盡量控制在 150 字以內。
+`
+    },
+    {
+      role: 'user',
+      content: prompt
+    }
+  ],
+  temperature: 0.3,
+  max_tokens: 300
+})
+
+    const analysis =
+      completion.choices[0]?.message?.content || '無法取得分析結果'
+
+    res.json({
+      success: true,
+      data: {
+        analysis
+      }
     })
-
-    const analysis = completion.choices[0]?.message?.content || '無法取得分析結果'
-
-    res.json({ success: true, data: { analysis } })
   } catch (err) {
-    console.error('Groq API error:', err)
-    res.status(500).json({ success: false, error: 'AI 分析失敗，請稍後再試' })
+    console.error('Groq health analysis error:', err)
+
+    res.status(500).json({
+      success: false,
+      error: 'AI 分析失敗，請稍後再試'
+    })
   }
 })
 
+// ==============================
+// AI 每週健康報告
+// ==============================
 router.post('/weekly-report', async (req, res) => {
-  const { pet, feedingStats, healthConsults, expenses } = req.body
+  const {
+    pet,
+    feedingStats = [],
+    healthConsults = [],
+    expenses = []
+  } = req.body
+
+  if (!pet) {
+    return res.status(400).json({
+      success: false,
+      error: '請提供寵物資料'
+    })
+  }
 
   try {
-    const age = pet.birth_date ? (() => {
-      const months = Math.floor((Date.now() - new Date(pet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
-      return months < 12 ? `${months} 個月` : `${Math.floor(months / 12)} 歲`
-    })() : '年齡不明'
+    const age = pet.birth_date
+      ? (() => {
+          const months = Math.floor(
+            (Date.now() - new Date(pet.birth_date)) /
+            (1000 * 60 * 60 * 24 * 30.4)
+          )
+
+          return months < 12
+            ? `${months} 個月`
+            : `${Math.floor(months / 12)} 歲`
+        })()
+      : '年齡不明'
 
     const prompt = `你是一位專業的寵物健康顧問，請根據以下一週的數據，為飼主生成一份完整的寵物健康週報。請用繁體中文，不要使用 # 符號，語氣親切專業。
 
@@ -95,19 +160,47 @@ router.post('/weekly-report', async (req, res) => {
 - 體重：${pet.weight ? pet.weight + ' kg' : '不明'}
 
 本週飲食數據：
-${feedingStats.length > 0 ? feedingStats.map(s => 
-  `- ${s.date}：${Number(s.total_calories||0).toFixed(0)} kcal，餵食 ${s.meal_count} 次`
-).join('\n') : '本週無餵食記錄'}
+${
+  feedingStats.length > 0
+    ? feedingStats
+        .map(
+          s =>
+            `- ${s.date}：${Number(
+              s.total_calories || 0
+            ).toFixed(0)} kcal，餵食 ${s.meal_count} 次`
+        )
+        .join('\n')
+    : '本週無餵食記錄'
+}
 
 本週健康諮詢紀錄：
-${healthConsults.length > 0 ? healthConsults.map(m =>
-  `${m.role === 'user' ? '飼主' : 'AI'}：${m.content.slice(0, 100)}${m.content.length > 100 ? '...' : ''}`
-).join('\n') : '本週無健康諮詢'}
+${
+  healthConsults.length > 0
+    ? healthConsults
+        .map(
+          m =>
+            `${m.role === 'user' ? '飼主' : 'AI'}：${m.content.slice(
+              0,
+              100
+            )}${m.content.length > 100 ? '...' : ''}`
+        )
+        .join('\n')
+    : '本週無健康諮詢'
+}
 
 本週醫療/寵物支出：
-${expenses.length > 0 ? expenses.map(e =>
-  `- ${e.category}：${e.title} RM${Number(e.amount).toFixed(2)}`
-).join('\n') : '本週無支出記錄'}
+${
+  expenses.length > 0
+    ? expenses
+        .map(
+          e =>
+            `- ${e.category}：${e.title} RM${Number(
+              e.amount
+            ).toFixed(2)}`
+        )
+        .join('\n')
+    : '本週無支出記錄'
+}
 
 請生成以下格式的週報（不要使用 # 符號，用 **粗體** 作為標題）：
 
@@ -134,21 +227,39 @@ ${expenses.length > 0 ? expenses.map(e =>
 **📋 下週建議**
 （給飼主具體可執行的建議）`
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: '你是一位專業的寵物健康顧問，請用繁體中文生成詳細的健康週報。' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.5,
-      max_tokens: 1500,
-    })
+const completion = await groq.chat.completions.create({
+  model: process.env.GROQ_MODEL || "qwen/qwen3.6-27b",
+  messages: [
+    {
+      role: "user",
+      content: prompt
+    }
+  ],
 
-    const report = completion.choices[0]?.message?.content || '無法生成週報'
-    res.json({ success: true, data: { report } })
+  reasoning_effort: "none",
+  reasoning_format: "hidden",
+
+  temperature: 0.7,
+  max_tokens: 900,
+})
+
+    const report =
+      completion.choices[0]?.message?.content || '無法生成週報'
+
+    res.json({
+      success: true,
+      data: {
+        report
+      }
+    })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ success: false, error: 'AI 生成失敗' })
+    console.error('Groq weekly report error:', err)
+
+    res.status(500).json({
+      success: false,
+      error: 'AI 生成失敗'
+    })
   }
 })
+
 module.exports = router
