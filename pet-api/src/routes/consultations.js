@@ -20,14 +20,18 @@ router.get('/pet/:petId', async (req, res) => {
       SELECT *
       FROM health_consultations
       WHERE pet_id = $1
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
+      LIMIT 50
       `,
       [req.params.petId]
     )
 
+    // 資料庫先抓最新 50 筆，再反轉成聊天由舊到新的順序
+    const messages = result.rows.reverse()
+
     res.json({
       success: true,
-      data: result.rows
+      data: messages
     })
   } catch (err) {
     console.error('取得對話紀錄失敗：', err)

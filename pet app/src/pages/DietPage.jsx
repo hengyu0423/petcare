@@ -25,11 +25,23 @@ function getRecommendedCalories(pet) {
 
 export default function DietPage() {
   const qc = useQueryClient()
-  const today = new Date().toISOString().split('T')[0]
+
+  const getLocalDate = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const getLocalDateTime = () => {
+    const d = new Date()
+    const offset = d.getTimezoneOffset()
+    return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 16)
+  }
+
+  const today = getLocalDate()
   const [selectedPet, setSelectedPet] = useState(null)
   const [selectedDate, setSelectedDate] = useState(today)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [form, setForm] = useState({ foodItemId: '', foodName: '', amountG: '', fedAt: new Date().toISOString().slice(0,16), notes: '' })
+  const [form, setForm] = useState({ foodItemId:'', foodName:'', amountG:'', fedAt:getLocalDateTime(), notes:'' })
   const [selectedFood, setSelectedFood] = useState(null)
   const [aiAnalyzing, setAiAnalyzing] = useState(false)
   const [dietAdvice, setDietAdvice] = useState('')
@@ -74,7 +86,7 @@ export default function DietPage() {
       qc.invalidateQueries({ queryKey: ['feeding'] })
       qc.invalidateQueries({ queryKey: ['feeding-stats'] })
       setShowAddModal(false)
-      setForm({ foodItemId: '', foodName: '', amountG: '', fedAt: new Date().toISOString().slice(0,16), notes: '' })
+      setForm({ foodItemId:'', foodName:'', amountG:'', fedAt:getLocalDateTime(), notes:'' })
       setSelectedFood(null)
     }
   })
@@ -90,15 +102,15 @@ export default function DietPage() {
   const handleFoodSelect = (foodId) => {
     const food = foods.find(f => String(f.id) === foodId)
     setSelectedFood(food || null)
-    setForm(f => ({ ...f, foodItemId: foodId, foodName: food?.name || '' }))
+    setForm(f => ({ ...f, foodItemId:foodId, foodName:food?.name || '' }))
   }
 
   const handleAiAnalyze = async () => {
     if (!form.foodName) return
     setAiAnalyzing(true)
     try {
-      const { data } = await api.post('/food/ai-analyze', { foodName: form.foodName })
-      if (data.success) setSelectedFood({ ...data.data, name: form.foodName })
+      const { data } = await api.post('/food/ai-analyze', { foodName:form.foodName })
+      if (data.success) setSelectedFood({ ...data.data, name:form.foodName })
     } catch (err) {
       console.error(err)
     } finally { setAiAnalyzing(false) }
@@ -108,23 +120,24 @@ export default function DietPage() {
     e.preventDefault()
     const nutrition = calcNutrition(selectedFood, Number(form.amountG))
     addRecord.mutate({
-      petId: selectedPet.id,
-      foodItemId: form.foodItemId || null,
-      foodName: form.foodName,
-      amountG: Number(form.amountG),
-      calories: nutrition.calories,
-      proteinG: nutrition.proteinG,
-      fatG: nutrition.fatG,
-      carbG: nutrition.carbG,
-      fedAt: form.fedAt,
-      notes: form.notes
+      petId:selectedPet.id,
+      foodItemId:form.foodItemId || null,
+      foodName:form.foodName,
+      amountG:Number(form.amountG),
+      calories:nutrition.calories,
+      proteinG:nutrition.proteinG,
+      fatG:nutrition.fatG,
+      carbG:nutrition.carbG,
+      fedAt:form.fedAt,
+      notes:form.notes
     })
   }
 
   const goDay = (offset) => {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + offset)
-    const next = d.toISOString().split('T')[0]
+    const [y, m, d] = selectedDate.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    date.setDate(date.getDate() + offset)
+    const next = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     if (next <= today) setSelectedDate(next)
   }
 
@@ -137,11 +150,13 @@ export default function DietPage() {
   const getAdvice = async () => {
     if (!selectedPet) return
     setLoadingAdvice(true); setAdviceError(''); setDietAdvice('')
+
     try {
       const recentConsults = consultations
         .slice(-10)
         .map(m => `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`)
         .join('\n')
+
       const healthSummary = recentConsults || '目前沒有健康諮詢紀錄'
 
       const age = selectedPet.birth_date ? (() => {
@@ -150,41 +165,41 @@ export default function DietPage() {
       })() : '年齡不明'
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':`Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
         },
-        body: JSON.stringify({
-          model: 'openai/gpt-oss-120b',
-          messages: [
+        body:JSON.stringify({
+          model:'openai/gpt-oss-120b',
+          messages:[
             {
-              role: 'system',
-              content: '你是寵物營養師。直接用繁體中文輸出飲食建議，不要輸出思考過程。'
+              role:'system',
+              content:'你是寵物營養師。直接用繁體中文輸出飲食建議，不要輸出思考過程。'
             },
             {
-              role: 'user',
-              content: `寵物：${selectedPet.name}，${selectedPet.species}，${selectedPet.breed || ''}，${age}，${selectedPet.weight ? selectedPet.weight + 'kg' : ''}
+              role:'user',
+              content:`寵物：${selectedPet.name}，${selectedPet.species}，${selectedPet.breed || ''}，${age}，${selectedPet.weight ? selectedPet.weight + 'kg' : ''}
 
-  健康紀錄：${healthSummary}
+健康紀錄：${healthSummary}
 
-  請直接輸出以下四個部分：
+請直接輸出以下四個部分：
 
-  **每日建議熱量**
-  （估算每日所需熱量）
+**每日建議熱量**
+（估算每日所需熱量）
 
-  **建議食物種類**
-  （適合吃什麼，避免什麼）
+**建議食物種類**
+（適合吃什麼，避免什麼）
 
-  **餵食注意事項**
-  （針對目前健康狀況）
+**餵食注意事項**
+（針對目前健康狀況）
 
-  **建議補充營養素**
-  （如有需要）`
+**建議補充營養素**
+（如有需要）`
             }
           ],
-         max_tokens: 800,
-          temperature: 0.1
+          max_tokens:800,
+          temperature:0.1
         })
       })
 
@@ -195,12 +210,13 @@ export default function DietPage() {
       setAdviceError('無法取得建議，請稍後再試')
     } finally { setLoadingAdvice(false) }
   }
+
   const todayCalories = records.reduce((s, r) => s + Number(r.calories || 0), 0)
-  const todayProtein  = records.reduce((s, r) => s + Number(r.protein_g || 0), 0)
-  const todayFat      = records.reduce((s, r) => s + Number(r.fat_g || 0), 0)
-  const recommended   = getRecommendedCalories(selectedPet)
-  const caloriePct    = recommended ? Math.min((todayCalories / recommended) * 100, 100) : 0
-  const nutrition     = selectedFood && form.amountG ? calcNutrition(selectedFood, Number(form.amountG)) : null
+  const todayProtein = records.reduce((s, r) => s + Number(r.protein_g || 0), 0)
+  const todayFat = records.reduce((s, r) => s + Number(r.fat_g || 0), 0)
+  const recommended = getRecommendedCalories(selectedPet)
+  const caloriePct = recommended ? Math.min((todayCalories / recommended) * 100, 100) : 0
+  const nutrition = selectedFood && form.amountG ? calcNutrition(selectedFood, Number(form.amountG)) : null
 
   const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
 
@@ -297,25 +313,28 @@ export default function DietPage() {
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all"
                         style={{
-                          width: `${caloriePct}%`,
-                          backgroundColor: caloriePct > 100 ? '#ef4444' : caloriePct > 80 ? '#f97316' : '#22c55e'
+                          width:`${caloriePct}%`,
+                          backgroundColor:caloriePct > 100 ? '#ef4444' : caloriePct > 80 ? '#f97316' : '#22c55e'
                         }} />
                     </div>
                   </div>
                 )}
               </div>
+
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">蛋白質</p>
                 <p className="text-2xl font-bold text-blue-500 mt-1">
                   {todayProtein.toFixed(1)} <span className="text-sm font-normal text-gray-400">g</span>
                 </p>
               </div>
+
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">脂肪</p>
                 <p className="text-2xl font-bold text-amber-500 mt-1">
                   {todayFat.toFixed(1)} <span className="text-sm font-normal text-gray-400">g</span>
                 </p>
               </div>
+
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">餵食次數</p>
                 <p className="text-2xl font-bold text-green-500 mt-1">
@@ -331,6 +350,7 @@ export default function DietPage() {
                   {formatDate(selectedDate)} 餵食紀錄
                 </h2>
               </div>
+
               {records.length === 0 ? (
                 <div className="py-16 text-center">
                   <p className="text-4xl mb-3">🍽️</p>
@@ -349,21 +369,28 @@ export default function DietPage() {
                       <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-xl shrink-0">
                         {record.food_name.includes('乾') ? '🥣' : record.food_name.includes('罐') || record.food_name.includes('濕') ? '🥫' : '🍖'}
                       </div>
+
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800">{record.food_name}</p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {record.amount_g}g
                           {record.calories ? ` · ${Number(record.calories).toFixed(0)} kcal` : ''}
                           {record.protein_g ? ` · 蛋白質 ${Number(record.protein_g).toFixed(1)}g` : ''}
-                          {' · '}{new Date(record.fed_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                          {' · '}
+                          {new Date(record.fed_at).toLocaleTimeString('zh-TW', {
+                            hour:'2-digit',
+                            minute:'2-digit'
+                          })}
                         </p>
                         {record.notes && <p className="text-xs text-gray-400 mt-0.5">注：{record.notes}</p>}
                       </div>
+
                       {record.calories && (
                         <p className="text-sm font-bold text-gray-700 shrink-0">
                           {Number(record.calories).toFixed(0)} kcal
                         </p>
                       )}
+
                       <button onClick={() => { if (confirm('確定刪除？')) deleteRecord.mutate(record.id) }}
                         className="text-gray-300 hover:text-red-400 transition-colors shrink-0">🗑️</button>
                     </div>
@@ -376,38 +403,54 @@ export default function DietPage() {
             {dailyStats.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl p-5 mt-4">
                 <h2 className="text-sm font-bold text-gray-800 mb-4">近期熱量趨勢</h2>
-                <div style={{ height: '140px', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+
+                <div style={{ height:'140px', display:'flex', alignItems:'flex-end', gap:'8px' }}>
                   {dailyStats.slice(0, 7).reverse().map((stat, i) => {
-                    const max = Math.max(...dailyStats.slice(0,7).map(s => Number(s.total_calories || 0)))
+                    const max = Math.max(...dailyStats.slice(0, 7).map(s => Number(s.total_calories || 0)))
                     const cal = Number(stat.total_calories || 0)
                     const barHeight = max > 0 ? Math.max((cal / max) * 100, 10) : 10
-                    const dateStr = typeof stat.date === 'string'
-                      ? stat.date.slice(0, 10)
-                      : new Date(stat.date).toISOString().slice(0, 10)
+                    const dateStr = (() => {
+                      const value = String(stat.date)
+
+                      if (value.includes('T') && value.endsWith('Z')) {
+                        const d = new Date(value)
+                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                      }
+                      return value.slice(0, 10)
+                    })()
                     const isSelected = dateStr === selectedDate
+
                     return (
                       <div key={i}
-                        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                        style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', cursor:'pointer' }}
                         onClick={() => setSelectedDate(dateStr)}>
-                        <span style={{ fontSize: '10px', color: '#9ca3af', height: '16px', lineHeight: '16px' }}>
+
+                        <span style={{ fontSize:'10px', color:'#9ca3af', height:'16px', lineHeight:'16px' }}>
                           {cal > 0 ? cal.toFixed(0) : ''}
                         </span>
+
                         <div style={{
-                          width: '100%',
-                          height: `${barHeight}px`,
-                          maxHeight: '100px',
-                          backgroundColor: isSelected ? '#1D9E75' : '#9FE1CB',
-                          borderRadius: '4px 4px 0 0',
-                          minHeight: '8px',
-                          transition: 'background-color 0.2s'
+                          width:'100%',
+                          height:`${barHeight}px`,
+                          maxHeight:'100px',
+                          backgroundColor:isSelected ? '#1D9E75' : '#9FE1CB',
+                          borderRadius:'4px 4px 0 0',
+                          minHeight:'8px',
+                          transition:'background-color 0.2s'
                         }} />
-                        <span style={{ fontSize: '10px', color: isSelected ? '#1D9E75' : '#9ca3af', fontWeight: isSelected ? '600' : '400' }}>
+
+                        <span style={{
+                          fontSize:'10px',
+                          color:isSelected ? '#1D9E75' : '#9ca3af',
+                          fontWeight:isSelected ? '600' : '400'
+                        }}>
                           {dateStr.slice(5)}
                         </span>
                       </div>
                     )
                   })}
                 </div>
+
                 {recommended && (
                   <p className="text-xs text-gray-400 mt-3 text-center">
                     建議每日熱量：{recommended} kcal（根據體重 {selectedPet.weight} kg 估算）
@@ -424,6 +467,7 @@ export default function DietPage() {
                   <h2 className="text-sm font-bold text-gray-800">AI 個人化飲食建議</h2>
                   <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">Powered by Groq</span>
                 </div>
+
                 <button onClick={getAdvice} disabled={loadingAdvice}
                   className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50">
                   {loadingAdvice ? (
@@ -445,6 +489,7 @@ export default function DietPage() {
                     <span className="text-green-600 font-medium">{selectedPet?.name}</span>{' '}
                     的健康諮詢紀錄，提供個人化飲食建議
                   </p>
+
                   {consultations.length > 0 && (
                     <p className="text-xs text-green-500 mt-1">
                       已找到 {consultations.length} 筆健康諮詢紀錄
@@ -458,7 +503,7 @@ export default function DietPage() {
                   <div className="flex gap-1.5 justify-center mb-2">
                     {[0,1,2].map(i => (
                       <div key={i} className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
-                        style={{ animationDelay: `${i * 0.15}s` }} />
+                        style={{ animationDelay:`${i * 0.15}s` }} />
                     ))}
                   </div>
                   <p className="text-xs text-gray-400">AI 正在分析健康紀錄...</p>
@@ -475,10 +520,11 @@ export default function DietPage() {
                 <div className="bg-green-50 border border-green-100 rounded-xl p-4">
                   <div className="text-sm text-gray-700 leading-relaxed"
                     dangerouslySetInnerHTML={{
-                      __html: dietAdvice
+                      __html:dietAdvice
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                         .replace(/\n/g, '<br/>')
                     }} />
+
                   <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between">
                     <p className="text-xs text-gray-400">⚠️ 此建議僅供參考，請諮詢專業獸醫</p>
                     <button onClick={getAdvice} className="text-xs text-green-500 hover:underline font-medium">
@@ -488,7 +534,6 @@ export default function DietPage() {
                 </div>
               )}
             </div>
-
           </div>
         )}
       </div>
@@ -518,11 +563,13 @@ export default function DietPage() {
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
                   食物名稱 * <span className="ml-1 text-gray-300 font-normal normal-case">（可手動輸入）</span>
                 </label>
+
                 <div className="flex gap-2">
                   <input required value={form.foodName}
-                    onChange={e => { setForm(f => ({...f, foodName: e.target.value})); if (!form.foodItemId) setSelectedFood(null) }}
+                    onChange={e => { setForm(f => ({...f, foodName:e.target.value})); if (!form.foodItemId) setSelectedFood(null) }}
                     placeholder="例如：希爾思乾糧"
                     className={inputCls} />
+
                   {form.foodName && !selectedFood && (
                     <button type="button" onClick={handleAiAnalyze} disabled={aiAnalyzing}
                       className="shrink-0 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50">
@@ -537,6 +584,7 @@ export default function DietPage() {
                   <p className="text-xs font-semibold text-green-700 mb-2">
                     {selectedFood.notes ? '🤖 AI 估算結果' : '📋 資料庫資料'}
                   </p>
+
                   <div className="grid grid-cols-4 gap-2 text-center">
                     {[
                       ['熱量', selectedFood.calories_per_100g, 'kcal/100g'],
@@ -551,6 +599,7 @@ export default function DietPage() {
                       </div>
                     ))}
                   </div>
+
                   {selectedFood.notes && <p className="text-xs text-green-600 mt-2">注：{selectedFood.notes}</p>}
                 </div>
               )}
@@ -559,13 +608,14 @@ export default function DietPage() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">份量 (g) *</label>
                   <input type="number" required min="0" step="0.1" value={form.amountG}
-                    onChange={e => setForm(f => ({...f, amountG: e.target.value}))}
+                    onChange={e => setForm(f => ({...f, amountG:e.target.value}))}
                     placeholder="例如：60" className={inputCls} />
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">餵食時間</label>
                   <input type="datetime-local" value={form.fedAt}
-                    onChange={e => setForm(f => ({...f, fedAt: e.target.value}))}
+                    onChange={e => setForm(f => ({...f, fedAt:e.target.value}))}
                     className={inputCls} />
                 </div>
               </div>
@@ -579,13 +629,16 @@ export default function DietPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">備注</label>
-                <input value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))}
+                <input value={form.notes} onChange={e => setForm(f => ({...f, notes:e.target.value}))}
                   placeholder="選填" className={inputCls} />
               </div>
 
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setShowAddModal(false)}
-                  className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-500 hover:bg-gray-50 font-medium transition-colors">取消</button>
+                  className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-500 hover:bg-gray-50 font-medium transition-colors">
+                  取消
+                </button>
+
                 <button type="submit" disabled={addRecord.isPending}
                   className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm">
                   {addRecord.isPending ? '新增中...' : '新增'}

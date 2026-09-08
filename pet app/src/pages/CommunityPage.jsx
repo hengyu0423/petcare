@@ -6,15 +6,26 @@ import { useAuthStore } from '../store/authStore'
 const EMOJI = { dog:'🐶', cat:'🐱', bird:'🐦', rabbit:'🐰', fish:'🐟', other:'🐾' }
 
 function timeAgo(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime()
+  const date = new Date(dateStr)
+  const diff = Date.now() - date.getTime()
+
+  if (isNaN(date.getTime())) return ''
+
   const mins = Math.floor(diff / 60000)
   if (mins < 1) return '剛剛'
   if (mins < 60) return `${mins} 分鐘前`
+
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours} 小時前`
+
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days} 天前`
-  return new Date(dateStr).toLocaleDateString('zh-TW')
+
+  return date.toLocaleDateString('zh-TW', {
+    year:'numeric',
+    month:'numeric',
+    day:'numeric'
+  })
 }
 
 function CommentSection({ postId, currentUserId }) {

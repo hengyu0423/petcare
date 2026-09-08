@@ -644,7 +644,6 @@ export default function HealthConsultPage() {
                           {msg.created_at && (
 
                             <p className="text-xs text-gray-400 mt-1 px-1">
-
                               {new Date(
                                 msg.created_at
                               ).toLocaleString(

@@ -49,8 +49,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-4 gap-3 mb-6">
         <StatCard label="寵物總數" value={pets.length} unit="隻"
           sub="✓ 全部健康" icon="🐾" iconBg="bg-green-50" />
-        <StatCard label="本月支出" value={`RM ${totalExpense.toFixed(0)}`} unit=""
-          sub="💰 點擊查看明細" icon="💳" iconBg="bg-blue-50" subColor="text-blue-500" />
+        <Link to="/expenses" className="block"><StatCard label="本月支出" value={`TWD ${totalExpense.toFixed(0)}`} unit=""
+          sub="💰 點擊查看明細" icon="💳" iconBg="bg-blue-50" subColor="text-blue-500" /></Link>
         <StatCard label="健康記錄" value="—" unit=""
           sub="即將推出" icon="📋" iconBg="bg-amber-50" subColor="text-amber-500" />
         <StatCard label="即將到期" value="—" unit=""
