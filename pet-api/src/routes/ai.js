@@ -52,7 +52,7 @@ ${symptoms}
 ⚠️ 免責聲明：此分析僅供參考，不能替代專業獸醫診斷。如症狀嚴重或持續，請立即就醫。`
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [
         {
           role: 'system',
@@ -135,7 +135,7 @@ ${expenses.length > 0 ? expenses.map(e =>
 （給飼主具體可執行的建議）`
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       messages: [
         { role: 'system', content: '你是一位專業的寵物健康顧問，請用繁體中文生成詳細的健康週報。' },
         { role: 'user', content: prompt }
