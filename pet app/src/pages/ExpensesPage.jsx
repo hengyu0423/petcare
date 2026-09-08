@@ -69,7 +69,7 @@ function AddExpenseModal({ pets, onClose, onSave, saving }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">金額 (RM)</label>
+              <label className="text-xs text-gray-400 mb-1 block">金額 (TWD)</label>
               <input type="number" step="0.01" min="0" required value={form.amount}
                 onChange={e => set('amount', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
@@ -168,7 +168,7 @@ export default function ExpensesPage() {
         <div className="ml-auto bg-white rounded-2xl px-5 py-3 shadow-sm border border-gray-200">
           <span className="text-xs text-gray-400">總支出</span>
           <span style={{fontFamily:'Nunito,sans-serif'}} className="text-xl font-black text-green-500 ml-2">
-            RM {total.toFixed(2)}
+            TWD {total.toFixed(2)}
           </span>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function ExpensesPage() {
                 )}
               </div>
               <p style={{fontFamily:'Nunito,sans-serif'}} className="font-black text-green-500 text-lg shrink-0">
-                RM {Number(exp.amount).toFixed(2)}
+                TWD {Number(exp.amount).toFixed(2)}
               </p>
               <button onClick={() => { if(confirm('確定刪除？')) deleteExpense.mutate(exp.id) }}
                 className="text-gray-200 hover:text-red-400 transition-colors text-lg shrink-0">🗑️</button>

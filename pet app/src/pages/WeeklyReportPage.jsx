@@ -85,7 +85,7 @@ export default function WeeklyReportPage() {
     { label: '餵食天數', value: weekFeeding.length, unit: '天', icon: '🍽️', bg: 'bg-green-50', text: 'text-green-600' },
     { label: '總熱量', value: weekTotalCalories.toFixed(0), unit: 'kcal', icon: '🔥', bg: 'bg-orange-50', text: 'text-orange-500' },
     { label: '健康諮詢', value: weekConsults.length, unit: '筆', icon: '🏥', bg: 'bg-blue-50', text: 'text-blue-500' },
-    { label: '本週支出', value: `RM ${weekTotalExpense.toFixed(0)}`, unit: '', icon: '💰', bg: 'bg-amber-50', text: 'text-amber-500' },
+    { label: '本週支出', value: `TWD ${weekTotalExpense.toFixed(0)}`, unit: '', icon: '💰', bg: 'bg-amber-50', text: 'text-amber-500' },
   ] : []
 
   return (
