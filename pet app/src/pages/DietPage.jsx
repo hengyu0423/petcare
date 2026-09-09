@@ -148,68 +148,50 @@ export default function DietPage() {
   }
 
   const getAdvice = async () => {
-    if (!selectedPet) return
-    setLoadingAdvice(true); setAdviceError(''); setDietAdvice('')
+  if (!selectedPet) return
 
-    try {
-      const recentConsults = consultations
-        .slice(-10)
-        .map(m => `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`)
-        .join('\n')
+  setLoadingAdvice(true)
+  setAdviceError('')
+  setDietAdvice('')
 
-      const healthSummary = recentConsults || '目前沒有健康諮詢紀錄'
+  try {
+    const recentConsults = consultations
+      .slice(-10)
+      .map(m => `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`)
+      .join('\n')
 
-      const age = selectedPet.birth_date ? (() => {
-        const months = Math.floor((Date.now() - new Date(selectedPet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
-        return months < 12 ? `${months} 個月` : `${Math.floor(months / 12)} 歲`
-      })() : '年齡不明'
+    const healthSummary =
+      recentConsults || '目前沒有健康諮詢紀錄'
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':`Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
-        },
-        body:JSON.stringify({
-          model:'openai/gpt-oss-120b',
-          messages:[
-            {
-              role:'system',
-              content:'你是寵物營養師。直接用繁體中文輸出飲食建議，不要輸出思考過程。'
-            },
-            {
-              role:'user',
-              content:`寵物：${selectedPet.name}，${selectedPet.species}，${selectedPet.breed || ''}，${age}，${selectedPet.weight ? selectedPet.weight + 'kg' : ''}
+    const { data } = await api.post('/food/diet-advice', {
+      pet: {
+        name: selectedPet.name,
+        species: selectedPet.species,
+        breed: selectedPet.breed || '',
+        weight: selectedPet.weight || null,
+        birth_date: selectedPet.birth_date || null
+      },
+      healthSummary
+    })
 
-健康紀錄：${healthSummary}
+    if (!data.success) {
+      throw new Error(data.error || '取得飲食建議失敗')
+    }
 
-請直接輸出以下四個部分：
+    setDietAdvice(data.data.advice)
 
-**每日建議熱量**
-（估算每日所需熱量）
+  } catch (err) {
+    console.error('取得飲食建議失敗：', err)
 
-**建議食物種類**
-（適合吃什麼，避免什麼）
-
-**餵食注意事項**
-（針對目前健康狀況）
-
-**建議補充營養素**
-（如有需要）`
-            }
-          ],
-          max_tokens:800,
-          temperature:0.1
-        })
-      })
-
-      const data = await response.json()
-      if (data.error) throw new Error(data.error.message)
-      setDietAdvice(data.choices[0].message.content.trim())
-    } catch (err) {
-      setAdviceError('無法取得建議，請稍後再試')
-    } finally { setLoadingAdvice(false) }
+    setAdviceError(
+      err.response?.data?.error ||
+      err.message ||
+      '無法取得建議，請稍後再試'
+    )
+  } finally {
+    setLoadingAdvice(false)
   }
+}
 
   const todayCalories = records.reduce((s, r) => s + Number(r.calories || 0), 0)
   const todayProtein = records.reduce((s, r) => s + Number(r.protein_g || 0), 0)

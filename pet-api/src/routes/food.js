@@ -595,52 +595,123 @@ router.post('/ai-analyze-image', upload.single('image'), async (req, res) => {
 
 router.post('/diet-advice', async (req, res) => {
   const { pet, healthSummary } = req.body
+
   try {
-    const age = pet.birth_date ? (() => {
-      const months = Math.floor((Date.now() - new Date(pet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
-      return months < 12 ? `${months} 個月` : `${Math.floor(months / 12)} 歲`
-    })() : '年齡不明'
+    if (!pet) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少寵物資料'
+      })
+    }
+
+    const age = pet.birth_date
+      ? (() => {
+          const months = Math.floor(
+            (Date.now() - new Date(pet.birth_date)) /
+            (1000 * 60 * 60 * 24 * 30.4)
+          )
+
+          return months < 12
+            ? `${months} 個月`
+            : `${Math.floor(months / 12)} 歲`
+        })()
+      : '年齡不明'
 
     const completion = await groq.chat.completions.create({
-      model: DEFAULT_GROQ_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: '你是一位專業的寵物營養師。請直接輸出飲食建議，不要輸出任何思考過程。只用繁體中文回答，不要使用 # 符號。'
-        },
-        {
-          role: 'user',
-          content: `寵物：${pet.name}，${pet.species}，${pet.breed || ''}，${age}，${pet.weight ? pet.weight + 'kg' : ''}
+  model: DEFAULT_GROQ_MODEL,
 
-健康紀錄：${healthSummary}
+  // 不需要推理過程
+  reasoning_effort: 'none',
 
-請直接輸出以下四個部分：
+  // 不把 reasoning 傳回前端
+  include_reasoning: false,
+
+  messages: [
+    {
+      role: 'system',
+      content: `
+你是一位專業的寵物營養師。
+
+你的任務是直接提供給飼主可閱讀的飲食建議。
+
+規則：
+1. 只使用繁體中文。
+2. 不要輸出思考過程。
+3. 不要出現 "thinking process"。
+4. 不要出現 "Analyze User Input"。
+5. 不要解釋推理過程。
+6. 不使用 # 標題。
+7. 只輸出指定的四個部分。
+8. 如果寵物資料異常，在「餵食注意事項」中簡短提醒。
+`
+    },
+    {
+      role: 'user',
+      content: `
+寵物資料：
+名稱：${pet.name}
+種類：${pet.species}
+品種：${pet.breed || '未知'}
+年齡：${age}
+體重：${pet.weight ? `${pet.weight} kg` : '未知'}
+
+健康紀錄：
+${healthSummary || '目前沒有健康諮詢紀錄'}
+
+請直接輸出：
 
 **每日建議熱量**
-（估算每日所需熱量）
+提供合理的每日熱量估算。
 
 **建議食物種類**
-（適合吃什麼，避免什麼）
+說明適合的食物與應避免的食物。
 
 **餵食注意事項**
-（針對目前健康狀況）
+根據寵物目前資料與健康狀況提出注意事項。
 
 **建議補充營養素**
-（如有需要）`
-        }
-      ],
-      temperature: 0.1,
-      max_tokens: 800,
+如果有需要，說明適合補充的營養素；如果沒有特殊需求，也請明確說明。
+`
+    }
+  ],
+
+  temperature: 0.2,
+  max_completion_tokens: 1200
+})
+
+    const raw =
+      completion.choices?.[0]?.message?.content || ''
+
+    console.log('Diet advice raw:', raw)
+
+    let advice = normalizeText(raw)
+
+    // 防止模型前面又加其他廢話
+    const start = advice.search(/\*\*每日建議熱量\*\*/)
+
+    if (start >= 0) {
+      advice = advice.slice(start)
+    }
+
+    if (!advice) {
+      throw new Error('AI 沒有產生有效飲食建議')
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        advice: advice.trim()
+      }
     })
 
-    const raw = completion.choices[0]?.message?.content || '無法取得建議'
-    let advice = normalizeText(raw)
-    const start = advice.search(/\*\*每日/)
-    if (start > 0) advice = advice.slice(start)
-    res.json({ success: true, data: { advice: advice.trim() } })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ success: false, error: 'AI 分析失敗' })
+    console.error('diet-advice error:', err)
+
+    return res.status(500).json({
+      success: false,
+      error: 'AI 飲食建議產生失敗',
+      detail: err.message
+    })
   }
 })
 
