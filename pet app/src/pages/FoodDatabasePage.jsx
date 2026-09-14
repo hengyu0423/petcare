@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { Link } from 'react-router-dom'
 
 const CAT_LABEL = {
   dry: '乾糧',
@@ -184,10 +185,18 @@ export default function FoodDatabasePage() {
     <>
       <div className="p-6 max-w-5xl">
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">食物資料庫</h1>
-            <p className="text-sm text-gray-400 mt-0.5">管理常用食物的營養資訊</p>
-          </div>
+  <div className="flex items-center gap-4">
+    <Link
+      to="/diet"
+      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-green-600 hover:border-green-200 hover:bg-green-50 text-sm font-medium transition-all"
+    >
+      ← 返回
+    </Link>
+    <div>
+      <h1 className="text-xl font-bold text-gray-800">食物資料庫</h1>
+      <p className="text-sm text-gray-400 mt-0.5">管理常用食物的營養資訊</p>
+    </div>
+  </div>
           <div className="flex gap-2">
             <input
               id="food-image"

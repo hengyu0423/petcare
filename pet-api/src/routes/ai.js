@@ -1,7 +1,7 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const Groq = require('groq-sdk')
-
+const pool = require('../db')
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 })
@@ -194,7 +194,7 @@ ${
     ? expenses
         .map(
           e =>
-            `- ${e.category}：${e.title} RM${Number(
+            `- ${e.category}：${e.title} TWD${Number(
               e.amount
             ).toFixed(2)}`
         )
@@ -243,9 +243,14 @@ const completion = await groq.chat.completions.create({
   max_tokens: 900,
 })
 
-    const report =
-      completion.choices[0]?.message?.content || '無法生成週報'
-
+    const report = completion.choices[0]?.message?.content || '無法生成週報'
+    await pool.query(
+      `INSERT INTO weekly_reports (pet_id, week_start, week_end, report)
+      VALUES ($1,$2,$3,$4)
+      ON CONFLICT (pet_id, week_start, week_end)
+      DO UPDATE SET report=EXCLUDED.report, updated_at=NOW()`,
+      [pet.id, req.body.weekStart, req.body.weekEnd, report]
+  )
     res.json({
       success: true,
       data: {
@@ -259,6 +264,19 @@ const completion = await groq.chat.completions.create({
       success: false,
       error: 'AI 生成失敗'
     })
+  }
+})
+
+router.get('/weekly-reports/:petId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM weekly_reports WHERE pet_id=$1 ORDER BY week_start DESC`,
+      [req.params.petId]
+    )
+    res.json({ success: true, data: result.rows })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ success: false, error: '取得週報失敗' })
   }
 })
 
