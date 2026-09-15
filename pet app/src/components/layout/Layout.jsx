@@ -58,9 +58,6 @@ export default function Layout() {
           <NavLink to="/diet" className={linkCls}>
             <span className="text-base">🍽️</span> 飲食管理
           </NavLink>
-          <NavLink to="/community" className={linkCls}>
-            <span className="text-base">🌐</span> 社群
-          </NavLink>
           <NavLink to="/weekly-report" className={linkCls}>
             <span className="text-base">📋</span> 健康週報
           </NavLink>
