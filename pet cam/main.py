@@ -8,6 +8,7 @@ import cv2
 import math
 import time
 import threading
+import requests
 
 from contextlib import asynccontextmanager
 from collections import deque, Counter
@@ -35,6 +36,11 @@ PET_CLASSES = [15, 16]
 # YOLO
 model = YOLO("yolov8n.pt")
 
+# Node.js API
+PET_API_URL = "http://localhost:4000"
+
+# ⚠️ 改成你 Neon pets 資料表裡這隻貓的 id
+PET_ID = 8
 
 # =========================================================
 # 全域資料
@@ -75,18 +81,56 @@ history_lock = threading.Lock()
 
 stop_event = threading.Event()
 
+# =========================================================
+# 把心情送到 Node.js API → PostgreSQL
+# =========================================================
+
+def save_mood_to_database(data):
+
+    try:
+
+        payload = {
+            "petId": PET_ID,
+            "mood": data["mood"],
+            "behavior": data["behavior"],
+            "confidence": data["confidence"],
+            "aspectRatio": data["aspectRatio"],
+            "movement": data["movement"]
+        }
+
+        response = requests.post(
+            f"{PET_API_URL}/mood-records",
+            json=payload,
+            timeout=5
+        )
+
+        response.raise_for_status()
+
+        print(
+            f"💾 已寫入資料庫："
+            f"{data['mood']}"
+        )
+
+    except Exception as e:
+
+        print(
+            "❌ 心情寫入資料庫失敗：",
+            e
+        )
 
 # =========================================================
 # 儲存心情歷史
 # =========================================================
 
-def save_mood_history(mood, confidence):
+def save_mood_history(status):
 
     global last_mood_record_time
 
     now = datetime.now()
 
-    # 沒有偵測到寵物時不要存
+    mood = status["mood"]
+
+    # 沒偵測到寵物時不要存
     if mood == "待機中":
         return
 
@@ -94,17 +138,36 @@ def save_mood_history(mood, confidence):
     if last_mood_record_time is not None:
 
         diff = (
-            now - last_mood_record_time
+            now -
+            last_mood_record_time
         ).total_seconds()
 
         if diff < 10:
             return
 
     data = {
-        "mood": mood,
-        "confidence": float(confidence),
-        "time": now
+        "mood":
+            status["mood"],
+
+        "behavior":
+            status["behavior"],
+
+        "confidence":
+            float(status["confidence"]),
+
+        "aspectRatio":
+            float(status["aspectRatio"]),
+
+        "movement":
+            int(status["movement"]),
+
+        "time":
+            now
     }
+
+    # ==============================
+    # 本機記憶體
+    # ==============================
 
     with history_lock:
         mood_history.append(data)
@@ -112,10 +175,25 @@ def save_mood_history(mood, confidence):
     last_mood_record_time = now
 
     print(
-        f"📊 心情紀錄：{mood}"
-        f" | 信心度：{confidence}%"
-        f" | {now.strftime('%H:%M:%S')}"
+        f"📊 心情紀錄："
+        f"{data['mood']} "
+        f"| 行為：{data['behavior']} "
+        f"| 信心度：{data['confidence']}% "
+        f"| {now.strftime('%H:%M:%S')}"
     )
+
+    # ==============================
+    # PostgreSQL
+    #
+    # 開 thread 避免資料庫連線
+    # 卡住攝影機 YOLO
+    # ==============================
+
+    threading.Thread(
+        target=save_mood_to_database,
+        args=(data,),
+        daemon=True
+    ).start()
 
 
 # =========================================================
@@ -429,8 +507,7 @@ def camera_worker():
 
                 # 儲存歷史
                 save_mood_history(
-                    new_status["mood"],
-                    new_status["confidence"]
+                    new_status
                 )
 
 

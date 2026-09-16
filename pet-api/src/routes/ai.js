@@ -73,7 +73,7 @@ ${symptoms}
 `
 
 const completion = await groq.chat.completions.create({
-  model: process.env.GROQ_MODEL || 'qwen/qwen3.6-27b',
+  model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
   messages: [
     {
       role: 'system',
@@ -236,8 +236,8 @@ const completion = await groq.chat.completions.create({
     }
   ],
 
-  reasoning_effort: "none",
-  reasoning_format: "hidden",
+  reasoning_effort: "low",
+  include_reasoning: false,
 
   temperature: 0.7,
   max_tokens: 900,

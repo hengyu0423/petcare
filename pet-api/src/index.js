@@ -127,6 +127,7 @@ app.use('/api/food', require('./routes/food'))
 app.use('/api/feeding', require('./routes/feeding'))
 app.use('/api/consultations', require('./routes/consultations'))
 app.use('/api/posts', require('./routes/posts'))
+app.use('/mood-records',require('./routes/moodRecords'))
 
 app.get('/api/ping', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')

@@ -737,7 +737,6 @@ content 必須使用以下格式：
 
 // ======================================================
 // 儲存一則對話訊息
-//
 // POST /consultations
 // ======================================================
 
@@ -745,59 +744,73 @@ router.post('/', async (req, res) => {
   const {
     petId,
     role,
-    content
+    content,
+    severity
   } = req.body
 
+  console.log('📥 收到要儲存的訊息：', {
+    petId,
+    role,
+    severity,
+    content
+  })
 
-  if (
-    !petId ||
-    !role ||
-    !content
-  ) {
+  if (!petId || !role || !content) {
     return res.status(400).json({
       success: false,
-      error:
-        '缺少 petId、role 或 content'
+      error: '缺少 petId、role 或 content'
     })
   }
 
-
-  if (
-    ![
-      'user',
-      'assistant'
-    ].includes(role)
-  ) {
+  if (!['user', 'assistant'].includes(role)) {
     return res.status(400).json({
       success: false,
       error: '無效的訊息角色'
     })
   }
 
+  // 只有 assistant 才儲存 severity
+  let finalSeverity = null
+
+  if (role === 'assistant') {
+    if (
+      ['normal', 'urgent', 'emergency'].includes(severity)
+    ) {
+      finalSeverity = severity
+    }
+  }
 
   try {
-    const result =
-      await pool.query(
-        `
-        INSERT INTO health_consultations
-          (pet_id, role, content)
-        VALUES
-          ($1, $2, $3)
-        RETURNING *
-        `,
-        [
-          petId,
+    const result = await pool.query(
+      `
+      INSERT INTO health_consultations
+        (
+          pet_id,
           role,
-          content
-        ]
-      )
+          content,
+          severity
+        )
+      VALUES
+        ($1, $2, $3, $4)
+      RETURNING *
+      `,
+      [
+        petId,
+        role,
+        content,
+        finalSeverity
+      ]
+    )
 
+    console.log(
+      '✅ 已存入資料庫：',
+      result.rows[0]
+    )
 
     res.json({
       success: true,
       data: result.rows[0]
     })
-
 
   } catch (err) {
     console.error(
@@ -807,8 +820,7 @@ router.post('/', async (req, res) => {
 
     res.status(500).json({
       success: false,
-      error:
-        '無法儲存對話訊息'
+      error: '無法儲存對話訊息'
     })
   }
 })

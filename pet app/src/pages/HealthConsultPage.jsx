@@ -4,7 +4,13 @@ import {
   useMutation,
   useQueryClient
 } from '@tanstack/react-query'
+
 import { api } from '../lib/api'
+
+
+// =====================================================
+// 寵物 Emoji
+// =====================================================
 
 const EMOJI = {
   dog: '🐶',
@@ -14,6 +20,11 @@ const EMOJI = {
   fish: '🐟',
   other: '🐾'
 }
+
+
+// =====================================================
+// 快速問題
+// =====================================================
 
 const QUICK_PROMPTS = [
   {
@@ -42,39 +53,123 @@ const QUICK_PROMPTS = [
   }
 ]
 
+
+// =====================================================
+// 嚴重程度
+// =====================================================
+
+const SEVERITY_CONFIG = {
+  normal: {
+    label: '一般健康建議',
+    icon: '🟢',
+    className:
+      'bg-green-50 text-green-600 border-green-200'
+  },
+
+  urgent: {
+    label: '建議儘快就醫',
+    icon: '🟡',
+    className:
+      'bg-amber-50 text-amber-600 border-amber-200'
+  },
+
+  emergency: {
+    label: '緊急救護',
+    icon: '🚨',
+    className:
+      'bg-red-50 text-red-600 border-red-200'
+  },
+
+  unknown: {
+    label: '尚未分級',
+    icon: '⚪',
+    className:
+      'bg-gray-50 text-gray-500 border-gray-200'
+  }
+}
+
+
+// =====================================================
+// AI 回覆文字格式
+// =====================================================
+
+function formatAI(text) {
+  if (!text) return ''
+
+  return text
+    .replace(/#{1,6}\s*/g, '')
+    .replace(
+      /\*\*(.*?)\*\*/g,
+      '<strong>$1</strong>'
+    )
+    .replace(
+      /^(\d+)\.\s(.+)$/gm,
+      '<span class="block">$1. $2</span>'
+    )
+    .replace(
+      /^-\s(.+)$/gm,
+      '<span class="block">• $1</span>'
+    )
+    .replace(/\n/g, '<br/>')
+}
+
+
+// =====================================================
+// HealthConsultPage
+// =====================================================
+
 export default function HealthConsultPage() {
   const queryClient = useQueryClient()
 
-  const [selectedPet, setSelectedPet] = useState(null)
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [selectedPet, setSelectedPet] =
+    useState(null)
 
-  const chatEndRef = useRef(null)
+  const [input, setInput] =
+    useState('')
 
-  // =====================================================
+  const [loading, setLoading] =
+    useState(false)
+
+  const chatEndRef =
+    useRef(null)
+
+
+  // ===================================================
   // 取得寵物
-  // =====================================================
-  const { data: pets = [] } = useQuery({
+  // ===================================================
+
+  const {
+    data: pets = []
+  } = useQuery({
     queryKey: ['pets'],
+
     queryFn: async () => {
-      const response = await api.get('/pets')
+      const response =
+        await api.get('/pets')
+
       return response.data.data
     }
   })
 
-  // =====================================================
+
+  // ===================================================
   // 取得聊天紀錄
-  // =====================================================
+  // ===================================================
+
   const {
     data: messages = [],
     isLoading: loadingHistory
   } = useQuery({
-    queryKey: ['consultations', selectedPet?.id],
+    queryKey: [
+      'consultations',
+      selectedPet?.id
+    ],
 
     queryFn: async () => {
-      const response = await api.get(
-        `/consultations/pet/${selectedPet.id}`
-      )
+      const response =
+        await api.get(
+          `/consultations/pet/${selectedPet.id}`
+        )
 
       return response.data.data
     },
@@ -82,12 +177,17 @@ export default function HealthConsultPage() {
     enabled: !!selectedPet
   })
 
-  // =====================================================
-  // 儲存聊天訊息
-  // =====================================================
+
+  // ===================================================
+  // 儲存訊息
+  // ===================================================
+
   const addMessage = useMutation({
     mutationFn: payload =>
-      api.post('/consultations', payload),
+      api.post(
+        '/consultations',
+        payload
+      ),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -99,12 +199,16 @@ export default function HealthConsultPage() {
     }
   })
 
-  // =====================================================
-  // 清除聊天紀錄
-  // =====================================================
+
+  // ===================================================
+  // 清除對話
+  // ===================================================
+
   const clearHistory = useMutation({
     mutationFn: petId =>
-      api.delete(`/consultations/pet/${petId}`),
+      api.delete(
+        `/consultations/pet/${petId}`
+      ),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -116,27 +220,47 @@ export default function HealthConsultPage() {
     }
   })
 
-  // =====================================================
-  // 自動捲到最下面
-  // =====================================================
+
+  // ===================================================
+  // 自動滑到底
+  // ===================================================
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({
       behavior: 'smooth'
     })
-  }, [messages, loading])
+  }, [
+    messages,
+    loading
+  ])
 
-  // =====================================================
-  // 計算寵物年齡
-  // =====================================================
+
+  // ===================================================
+  // 計算年齡
+  // ===================================================
+
   const getAge = birthDate => {
     if (!birthDate) {
       return '年齡不明'
     }
 
-    const months = Math.floor(
-      (Date.now() - new Date(birthDate)) /
-        (1000 * 60 * 60 * 24 * 30.4)
-    )
+    const birth =
+      new Date(birthDate)
+
+    const months =
+      Math.floor(
+        (
+          Date.now() -
+          birth.getTime()
+        ) /
+        (
+          1000 *
+          60 *
+          60 *
+          24 *
+          30.4
+        )
+      )
 
     if (months < 12) {
       return `${months} 個月`
@@ -145,40 +269,57 @@ export default function HealthConsultPage() {
     return `${Math.floor(months / 12)} 歲`
   }
 
-  // =====================================================
+
+  // ===================================================
   // 發送訊息
-  // =====================================================
-  const sendMessage = async text => {
-    const content =
-      text || input.trim()
+  // ===================================================
 
-    if (
-      !content ||
-      !selectedPet ||
-      loading
-    ) {
-      return
-    }
+  const sendMessage =
+    async text => {
 
-    setInput('')
-    setLoading(true)
+      const content =
+        text || input.trim()
 
-    try {
-      // ===============================================
-      // 1. 先儲存使用者訊息
-      // ===============================================
-      await addMessage.mutateAsync({
-        petId: selectedPet.id,
-        role: 'user',
-        content
-      })
+      if (
+        !content ||
+        !selectedPet ||
+        loading
+      ) {
+        return
+      }
 
-      const pet = selectedPet
+      setInput('')
+      setLoading(true)
 
-      // ===============================================
-      // 2. AI 系統 Prompt
-      // ===============================================
-      const systemPrompt = `
+      try {
+
+        // =============================================
+        // 1. 儲存使用者訊息
+        // =============================================
+
+        await addMessage.mutateAsync({
+          petId:
+            selectedPet.id,
+
+          role:
+            'user',
+
+          content,
+
+          severity:
+            null
+        })
+
+
+        const pet =
+          selectedPet
+
+
+        // =============================================
+        // 2. System Prompt
+        // =============================================
+
+        const systemPrompt = `
 你是一位專業且親切的寵物健康諮詢助手。
 
 目前諮詢的寵物資料：
@@ -189,185 +330,203 @@ export default function HealthConsultPage() {
 性別：${pet.gender || '不明'}
 年齡：${getAge(pet.birth_date)}
 體重：${
-        pet.weight
-          ? `${pet.weight} kg`
-          : '不明'
-      }
+  pet.weight
+    ? `${pet.weight} kg`
+    : '不明'
+}
 
-請遵守以下規則：
+請根據目前寵物的年齡、種類、症狀與先前對話提供健康建議。
 
-1. 只回答與寵物健康有關的問題。
-2. 所有建議必須以目前這隻寵物的狀況為基礎。
-3. 使用繁體中文。
-4. 語氣專業、親切、容易理解。
-5. 不要輸出任何思考過程或推理步驟。
-6. 不要出現英文 reasoning 或 thinking process。
-7. 不要重複列出寵物基本資料。
-8. 不要使用 #、##、###。
-9. 回答盡量控制在 80～150 字。
-10. 不要直接斷定疾病，只能說明可能狀況。
-11. 若有明顯危險症狀，提醒飼主儘快就醫。
+規則：
 
-回答格式：
-
-**初步評估**
-簡短說明目前可能的狀況。
-
-**建議**
-提供 1～2 個目前可以採取的做法。
-
-**就醫提醒**
-說明什麼情況應該帶寵物就醫。
-
-最後簡短提醒：
-此分析僅供參考，不能替代專業獸醫診斷。
+1. 使用繁體中文。
+2. 只回答寵物健康相關問題。
+3. 不輸出思考過程。
+4. 不輸出 reasoning。
+5. 不輸出 thinking process。
+6. 不重複寵物基本資料。
+7. 不直接斷定疾病。
+8. 回答簡短清楚。
+9. 幼犬、幼貓需特別注意脫水及快速惡化風險。
+10. 有危險症狀時必須明確提醒就醫。
 `
 
-      // ===============================================
-      // 3. 帶入最近的聊天紀錄
-      // ===============================================
-      const recentMessages = messages
-        .slice(-6)
-        .map(message => ({
-          role:
-            message.role === 'user'
-              ? 'user'
-              : 'assistant',
 
-          content: message.content
-        }))
+        // =============================================
+        // 3. 最近對話
+        // =============================================
 
-      // 把這次的新問題加入
-      recentMessages.push({
-        role: 'user',
-        content
-      })
+        const recentMessages =
+          messages
+            .slice(-6)
+            .map(message => ({
+              role:
+                message.role === 'user'
+                  ? 'user'
+                  : 'assistant',
 
-      // ===============================================
-      // 4. 呼叫 AI API
-      // ===============================================
-      const response =
-        await api.post(
-          '/consultations/ai',
-          {
-            systemPrompt,
-            messages: recentMessages
-          }
-        )
+              content:
+                message.content
+            }))
 
-      const aiText =
-        response.data?.data?.content
 
-      console.log(
-        '前端收到 AI 回覆：',
-        aiText
-      )
-
-      if (!aiText) {
-        throw new Error(
-          '沒有收到 AI 回覆內容'
-        )
-      }
-
-      // ===============================================
-      // 5. 儲存 AI 回覆
-      //
-      // 重要：
-      // 必須是 assistant
-      // 不能寫 ai
-      // ===============================================
-      await addMessage.mutateAsync({
-        petId: selectedPet.id,
-        role: 'assistant',
-        content: aiText
-      })
-
-    } catch (err) {
-      console.error(
-        'AI 健康諮詢失敗：',
-        err
-      )
-
-      const errorMessage =
-        err.response?.data?.error ||
-        err.message ||
-        'AI 回覆失敗'
-
-      // 錯誤訊息也使用 assistant
-      try {
-        await addMessage.mutateAsync({
-          petId: selectedPet.id,
-          role: 'assistant',
-          content:
-            `❌ ${errorMessage}`
+        // 加入這次問題
+        recentMessages.push({
+          role: 'user',
+          content
         })
-      } catch (saveError) {
-        console.error(
-          '儲存錯誤訊息失敗：',
-          saveError
+
+
+        // =============================================
+        // 4. 呼叫 AI
+        // =============================================
+
+        const response =
+          await api.post(
+            '/consultations/ai',
+            {
+              systemPrompt,
+
+              messages:
+                recentMessages
+            }
+          )
+
+
+        // =============================================
+        // 5. 取得 AI 回覆
+        // =============================================
+
+        const aiText =
+          response.data
+            ?.data
+            ?.content
+
+
+        // ⭐ 不再預設 normal
+        const aiSeverity =
+          response.data
+            ?.data
+            ?.severity ??
+          null
+
+
+        console.log(
+          '=============================='
         )
+
+        console.log(
+          '🤖 AI 回覆：',
+          aiText
+        )
+
+        console.log(
+          '🚨 AI severity：',
+          aiSeverity
+        )
+
+        console.log(
+          '📦 完整 API response：',
+          response.data
+        )
+
+        console.log(
+          '=============================='
+        )
+
+
+        if (!aiText) {
+          throw new Error(
+            '沒有收到 AI 回覆內容'
+          )
+        }
+
+
+        // =============================================
+        // 6. 儲存 AI 回覆
+        // ⭐ severity 一起寫入資料庫
+        // =============================================
+
+        await addMessage.mutateAsync({
+          petId:
+            selectedPet.id,
+
+          role:
+            'assistant',
+
+          content:
+            aiText,
+
+          severity:
+            aiSeverity
+        })
+
+
+      } catch (err) {
+
+        console.error(
+          'AI 健康諮詢失敗：',
+          err
+        )
+
+
+        const errorMessage =
+          err.response
+            ?.data
+            ?.error ||
+          err.message ||
+          'AI 回覆失敗'
+
+
+        try {
+
+          await addMessage.mutateAsync({
+            petId:
+              selectedPet.id,
+
+            role:
+              'assistant',
+
+            content:
+              `❌ ${errorMessage}`,
+
+            severity:
+              null
+          })
+
+        } catch (saveError) {
+
+          console.error(
+            '儲存錯誤訊息失敗：',
+            saveError
+          )
+
+        }
+
+      } finally {
+
+        setLoading(false)
+
       }
-
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // =====================================================
-  // AI 訊息格式
-  // =====================================================
-  const formatAI = text => {
-    if (!text) {
-      return ''
     }
 
-    let badge = ''
 
-    if (
-      /立即就醫|緊急就醫|馬上送醫|危及生命|非常危險|急診/i.test(
-        text
-      )
-    ) {
-      badge =
-        '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-red-50 text-red-500 px-2 py-0.5 rounded-full mb-2">🔴 建議緊急就醫</span><br/>'
-    } else if (
-      /超過24小時|持續惡化|建議盡快就醫|需要就醫|應該就醫|儘快就醫/i.test(
-        text
-      )
-    ) {
-      badge =
-        '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full mb-2">🟡 建議近期就醫</span><br/>'
-    } else {
-      badge =
-        '<span class="inline-flex items-center gap-1 text-xs font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full mb-2">🟢 一般健康建議</span><br/>'
-    }
+  // ===================================================
+  // UI
+  // ===================================================
 
-    const formatted = text
-      .replace(/#{1,6}\s*/g, '')
-      .replace(
-        /\*\*(.*?)\*\*/g,
-        '<strong>$1</strong>'
-      )
-      .replace(
-        /^- (.+)$/gm,
-        '<span class="block pl-2">• $1</span>'
-      )
-      .replace(/\n/g, '<br/>')
-
-    return badge + formatted
-  }
-
-  // =====================================================
-  // 畫面
-  // =====================================================
   return (
     <div
       className="flex h-full"
       style={{
-        height: 'calc(100vh - 0px)'
+        height:
+          'calc(100vh - 0px)'
       }}
     >
-      {/* ================= 左側寵物列表 ================= */}
+
+      {/* ===============================================
+          左側：寵物
+      =============================================== */}
 
       <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
 
@@ -383,6 +542,7 @@ export default function HealthConsultPage() {
 
         </div>
 
+
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
 
           {pets.length === 0 ? (
@@ -397,9 +557,11 @@ export default function HealthConsultPage() {
 
               <button
                 key={pet.id}
+
                 onClick={() =>
                   setSelectedPet(pet)
                 }
+
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                   selectedPet?.id === pet.id
                     ? 'bg-green-50 border-green-300'
@@ -410,6 +572,7 @@ export default function HealthConsultPage() {
                 <span className="text-2xl">
                   {EMOJI[pet.species] || '🐾'}
                 </span>
+
 
                 <div className="min-w-0">
 
@@ -433,7 +596,10 @@ export default function HealthConsultPage() {
 
       </div>
 
-      {/* ================= 右側聊天區 ================= */}
+
+      {/* ===============================================
+          右側
+      =============================================== */}
 
       <div className="flex-1 flex flex-col overflow-hidden">
 
@@ -459,7 +625,9 @@ export default function HealthConsultPage() {
 
           <>
 
-            {/* ================= 寵物資訊 ================= */}
+            {/* ===========================================
+                寵物 Header
+            =========================================== */}
 
             <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 shrink-0">
 
@@ -467,11 +635,13 @@ export default function HealthConsultPage() {
                 {EMOJI[selectedPet.species] || '🐾'}
               </span>
 
+
               <div>
 
                 <p className="text-sm font-bold text-gray-800">
                   {selectedPet.name}
                 </p>
+
 
                 <p className="text-xs text-gray-400">
 
@@ -492,26 +662,33 @@ export default function HealthConsultPage() {
 
               </div>
 
+
               <div className="ml-auto flex items-center gap-3">
 
                 <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-full">
                   Powered by Groq
                 </span>
 
+
                 {messages.length > 0 && (
 
                   <button
                     onClick={() => {
+
                       if (
                         confirm(
                           '確定清除所有對話紀錄？'
                         )
                       ) {
+
                         clearHistory.mutate(
                           selectedPet.id
                         )
+
                       }
+
                     }}
+
                     className="text-xs text-gray-400 hover:text-red-400 transition-colors border border-gray-200 px-2 py-1 rounded-lg"
                   >
                     🗑️ 清除紀錄
@@ -523,7 +700,10 @@ export default function HealthConsultPage() {
 
             </div>
 
-            {/* ================= 聊天訊息 ================= */}
+
+            {/* ===========================================
+                聊天訊息
+            =========================================== */}
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
 
@@ -549,18 +729,27 @@ export default function HealthConsultPage() {
                     描述症狀或選擇常見問題快速開始
                   </p>
 
+
                   <div className="flex flex-wrap gap-2 justify-center">
 
                     {QUICK_PROMPTS.map(q => (
 
                       <button
                         key={q.label}
+
                         onClick={() =>
-                          sendMessage(q.text)
+                          sendMessage(
+                            q.text
+                          )
                         }
-                        className="bg-white border border-gray-200 rounded-full px-4 py-2 text-sm text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all"
+
+                        disabled={loading}
+
+                        className="bg-white border border-gray-200 rounded-full px-4 py-2 text-sm text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all disabled:opacity-50"
                       >
+
                         {q.label}
+
                       </button>
 
                     ))}
@@ -573,102 +762,178 @@ export default function HealthConsultPage() {
 
                 <>
 
-                  {messages.map((msg, index) => {
+                  {/* =====================================
+                      每一則訊息
+                  ===================================== */}
 
-                    const isUser =
-                      msg.role === 'user'
+                  {messages.map(
+                    (
+                      msg,
+                      index
+                    ) => {
 
-                    return (
+                      const isUser =
+                        msg.role === 'user'
 
-                      <div
-                        key={
-                          msg.id ||
-                          `${msg.created_at}-${index}`
-                        }
-                        className={`flex gap-3 ${
-                          isUser
-                            ? 'flex-row-reverse'
-                            : ''
-                        }`}
-                      >
+
+                      // ⭐ 不再預設 normal
+                      const severity =
+                        msg.severity &&
+                        SEVERITY_CONFIG[
+                          msg.severity
+                        ]
+                          ? SEVERITY_CONFIG[
+                              msg.severity
+                            ]
+                          : SEVERITY_CONFIG.unknown
+
+
+                      return (
 
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
+                          key={
+                            msg.id ||
+                            `${msg.created_at}-${index}`
+                          }
+
+                          className={`flex gap-3 ${
                             isUser
-                              ? 'bg-green-500 text-white font-bold'
-                              : 'bg-green-50 text-lg'
+                              ? 'flex-row-reverse'
+                              : ''
                           }`}
                         >
 
-                          {isUser
-                            ? '我'
-                            : '🐾'}
-
-                        </div>
-
-                        <div
-                          className={`max-w-lg flex flex-col ${
-                            isUser
-                              ? 'items-end'
-                              : 'items-start'
-                          }`}
-                        >
+                          {/* Avatar */}
 
                           <div
-                            className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
                               isUser
-                                ? 'bg-green-500 text-white rounded-br-sm'
-                                : 'bg-white border border-gray-200 text-gray-700 rounded-bl-sm'
+                                ? 'bg-green-500 text-white font-bold'
+                                : 'bg-green-50 text-lg'
                             }`}
                           >
 
-                            {isUser ? (
+                            {isUser
+                              ? '我'
+                              : '🐾'}
 
-                              msg.content
+                          </div>
 
-                            ) : (
 
-                              <div
-                                dangerouslySetInnerHTML={{
-                                  __html:
-                                    formatAI(
-                                      msg.content
-                                    )
-                                }}
-                              />
+                          {/* Message */}
+
+                          <div
+                            className={`max-w-lg flex flex-col ${
+                              isUser
+                                ? 'items-end'
+                                : 'items-start'
+                            }`}
+                          >
+
+                            <div
+                              className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                                isUser
+                                  ? 'bg-green-500 text-white rounded-br-sm'
+                                  : 'bg-white border border-gray-200 text-gray-700 rounded-bl-sm'
+                              }`}
+                            >
+
+                              {isUser ? (
+
+                                msg.content
+
+                              ) : (
+
+                                <>
+
+                                  {/* =====================
+                                      Severity
+                                  ===================== */}
+
+                                  {!msg.content
+                                    ?.startsWith(
+                                      '❌'
+                                    ) && (
+
+                                    <div
+                                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border mb-3 ${severity.className}`}
+                                    >
+
+                                      <span>
+                                        {severity.icon}
+                                      </span>
+
+                                      <span>
+                                        {severity.label}
+                                      </span>
+
+                                    </div>
+
+                                  )}
+
+
+                                  {/* =====================
+                                      AI Content
+                                  ===================== */}
+
+                                  <div
+                                    dangerouslySetInnerHTML={{
+                                      __html:
+                                        formatAI(
+                                          msg.content
+                                        )
+                                    }}
+                                  />
+
+                                </>
+
+                              )}
+
+                            </div>
+
+
+                            {/* 時間 */}
+
+                            {msg.created_at && (
+
+                              <p className="text-xs text-gray-400 mt-1 px-1">
+
+                                {new Date(
+                                  msg.created_at
+                                ).toLocaleString(
+                                  'zh-TW',
+                                  {
+                                    month:
+                                      'numeric',
+
+                                    day:
+                                      'numeric',
+
+                                    hour:
+                                      '2-digit',
+
+                                    minute:
+                                      '2-digit'
+                                  }
+                                )}
+
+                              </p>
 
                             )}
 
                           </div>
 
-                          {msg.created_at && (
-
-                            <p className="text-xs text-gray-400 mt-1 px-1">
-                              {new Date(
-                                msg.created_at
-                              ).toLocaleString(
-                                'zh-TW',
-                                {
-                                  month: 'numeric',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                }
-                              )}
-
-                            </p>
-
-                          )}
-
                         </div>
 
-                      </div>
+                      )
 
-                    )
+                    }
+                  )}
 
-                  })}
 
-                  {/* AI Loading */}
+                  {/* =====================================
+                      AI Loading
+                  ===================================== */}
 
                   {loading && (
 
@@ -678,22 +943,27 @@ export default function HealthConsultPage() {
                         🐾
                       </div>
 
+
                       <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3">
 
                         <div className="flex gap-1.5 items-center h-5">
 
-                          {[0, 1, 2].map(i => (
+                          {[0, 1, 2].map(
+                            i => (
 
-                            <div
-                              key={i}
-                              className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
-                              style={{
-                                animationDelay:
-                                  `${i * 0.15}s`
-                              }}
-                            />
+                              <div
+                                key={i}
 
-                          ))}
+                                className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
+
+                                style={{
+                                  animationDelay:
+                                    `${i * 0.15}s`
+                                }}
+                              />
+
+                            )
+                          )}
 
                         </div>
 
@@ -703,7 +973,10 @@ export default function HealthConsultPage() {
 
                   )}
 
-                  <div ref={chatEndRef} />
+
+                  <div
+                    ref={chatEndRef}
+                  />
 
                 </>
 
@@ -711,7 +984,10 @@ export default function HealthConsultPage() {
 
             </div>
 
-            {/* ================= 輸入區 ================= */}
+
+            {/* ===========================================
+                輸入區
+            =========================================== */}
 
             <div className="bg-white border-t border-gray-200 p-4 shrink-0">
 
@@ -725,13 +1001,20 @@ export default function HealthConsultPage() {
 
                       <button
                         key={q.label}
+
                         onClick={() =>
-                          sendMessage(q.text)
+                          sendMessage(
+                            q.text
+                          )
                         }
+
                         disabled={loading}
+
                         className="text-xs bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-gray-500 hover:border-green-300 hover:text-green-600 transition-all disabled:opacity-50"
                       >
+
                         {q.label}
+
                       </button>
 
                     ))}
@@ -740,42 +1023,60 @@ export default function HealthConsultPage() {
 
               )}
 
+
               <div className="flex gap-3 items-end">
 
                 <textarea
                   value={input}
+
                   onChange={e =>
-                    setInput(e.target.value)
+                    setInput(
+                      e.target.value
+                    )
                   }
+
                   onKeyDown={e => {
+
                     if (
                       e.key === 'Enter' &&
                       !e.shiftKey
                     ) {
+
                       e.preventDefault()
+
                       sendMessage()
+
                     }
+
                   }}
+
                   placeholder={`描述 ${selectedPet.name} 的症狀或問題...`}
+
                   rows={2}
+
                   disabled={loading}
+
                   className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all resize-none disabled:opacity-60"
                 />
+
 
                 <button
                   onClick={() =>
                     sendMessage()
                   }
+
                   disabled={
                     loading ||
                     !input.trim()
                   }
+
                   className="w-11 h-11 bg-green-500 hover:bg-green-600 text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 shrink-0 text-lg"
                 >
                   ➤
                 </button>
 
               </div>
+
 
               <p className="text-xs text-gray-400 mt-2 text-center">
                 ⚠️ 此諮詢僅供參考，不能替代專業獸醫診斷
