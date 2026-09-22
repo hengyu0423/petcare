@@ -112,14 +112,38 @@ const initDB = async () => {
       content TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id BIGSERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pet_id INTEGER REFERENCES pets(id) ON DELETE SET NULL,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(120) NOT NULL,
+      message TEXT NOT NULL,
+      severity VARCHAR(20) NOT NULL DEFAULT 'info',
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      read_at TIMESTAMPTZ,
+      event_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_user
+    ON notifications(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_pet
+    ON notifications(pet_id);
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_created
+    ON notifications(created_at DESC);
   `)
   console.log('✅ 資料表準備完成')
 }
 
 initDB().catch(console.error)
 
-app.use('/api/auth',           require('./routes/auth'))
-app.use('/api/pets',           require('./routes/pets'))
+app.use('/api/auth', require('./routes/auth'))
+app.use('/api/pets', require('./routes/pets'))
 app.use('/api/health-records', require('./routes/health'))
 app.use('/api/expenses', require('./routes/expenses'))
 app.use('/api/ai', require('./routes/ai'))
@@ -127,7 +151,8 @@ app.use('/api/food', require('./routes/food'))
 app.use('/api/feeding', require('./routes/feeding'))
 app.use('/api/consultations', require('./routes/consultations'))
 app.use('/api/posts', require('./routes/posts'))
-app.use('/mood-records',require('./routes/moodRecords'))
+app.use('/api/mood-records', require('./routes/moodRecords'))
+app.use('/api/notifications', require('./routes/notifications'))
 
 app.get('/api/ping', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')
