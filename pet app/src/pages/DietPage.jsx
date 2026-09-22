@@ -90,6 +90,15 @@ export default function DietPage() {
   const [loadingAdvice, setLoadingAdvice] = useState(false)
   const [adviceError, setAdviceError] = useState('')
 
+  // 智慧餵食推薦 / 飲食警訊
+  const [smartDiet, setSmartDiet] = useState(null)
+  const [smartLoading, setSmartLoading] = useState(false)
+  const [smartError, setSmartError] = useState('')
+  const [foodWarnings, setFoodWarnings] = useState([])
+  const [checkingFood, setCheckingFood] = useState(false)
+  const [warningAccepted, setWarningAccepted] = useState(false)
+  const [checkedFoodKey, setCheckedFoodKey] = useState('')
+
   const { data: pets = [] } = useQuery({
     queryKey: ['pets'],
     queryFn: () => api.get('/pets').then(r => r.data.data)
@@ -133,6 +142,191 @@ export default function DietPage() {
     enabled: !!selectedPet
   })
 
+  const buildPetPayload = () => ({
+    name: selectedPet?.name || '',
+    species: selectedPet?.species || '',
+    breed: selectedPet?.breed || '',
+    weight: selectedPet?.weight || null,
+    birth_date: selectedPet?.birth_date || null
+  })
+
+  const buildHealthSummary = () => {
+    const recentConsults = consultations
+      .slice(-10)
+      .map(
+        m =>
+          `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`
+      )
+      .join('\n')
+
+    return recentConsults || '目前沒有健康諮詢紀錄'
+  }
+
+  const normalizeStatDate = value => {
+    if (!value) return ''
+
+    const text = String(value)
+
+    if (text.includes('T') && text.endsWith('Z')) {
+      const d = new Date(text)
+
+      return (
+        `${d.getFullYear()}-` +
+        `${String(d.getMonth() + 1).padStart(2, '0')}-` +
+        `${String(d.getDate()).padStart(2, '0')}`
+      )
+    }
+
+    return text.slice(0, 10)
+  }
+
+  // 抓最近 7 天餵食紀錄，最多送 10 筆給後端分析
+  const loadRecentMeals = async () => {
+    if (!selectedPet) return []
+
+    const datesFromStats = dailyStats
+      .slice(0, 7)
+      .map(stat => normalizeStatDate(stat.date))
+      .filter(Boolean)
+
+    const dates = [
+      ...new Set([today, ...datesFromStats])
+    ].slice(0, 7)
+
+    const responses = await Promise.all(
+      dates.map(date =>
+        api
+          .get(`/feeding/pet/${selectedPet.id}?date=${date}`)
+          .then(r => r.data.data || [])
+          .catch(() => [])
+      )
+    )
+
+    return responses
+      .flat()
+      .sort(
+        (a, b) =>
+          new Date(b.fed_at || b.created_at || 0) -
+          new Date(a.fed_at || a.created_at || 0)
+      )
+      .slice(0, 10)
+      .map(record => {
+        const dbFood = foods.find(food =>
+          (record.food_item_id &&
+            String(food.id) === String(record.food_item_id)) ||
+          food.name === record.food_name
+        )
+
+        const meal = {
+          food_name: record.food_name,
+          amount_g: Number(record.amount_g || 0),
+          fed_at: record.fed_at || record.created_at || null
+        }
+
+        if (dbFood) {
+          meal.calories_per_100g = dbFood.calories_per_100g
+          meal.protein_pct = dbFood.protein_pct
+          meal.fat_pct = dbFood.fat_pct
+          meal.carb_pct = dbFood.carb_pct
+          meal.fiber_pct = dbFood.fiber_pct
+        }
+
+        return meal
+      })
+  }
+
+  const loadSmartRecommendation = async () => {
+    if (!selectedPet) return
+
+    setSmartLoading(true)
+    setSmartError('')
+
+    try {
+      const recentMeals = await loadRecentMeals()
+
+      const { data } = await api.post('/food/smart-diet', {
+        pet: buildPetPayload(),
+        healthSummary: buildHealthSummary(),
+        recentMeals
+      })
+
+      if (!data.success) {
+        throw new Error(data.error || '無法取得飲食推薦')
+      }
+
+      setSmartDiet(data.data)
+    } catch (err) {
+      console.error('智慧飲食推薦失敗：', err)
+
+      setSmartError(
+        err.response?.data?.error ||
+          err.message ||
+          '無法取得飲食推薦'
+      )
+    } finally {
+      setSmartLoading(false)
+    }
+  }
+
+  const openAddModal = () => {
+    resetAddForm()
+    setShowAddModal(true)
+
+    // Modal 開啟後立即依照過去飲食取得推薦
+    loadSmartRecommendation()
+  }
+
+  const checkFoodSafety = async food => {
+    if (!selectedPet || !food) return null
+
+    setCheckingFood(true)
+    setSmartError('')
+
+    try {
+      const recentMeals =
+        smartDiet?.recentMeals?.length > 0
+          ? smartDiet.recentMeals
+          : await loadRecentMeals()
+
+      const { data } = await api.post('/food/check-food', {
+        pet: buildPetPayload(),
+        healthSummary: buildHealthSummary(),
+        recentMeals,
+        food
+      })
+
+      if (!data.success) {
+        throw new Error(data.error || '食物檢查失敗')
+      }
+
+      const warnings = data.data?.warnings || []
+
+      setFoodWarnings(warnings)
+      setWarningAccepted(false)
+      setCheckedFoodKey(
+        String(
+          food.food_name || food.name || form.foodName || ''
+        )
+          .trim()
+          .toLowerCase()
+      )
+
+      return data.data
+    } catch (err) {
+      console.error('飲食警訊檢查失敗：', err)
+
+      setSmartError(
+        err.response?.data?.error ||
+          err.message ||
+          '食物檢查失敗'
+      )
+
+      return null
+    } finally {
+      setCheckingFood(false)
+    }
+  }
+
   const resetAddForm = () => {
     setForm({
       foodItemId: '',
@@ -151,6 +345,13 @@ export default function DietPage() {
 
     setAiResult(null)
     setAiError('')
+
+    setSmartDiet(null)
+    setSmartError('')
+    setFoodWarnings([])
+    setCheckingFood(false)
+    setWarningAccepted(false)
+    setCheckedFoodKey('')
 
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -179,7 +380,7 @@ export default function DietPage() {
     }
   })
 
-  const handleFoodSelect = foodId => {
+  const handleFoodSelect = async foodId => {
     const food = foods.find(f => String(f.id) === foodId)
 
     setSelectedFood(food || null)
@@ -190,9 +391,18 @@ export default function DietPage() {
       foodName: food?.name || ''
     }))
 
-    // 使用資料庫食物時清除圖片 AI 結果
     setAiResult(null)
     setAiError('')
+    setFoodWarnings([])
+    setWarningAccepted(false)
+    setCheckedFoodKey('')
+
+    if (food) {
+      await checkFoodSafety({
+        ...food,
+        food_name: food.name
+      })
+    }
   }
 
   // 原本的文字 AI 食物分析保留
@@ -201,27 +411,35 @@ export default function DietPage() {
 
     setAiAnalyzing(true)
     setAiError('')
+    setFoodWarnings([])
+    setWarningAccepted(false)
 
     try {
       const { data } = await api.post('/food/ai-analyze', {
         foodName: form.foodName
       })
 
-      if (data.success) {
-        setSelectedFood({
-          ...data.data,
-          name: form.foodName
-        })
-      } else {
-        setAiError(data.error || 'AI 分析失敗')
+      if (!data.success) {
+        throw new Error(data.error || 'AI 分析失敗')
       }
+
+      const food = {
+        ...data.data,
+        name: form.foodName,
+        food_name: data.data.food_name || form.foodName
+      }
+
+      setSelectedFood(food)
+      setCheckedFoodKey('')
+
+      await checkFoodSafety(food)
     } catch (err) {
       console.error(err)
 
       setAiError(
         err.response?.data?.error ||
-        err.message ||
-        'AI 分析失敗'
+          err.message ||
+          'AI 分析失敗'
       )
     } finally {
       setAiAnalyzing(false)
@@ -262,14 +480,15 @@ export default function DietPage() {
     setAiAnalyzing(true)
     setAiError('')
     setAiResult(null)
+    setFoodWarnings([])
+    setWarningAccepted(false)
 
     try {
       const formData = new FormData()
-
       formData.append('image', foodImage)
 
       const response = await api.post(
-        '/feeding/ai-analyze-image',
+        '/food/ai-analyze-image',
         formData,
         {
           headers: {
@@ -285,29 +504,60 @@ export default function DietPage() {
       }
 
       const result = data.data
+      const foodName =
+        result.food_name ||
+        result.foodName ||
+        '未知食物'
 
-      setAiResult(result)
+      const estimatedAmount = Number(
+        result.estimated_weight_g ||
+          result.estimatedAmountG ||
+          100
+      )
 
-      // AI 辨識結果直接填入表單
+      const mealNutrition = calcNutrition(
+        result,
+        estimatedAmount
+      )
+
+      const normalizedResult = {
+        ...result,
+        foodName,
+        estimatedAmountG: estimatedAmount,
+        calories: mealNutrition.calories,
+        proteinG: mealNutrition.proteinG,
+        fatG: mealNutrition.fatG,
+        carbG: mealNutrition.carbG
+      }
+
+      setAiResult(normalizedResult)
+      setSelectedFood({
+        ...result,
+        name: foodName,
+        food_name: foodName
+      })
+
       setForm(f => ({
         ...f,
-        foodName: result.foodName || '',
-        amountG:
-          result.estimatedAmountG != null
-            ? result.estimatedAmountG
-            : f.amountG
+        foodItemId: '',
+        foodName,
+        amountG: estimatedAmount || f.amountG
       }))
 
-      // 圖片 AI 結果不使用 food database 的 selectedFood
-      setSelectedFood(null)
+      setCheckedFoodKey('')
 
+      await checkFoodSafety({
+        ...result,
+        name: foodName,
+        food_name: foodName
+      })
     } catch (err) {
       console.error('圖片分析失敗：', err)
 
       setAiError(
         err.response?.data?.error ||
-        err.message ||
-        '圖片分析失敗，請稍後再試'
+          err.message ||
+          '圖片分析失敗，請稍後再試'
       )
     } finally {
       setAiAnalyzing(false)
@@ -320,13 +570,17 @@ export default function DietPage() {
     setImagePreview('')
     setAiResult(null)
     setAiError('')
+    setSelectedFood(null)
+    setFoodWarnings([])
+    setWarningAccepted(false)
+    setCheckedFoodKey('')
 
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault()
 
     if (!selectedPet) return
@@ -343,57 +597,82 @@ export default function DietPage() {
       return
     }
 
-    // 圖片 AI 有結果時，直接使用 AI 的營養資料
-    // 手動輸入 / 資料庫食物則使用原本計算方式
-    const nutrition = aiResult
-      ? {
-          calories:
-            aiResult.calories != null
-              ? Number(aiResult.calories)
-              : null,
+    try {
+      let foodForSave = selectedFood
 
-          proteinG:
-            aiResult.proteinG != null
-              ? Number(aiResult.proteinG)
-              : null,
+      // 使用者只有輸入文字、還沒按 AI 時，儲存前也會自動分析
+      if (!foodForSave) {
+        setAiAnalyzing(true)
 
-          fatG:
-            aiResult.fatG != null
-              ? Number(aiResult.fatG)
-              : null,
+        const { data } = await api.post('/food/ai-analyze', {
+          foodName: form.foodName
+        })
 
-          carbG:
-            aiResult.carbG != null
-              ? Number(aiResult.carbG)
-              : null
+        if (!data.success) {
+          throw new Error(data.error || 'AI 分析失敗')
         }
-      : calcNutrition(
-          selectedFood,
-          amount
-        )
 
-    addRecord.mutate({
-      petId: selectedPet.id,
+        foodForSave = {
+          ...data.data,
+          name: form.foodName,
+          food_name: data.data.food_name || form.foodName
+        }
 
-      foodItemId:
-        form.foodItemId || null,
+        setSelectedFood(foodForSave)
+      }
 
-      foodName: form.foodName,
+      const currentFoodKey = String(form.foodName)
+        .trim()
+        .toLowerCase()
 
-      amountG: amount,
+      // 食物內容改過、或還沒檢查時，儲存前一定再檢查一次
+      if (checkedFoodKey !== currentFoodKey) {
+        const safety = await checkFoodSafety({
+          ...foodForSave,
+          food_name:
+            foodForSave.food_name ||
+            foodForSave.name ||
+            form.foodName
+        })
 
-      calories: nutrition.calories,
+        if (safety?.hasWarning) {
+          return
+        }
+      }
 
-      proteinG: nutrition.proteinG,
+      // 有警訊時，不強制阻止，但必須由使用者明確按「仍要儲存」
+      if (foodWarnings.length > 0 && !warningAccepted) {
+        return
+      }
 
-      fatG: nutrition.fatG,
+      const nutrition = calcNutrition(
+        foodForSave,
+        amount
+      )
 
-      carbG: nutrition.carbG,
+      addRecord.mutate({
+        petId: selectedPet.id,
+        foodItemId: form.foodItemId || null,
+        foodName: form.foodName,
+        amountG: amount,
+        calories: nutrition.calories,
+        proteinG: nutrition.proteinG,
+        fatG: nutrition.fatG,
+        carbG: nutrition.carbG,
+        fedAt: form.fedAt,
+        notes: form.notes
+      })
+    } catch (err) {
+      console.error('新增餵食前分析失敗：', err)
 
-      fedAt: form.fedAt,
-
-      notes: form.notes
-    })
+      setAiError(
+        err.response?.data?.error ||
+          err.message ||
+          '食物分析失敗，請稍後再試'
+      )
+    } finally {
+      setAiAnalyzing(false)
+    }
   }
 
   const goDay = offset => {
@@ -431,30 +710,17 @@ export default function DietPage() {
     setDietAdvice('')
 
     try {
-      const recentConsults = consultations
-        .slice(-10)
-        .map(
-          m =>
-            `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`
-        )
-        .join('\n')
-
-      const healthSummary =
-        recentConsults || '目前沒有健康諮詢紀錄'
+      const recentMeals =
+        smartDiet?.recentMeals?.length > 0
+          ? smartDiet.recentMeals
+          : await loadRecentMeals()
 
       const { data } = await api.post(
         '/food/diet-advice',
         {
-          pet: {
-            name: selectedPet.name,
-            species: selectedPet.species,
-            breed: selectedPet.breed || '',
-            weight: selectedPet.weight || null,
-            birth_date:
-              selectedPet.birth_date || null
-          },
-
-          healthSummary
+          pet: buildPetPayload(),
+          healthSummary: buildHealthSummary(),
+          recentMeals
         }
       )
 
@@ -466,16 +732,21 @@ export default function DietPage() {
 
       setDietAdvice(data.data.advice)
 
+      if (data.data.recommendation) {
+        setSmartDiet(prev => ({
+          ...(prev || {}),
+          history: data.data.history || prev?.history,
+          recommendation: data.data.recommendation,
+          recentMeals
+        }))
+      }
     } catch (err) {
-      console.error(
-        '取得飲食建議失敗：',
-        err
-      )
+      console.error('取得飲食建議失敗：', err)
 
       setAdviceError(
         err.response?.data?.error ||
-        err.message ||
-        '無法取得建議，請稍後再試'
+          err.message ||
+          '無法取得建議，請稍後再試'
       )
     } finally {
       setLoadingAdvice(false)
@@ -510,24 +781,105 @@ export default function DietPage() {
       )
     : 0
 
-  const manualNutrition =
-    selectedFood &&
-    form.amountG
+  const previewNutrition =
+    selectedFood && form.amountG
       ? calcNutrition(
           selectedFood,
           Number(form.amountG)
         )
       : null
 
-  const previewNutrition =
-    aiResult
-      ? {
-          calories: aiResult.calories,
-          proteinG: aiResult.proteinG,
-          fatG: aiResult.fatG,
-          carbG: aiResult.carbG
-        }
-      : manualNutrition
+  const suggestedFood = (() => {
+    const recommendationType =
+      smartDiet?.recommendation?.type
+
+    if (
+      !recommendationType ||
+      recommendationType === 'no_data' ||
+      foods.length === 0
+    ) {
+      return null
+    }
+
+    const species = String(
+      selectedPet?.species || ''
+    ).toLowerCase()
+
+    const candidates = foods.filter(food => {
+      const name = String(food.name || '')
+
+      if (
+        species === 'dog' ||
+        species.includes('狗') ||
+        species.includes('犬')
+      ) {
+        return !name.includes('貓')
+      }
+
+      if (
+        species === 'cat' ||
+        species.includes('貓')
+      ) {
+        return !name.includes('犬') && !name.includes('狗')
+      }
+
+      return true
+    })
+
+    const mainFoods = candidates.filter(
+      food => food.category !== 'snack'
+    )
+
+    const pool =
+      mainFoods.length > 0
+        ? mainFoods
+        : candidates
+
+    if (pool.length === 0) return null
+
+    if (
+      recommendationType === 'high_fat' ||
+      recommendationType === 'high_fat_low_fiber'
+    ) {
+      return [...pool].sort((a, b) => {
+        const fatDiff =
+          Number(a.fat_pct || 999) -
+          Number(b.fat_pct || 999)
+
+        if (fatDiff !== 0) return fatDiff
+
+        return (
+          Number(b.fiber_pct || 0) -
+          Number(a.fiber_pct || 0)
+        )
+      })[0]
+    }
+
+    if (recommendationType === 'low_fiber') {
+      return [...pool].sort((a, b) => {
+        const fiberDiff =
+          Number(b.fiber_pct || 0) -
+          Number(a.fiber_pct || 0)
+
+        if (fiberDiff !== 0) return fiberDiff
+
+        return (
+          Number(a.fat_pct || 999) -
+          Number(b.fat_pct || 999)
+        )
+      })[0]
+    }
+
+    if (recommendationType === 'high_calories') {
+      return [...pool].sort(
+        (a, b) =>
+          Number(a.calories_per_100g || 9999) -
+          Number(b.calories_per_100g || 9999)
+      )[0]
+    }
+
+    return null
+  })()
 
   const inputCls =
     'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all'
@@ -681,10 +1033,7 @@ export default function DietPage() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    resetAddForm()
-                    setShowAddModal(true)
-                  }}
+                  onClick={openAddModal}
                   className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
                 >
                   ＋ 新增餵食
@@ -817,10 +1166,7 @@ export default function DietPage() {
 
                   {selectedDate === today && (
                     <button
-                      onClick={() => {
-                        resetAddForm()
-                        setShowAddModal(true)
-                      }}
+                      onClick={openAddModal}
                       className="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
                     >
                       新增第一筆
@@ -1109,7 +1455,7 @@ export default function DietPage() {
                       <span className="text-green-600 font-medium">
                         {selectedPet?.name}
                       </span>{' '}
-                      的健康諮詢紀錄，提供個人化飲食建議
+                      的健康紀錄與近期飲食，提供個人化飲食建議
                     </p>
 
                     {consultations.length > 0 && (
@@ -1139,7 +1485,7 @@ export default function DietPage() {
                   </div>
 
                   <p className="text-xs text-gray-400">
-                    AI 正在分析健康紀錄...
+                    AI 正在分析健康與近期飲食紀錄...
                   </p>
 
                 </div>
@@ -1227,6 +1573,92 @@ export default function DietPage() {
                   ✕
                 </button>
 
+              </div>
+
+              {/* 智慧推薦 */}
+              <div className="mb-5">
+                {smartLoading && (
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
+                    <p className="text-sm font-semibold text-green-700">
+                      ✨ 正在分析最近飲食...
+                    </p>
+                    <p className="text-xs text-green-500 mt-1">
+                      系統會參考近期餵食、營養與健康紀錄
+                    </p>
+                  </div>
+                )}
+
+                {smartError && !smartLoading && (
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                    <p className="text-xs text-red-500">
+                      {smartError}
+                    </p>
+                  </div>
+                )}
+
+                {smartDiet?.recommendation && !smartLoading && (
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                        ✨
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-green-600">
+                          系統推薦
+                        </p>
+
+                        <p className="text-sm font-bold text-gray-800 mt-1">
+                          {smartDiet.recommendation.title}
+                        </p>
+
+                        <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
+                          {smartDiet.recommendation.recommendation}
+                        </p>
+
+                        <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                          原因：{smartDiet.recommendation.reason}
+                        </p>
+
+                        {smartDiet.history?.hasData && (
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            <span className={`text-[11px] px-2 py-1 rounded-full ${
+                              smartDiet.history.fatStatus === '正常'
+                                ? 'bg-white text-green-600'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              脂肪：{smartDiet.history.fatStatus}
+                            </span>
+
+                            <span className={`text-[11px] px-2 py-1 rounded-full ${
+                              smartDiet.history.fiberStatus === '正常'
+                                ? 'bg-white text-green-600'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              纖維：{smartDiet.history.fiberStatus}
+                            </span>
+
+                            <span className="text-[11px] px-2 py-1 rounded-full bg-white text-gray-500">
+                              已分析 {smartDiet.history.mealCount} 筆
+                            </span>
+                          </div>
+                        )}
+
+                        {suggestedFood && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleFoodSelect(String(suggestedFood.id))
+                            }
+                            className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white rounded-lg py-2 text-xs font-semibold transition-colors"
+                          >
+                            ✓ 採用推薦：{suggestedFood.name}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 模式切換 */}
@@ -1482,13 +1914,18 @@ export default function DietPage() {
                           <input
                             required
                             value={form.foodName}
-                            onChange={e =>
+                            onChange={e => {
                               setForm(f => ({
                                 ...f,
-                                foodName:
-                                  e.target.value
+                                foodItemId: '',
+                                foodName: e.target.value
                               }))
-                            }
+
+                              setSelectedFood(null)
+                              setFoodWarnings([])
+                              setWarningAccepted(false)
+                              setCheckedFoodKey('')
+                            }}
                             className={inputCls}
                           />
                         </div>
@@ -1582,13 +2019,15 @@ export default function DietPage() {
                           onChange={e => {
                             setForm(f => ({
                               ...f,
-                              foodName:
-                                e.target.value
+                              foodItemId: '',
+                              foodName: e.target.value
                             }))
 
-                            if (!form.foodItemId) {
-                              setSelectedFood(null)
-                            }
+                            setSelectedFood(null)
+                            setAiResult(null)
+                            setFoodWarnings([])
+                            setWarningAccepted(false)
+                            setCheckedFoodKey('')
                           }}
                           placeholder="例如：希爾思乾糧"
                           className={inputCls}
@@ -1685,6 +2124,82 @@ export default function DietPage() {
                     )}
 
                   </>
+                )}
+
+                {/* 飲食警訊 */}
+                {checkingFood && (
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
+                    <p className="text-xs text-gray-500">
+                      🔎 正在檢查這個食物是否適合目前狀況...
+                    </p>
+                  </div>
+                )}
+
+                {foodWarnings.length > 0 && !checkingFood && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-xl">⚠️</span>
+
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-amber-800">
+                          飲食警訊
+                        </p>
+
+                        <div className="space-y-3 mt-2">
+                          {foodWarnings.map((warning, index) => (
+                            <div
+                              key={`${warning.title}-${index}`}
+                              className="bg-white/70 rounded-lg p-3"
+                            >
+                              <p className="text-xs font-bold text-gray-800">
+                                {warning.title}
+                              </p>
+
+                              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                {warning.reason}
+                              </p>
+
+                              {warning.suggestion && (
+                                <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+                                  建議：{warning.suggestion}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {!warningAccepted ? (
+                          <div className="grid grid-cols-2 gap-2 mt-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFoodWarnings([])
+                                setWarningAccepted(false)
+                                setCheckedFoodKey('')
+                              }}
+                              className="border border-amber-300 bg-white text-amber-700 rounded-lg py-2 text-xs font-semibold hover:bg-amber-50"
+                            >
+                              修改食物
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setWarningAccepted(true)}
+                              className="bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-xs font-semibold"
+                            >
+                              仍要儲存
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-3 bg-white/80 border border-amber-200 rounded-lg px-3 py-2">
+                            <p className="text-xs text-amber-700 font-medium">
+                              ✓ 已確認警訊，可繼續儲存此紀錄
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* 份量與時間 */}
@@ -1852,13 +2367,20 @@ export default function DietPage() {
                     type="submit"
                     disabled={
                       addRecord.isPending ||
+                      aiAnalyzing ||
+                      checkingFood ||
                       !form.foodName ||
-                      !form.amountG
+                      !form.amountG ||
+                      (foodWarnings.length > 0 && !warningAccepted)
                     }
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
                   >
                     {addRecord.isPending
                       ? '新增中...'
+                      : checkingFood
+                      ? '檢查中...'
+                      : warningAccepted
+                      ? '⚠️ 確認儲存'
                       : '新增餵食紀錄'}
                   </button>
 
