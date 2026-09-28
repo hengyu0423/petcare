@@ -133,6 +133,10 @@ export default function HealthConsultPage() {
   const chatEndRef =
     useRef(null)
 
+  // AI 自動記錄健康事件後的提示
+  const [savedNotice, setSavedNotice] =
+    useState(null)
+
 
   // ===================================================
   // 取得寵物
@@ -387,6 +391,10 @@ export default function HealthConsultPage() {
             {
               systemPrompt,
 
+              // ⭐ 讓後端知道要把健康事件綁定到哪隻寵物
+              petId:
+                selectedPet.id,
+
               messages:
                 recentMessages
             }
@@ -439,6 +447,32 @@ export default function HealthConsultPage() {
           throw new Error(
             '沒有收到 AI 回覆內容'
           )
+        }
+
+
+        // =============================================
+        // ⭐ 後端若已記錄重要健康事件，
+        //    通知飲食管理重新取得資料，並提示使用者
+        // =============================================
+
+        const healthEvent =
+          response.data
+            ?.data
+            ?.healthEvent
+
+        if (healthEvent) {
+          queryClient.invalidateQueries({
+            queryKey: [
+              'diet-health-events',
+              selectedPet.id
+            ]
+          })
+
+          // 綁定寵物 id，切換寵物後就不會顯示別隻的提示
+          setSavedNotice({
+            ...healthEvent,
+            petId: selectedPet.id
+          })
         }
 
 
@@ -990,6 +1024,34 @@ export default function HealthConsultPage() {
             =========================================== */}
 
             <div className="bg-white border-t border-gray-200 p-4 shrink-0">
+
+              {savedNotice &&
+                savedNotice.petId === selectedPet?.id && (
+                <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
+
+                  <span>
+                    🩺 已將「{savedNotice.title}」
+                    {savedNotice.isUpdate
+                      ? '更新到'
+                      : '記錄到'}
+                    {selectedPet?.name}
+                    的健康紀錄
+                    {savedNotice.dietRelevant &&
+                      '，飲食管理會參考這項資訊'}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSavedNotice(null)
+                    }
+                    className="text-green-500 hover:text-green-700 shrink-0"
+                  >
+                    ✕
+                  </button>
+
+                </div>
+              )}
 
               {messages.length > 0 && (
 

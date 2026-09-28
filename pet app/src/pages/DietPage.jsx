@@ -12,6 +12,22 @@ const EMOJI = {
   other: '🐾'
 }
 
+// 健康事件嚴重程度（與健康諮詢頁一致）
+const HEALTH_SEVERITY = {
+  normal: {
+    label: '一般',
+    className: 'bg-green-50 text-green-600 border-green-200'
+  },
+  urgent: {
+    label: '建議儘快就醫',
+    className: 'bg-amber-50 text-amber-600 border-amber-200'
+  },
+  emergency: {
+    label: '緊急',
+    className: 'bg-red-50 text-red-600 border-red-200'
+  }
+}
+
 function calcNutrition(food, amountG) {
   if (!food || !amountG) return {}
 
@@ -99,6 +115,11 @@ export default function DietPage() {
   const [warningAccepted, setWarningAccepted] = useState(false)
   const [checkedFoodKey, setCheckedFoodKey] = useState('')
 
+  // 需要使用者按「仍要儲存」確認的警訊（維持原本的行為），
+  // 以及只是提醒、不阻擋操作的警訊（例如健康歷史提醒）
+  const ackWarnings = foodWarnings.filter(w => w.requireAck !== false)
+  const advisoryWarnings = foodWarnings.filter(w => w.requireAck === false)
+
   const { data: pets = [] } = useQuery({
     queryKey: ['pets'],
     queryFn: () => api.get('/pets').then(r => r.data.data)
@@ -142,6 +163,18 @@ export default function DietPage() {
     enabled: !!selectedPet
   })
 
+  // 近期與飲食有關的重要健康紀錄（由健康諮詢 AI 自動記錄）
+  const { data: dietHealthEvents = [] } = useQuery({
+    queryKey: ['diet-health-events', selectedPet?.id],
+    queryFn: () =>
+      api
+        .get(
+          `/health-records/pet/${selectedPet.id}/diet-relevant?days=14`
+        )
+        .then(r => r.data.data),
+    enabled: !!selectedPet
+  })
+
   const buildPetPayload = () => ({
     name: selectedPet?.name || '',
     species: selectedPet?.species || '',
@@ -150,16 +183,74 @@ export default function DietPage() {
     birth_date: selectedPet?.birth_date || null
   })
 
+  // 飲食異常警訊（依近 7 天餵食紀錄分析：食物集中、熱量、營養比例）
+  const { data: dietAlerts } = useQuery({
+    queryKey: ['feeding-alerts', selectedPet?.id],
+    queryFn: () =>
+      api
+        .get(`/feeding/pet/${selectedPet.id}/diet-alerts`)
+        .then(r => r.data.data),
+    enabled: !!selectedPet
+  })
+
+  // 把結構化的健康事件整理成給飲食 AI 的文字
+  const buildHealthEventSummary = () => {
+    if (dietHealthEvents.length === 0) return ''
+
+    const lines = dietHealthEvents.map((e, i) => {
+      const info = e.diet_info || {}
+      const severity =
+        HEALTH_SEVERITY[e.severity]?.label || '未分級'
+
+      const parts = [
+        `${i + 1}. ${e.date_str} ${e.title}` +
+          `（${severity}，` +
+          (e.is_active
+            ? `飲食注意事項有效至 ${e.diet_until_str}`
+            : '注意期間已結束，僅供參考') +
+          '）'
+      ]
+
+      if (e.description) parts.push(`   狀況：${e.description}`)
+      if (info.symptoms?.length)
+        parts.push(`   症狀：${info.symptoms.join('、')}`)
+      if (info.dietNotes)
+        parts.push(`   飲食注意：${info.dietNotes}`)
+      if (info.avoidFoods?.length)
+        parts.push(`   應避免：${info.avoidFoods.join('、')}`)
+      if (info.dietAdvice?.length)
+        parts.push(`   建議：${info.dietAdvice.join('；')}`)
+
+      return parts.join('\n')
+    })
+
+    return (
+      '【近期重要健康事件（來自健康諮詢 AI 的紀錄，' +
+      '推薦飲食或檢查食物時必須納入考量）】\n' +
+      lines.join('\n')
+    )
+  }
+
   const buildHealthSummary = () => {
+    const eventSummary = buildHealthEventSummary()
+
+    // 有結構化事件時，對話只帶最近幾則，避免內容過長
     const recentConsults = consultations
-      .slice(-10)
+      .slice(eventSummary ? -6 : -10)
       .map(
         m =>
           `${m.role === 'user' ? '飼主' : 'AI'}：${m.content}`
       )
       .join('\n')
 
-    return recentConsults || '目前沒有健康諮詢紀錄'
+    const sections = []
+
+    if (eventSummary) sections.push(eventSummary)
+
+    if (recentConsults)
+      sections.push(`【近期健康諮詢對話】\n${recentConsults}`)
+
+    return sections.join('\n\n') || '目前沒有健康諮詢紀錄'
   }
 
   const normalizeStatDate = value => {
@@ -289,6 +380,8 @@ export default function DietPage() {
           : await loadRecentMeals()
 
       const { data } = await api.post('/food/check-food', {
+        // 後端會依 petId 讀取這隻寵物近期的健康歷史
+        petId: selectedPet.id,
         pet: buildPetPayload(),
         healthSummary: buildHealthSummary(),
         recentMeals,
@@ -364,6 +457,7 @@ export default function DietPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['feeding'] })
       qc.invalidateQueries({ queryKey: ['feeding-stats'] })
+      qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
 
       setShowAddModal(false)
 
@@ -377,6 +471,7 @@ export default function DietPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['feeding'] })
       qc.invalidateQueries({ queryKey: ['feeding-stats'] })
+      qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
     }
   })
 
@@ -641,7 +736,7 @@ export default function DietPage() {
       }
 
       // 有警訊時，不強制阻止，但必須由使用者明確按「仍要儲存」
-      if (foodWarnings.length > 0 && !warningAccepted) {
+      if (ackWarnings.length > 0 && !warningAccepted) {
         return
       }
 
@@ -1041,6 +1136,197 @@ export default function DietPage() {
 
               </div>
             </div>
+
+            {/* 近期健康事件與飲食注意 */}
+            {dietHealthEvents.length > 0 && (
+              <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6">
+
+                <div className="flex items-center justify-between mb-3">
+
+                  <h2 className="text-sm font-bold text-gray-800">
+                    🩺 近期健康事件與飲食注意
+                  </h2>
+
+                  <Link
+                    to="/health-consult"
+                    className="text-xs text-green-500 hover:underline font-medium"
+                  >
+                    前往健康諮詢 →
+                  </Link>
+
+                </div>
+
+                <div className="space-y-3">
+
+                  {dietHealthEvents.map(event => {
+                    const info = event.diet_info || {}
+                    const severity =
+                      HEALTH_SEVERITY[event.severity]
+
+                    return (
+                      <div
+                        key={event.id}
+                        className={`rounded-lg border p-3 ${
+                          event.is_active
+                            ? 'border-amber-200 bg-amber-50/50'
+                            : 'border-gray-100 bg-gray-50 opacity-70'
+                        }`}
+                      >
+
+                        <div className="flex items-center flex-wrap gap-2">
+
+                          <span className="text-sm font-semibold text-gray-800">
+                            {event.title}
+                          </span>
+
+                          {severity && (
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${severity.className}`}
+                            >
+                              {severity.label}
+                            </span>
+                          )}
+
+                          <span className="text-xs text-gray-400">
+                            {event.date_str}
+                          </span>
+
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              event.is_active
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            {event.is_active
+                              ? `注意至 ${event.diet_until_str}`
+                              : '已過注意期'}
+                          </span>
+
+                        </div>
+
+                        {event.description && (
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            {event.description}
+                          </p>
+                        )}
+
+                        {info.dietNotes && (
+                          <p className="text-sm text-gray-700 mt-1.5">
+                            🍽️ {info.dietNotes}
+                          </p>
+                        )}
+
+                        {info.avoidFoods?.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+
+                            <span className="text-xs text-gray-400">
+                              應避免：
+                            </span>
+
+                            {info.avoidFoods.map(food => (
+                              <span
+                                key={food}
+                                className="text-xs bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full"
+                              >
+                                {food}
+                              </span>
+                            ))}
+
+                          </div>
+                        )}
+
+                        {info.dietAdvice?.length > 0 && (
+                          <ul className="mt-2 space-y-0.5">
+                            {info.dietAdvice.map(item => (
+                              <li
+                                key={item}
+                                className="text-xs text-gray-500"
+                              >
+                                • {item}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                      </div>
+                    )
+                  })}
+
+                </div>
+
+                <p className="text-xs text-gray-400 mt-3">
+                  AI 記錄僅供參考，不能取代獸醫診斷。
+                  智慧飲食推薦與食物檢查會自動參考這些資訊。
+                </p>
+
+              </div>
+            )}
+
+            {/* 飲食異常警訊 */}
+            {dietAlerts?.alerts?.length > 0 && (
+              <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6">
+
+                <div className="flex items-center justify-between mb-3">
+
+                  <h2 className="text-sm font-bold text-gray-800">
+                    ⚠️ 飲食提醒
+                  </h2>
+
+                  {dietAlerts.basis?.enough && (
+                    <span className="text-xs text-gray-400">
+                      依近 {dietAlerts.basis.windowDays} 天{' '}
+                      {dietAlerts.basis.records} 筆紀錄分析
+                    </span>
+                  )}
+
+                </div>
+
+                <div className="space-y-2.5">
+
+                  {dietAlerts.alerts.map(alert => (
+                    <div
+                      key={alert.id}
+                      className={`rounded-lg border p-3 ${
+                        alert.level === 'warning'
+                          ? 'border-amber-200 bg-amber-50/50'
+                          : 'border-gray-100 bg-gray-50'
+                      }`}
+                    >
+
+                      <p className="text-sm font-semibold text-gray-800">
+                        {alert.level === 'warning' ? '⚠️' : '💡'}{' '}
+                        {alert.title}
+                      </p>
+
+                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                        {alert.message}
+                      </p>
+
+                      {alert.suggestion && (
+                        <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+                          建議：{alert.suggestion}
+                        </p>
+                      )}
+
+                    </div>
+                  ))}
+
+                </div>
+
+                {dietAlerts.basis?.skipped?.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-3">
+                    {dietAlerts.basis.skipped.join('；')}
+                  </p>
+                )}
+
+                <p className="text-xs text-gray-400 mt-3">
+                  以上是依飲食紀錄推算的提醒與建議，不代表寵物一定有健康問題；
+                  如有疑慮請諮詢獸醫。
+                </p>
+
+              </div>
+            )}
 
             {/* 統計卡片 */}
             <div className="grid grid-cols-4 gap-3 mb-6">
@@ -2135,7 +2421,7 @@ export default function DietPage() {
                   </div>
                 )}
 
-                {foodWarnings.length > 0 && !checkingFood && (
+                {ackWarnings.length > 0 && !checkingFood && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <div className="flex items-start gap-2.5">
                       <span className="text-xl">⚠️</span>
@@ -2146,7 +2432,7 @@ export default function DietPage() {
                         </p>
 
                         <div className="space-y-3 mt-2">
-                          {foodWarnings.map((warning, index) => (
+                          {ackWarnings.map((warning, index) => (
                             <div
                               key={`${warning.title}-${index}`}
                               className="bg-white/70 rounded-lg p-3"
@@ -2197,6 +2483,48 @@ export default function DietPage() {
                             </p>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 健康提醒：只是提醒，不阻擋新增 */}
+                {advisoryWarnings.length > 0 && !checkingFood && (
+                  <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4">
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-xl">⚠️</span>
+
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-amber-800">
+                          健康提醒
+                        </p>
+
+                        <div className="space-y-2 mt-2">
+                          {advisoryWarnings.map((warning, index) => (
+                            <div
+                              key={`${warning.title}-${index}`}
+                              className="bg-white/70 rounded-lg p-3"
+                            >
+                              <p className="text-xs font-bold text-gray-800">
+                                {warning.title}
+                              </p>
+
+                              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                {warning.reason}
+                              </p>
+
+                              {warning.suggestion && (
+                                <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+                                  建議：{warning.suggestion}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="text-xs text-amber-700/80 mt-2">
+                          這只是提醒，仍可正常新增餵食紀錄。
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -2371,7 +2699,7 @@ export default function DietPage() {
                       checkingFood ||
                       !form.foodName ||
                       !form.amountG ||
-                      (foodWarnings.length > 0 && !warningAccepted)
+                      (ackWarnings.length > 0 && !warningAccepted)
                     }
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
                   >

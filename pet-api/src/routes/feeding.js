@@ -3,6 +3,7 @@ const requireAuth = require('../middleware/auth')
 const pool = require('../db')
 const multer = require('multer')
 const { GoogleGenerativeAI } = require('@google/generative-ai')
+const { ownsPet, getDietAlerts } = require('../services/dietInsights')
 
 router.use(requireAuth)
 
@@ -22,6 +23,10 @@ router.get('/pet/:petId', async (req, res) => {
   const { date } = req.query
 
   try {
+    if (!(await ownsPet(req.params.petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
     let query = 'SELECT * FROM feeding_records WHERE pet_id=$1'
     const params = [req.params.petId]
 
@@ -50,6 +55,10 @@ router.get('/pet/:petId', async (req, res) => {
 // 取得每日統計
 router.get('/pet/:petId/daily-stats', async (req, res) => {
   try {
+    if (!(await ownsPet(req.params.petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
     const result = await pool.query(
       `SELECT
         DATE(fed_at) as date,
@@ -76,6 +85,32 @@ router.get('/pet/:petId/daily-stats', async (req, res) => {
       success: false,
       error: '伺服器錯誤'
     })
+  }
+})
+
+// ================================
+// 飲食異常警訊
+// GET /feeding/pet/:petId/diet-alerts
+//
+// 依最近 7 天的餵食紀錄（使用已儲存的 calories / protein_g /
+// fat_g / carb_g）分析食物集中、熱量與營養比例。
+// 只回傳「提醒／建議」，不做醫療判斷。
+// ================================
+router.get('/pet/:petId/diet-alerts', async (req, res) => {
+  try {
+    if (!(await ownsPet(req.params.petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
+    const result = await getDietAlerts(req.params.petId)
+
+    res.json({
+      success: true,
+      data: result || { alerts: [], basis: null }
+    })
+  } catch (err) {
+    console.error('飲食異常分析失敗：', err)
+    res.status(500).json({ success: false, error: '伺服器錯誤' })
   }
 })
 
@@ -179,6 +214,10 @@ router.post('/', async (req, res) => {
   } = req.body
 
   try {
+    if (!(await ownsPet(petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
     const result = await pool.query(
       `INSERT INTO feeding_records
        (pet_id, food_item_id, food_name, amount_g, calories,
@@ -218,8 +257,10 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await pool.query(
-      'DELETE FROM feeding_records WHERE id=$1',
-      [req.params.id]
+      `DELETE FROM feeding_records
+       WHERE id=$1
+         AND pet_id IN (SELECT id FROM pets WHERE owner_id=$2)`,
+      [req.params.id, req.userId]
     )
 
     res.json({

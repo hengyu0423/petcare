@@ -2,6 +2,11 @@ const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const Groq = require('groq-sdk')
 const pool = require('../db')
+const {
+  getDietEventsInRange,
+  findFeedingConflicts,
+  getDietAlerts
+} = require('../services/dietInsights')
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
@@ -210,7 +215,8 @@ router.post('/weekly-report', async (req, res) => {
         notes
       FROM pets
       WHERE id = $1
-    `, [petId])
+        AND owner_id = $2
+    `, [petId, req.userId])
 
     if (petResult.rows.length === 0) {
       return res.status(404).json({
@@ -460,19 +466,33 @@ router.post('/weekly-report', async (req, res) => {
           type,
           title,
           description,
-          date,
+          to_char(date, 'YYYY-MM-DD') AS date,
           next_date AS "nextDate",
           clinic,
-          cost
+          cost,
+          source,
+          severity,
+          diet_relevant AS "dietRelevant",
+          diet_info AS "dietInfo",
+          to_char(diet_until, 'YYYY-MM-DD') AS "dietUntil"
 
         FROM health_records
 
         WHERE pet_id = $1
-          AND date BETWEEN
-            $2::date
-            AND $3::date
+          AND (
+            date BETWEEN
+              $2::date
+              AND $3::date
 
-        ORDER BY date ASC
+            -- 上週發生、但飲食注意期延續到本週的事件
+            OR (
+              diet_relevant = TRUE
+              AND diet_until >= $2::date
+              AND date <= $3::date
+            )
+          )
+
+        ORDER BY date ASC, id ASC
       `, [
         petId,
         weekStart,
@@ -600,6 +620,108 @@ router.post('/weekly-report', async (req, res) => {
       )
 
     // ==================================================
+    // 11.5 飲食與健康整合
+    //
+    // - dietHealthEvents：與飲食有關的健康事件（含 AI 諮詢記錄）
+    // - feedingConflicts：事件之後、注意期內，餵了 AI 建議避免的食物
+    // - dietAlerts：依餵食紀錄分析的飲食提醒（與飲食管理頁面同一套邏輯）
+    // ==================================================
+
+    let dietHealthEvents = []
+    let feedingConflicts = []
+
+    let dietAlerts = {
+      basis: null,
+      alerts: []
+    }
+
+    try {
+      const events =
+        await getDietEventsInRange(
+          petId,
+          weekStart,
+          weekEnd
+        )
+
+      dietHealthEvents =
+        events.map(e => ({
+          title: e.title,
+          type: e.type,
+          date: e.date_str,
+          severity: e.severity,
+          source: e.source,
+
+          // 飲食注意期的最後一天
+          dietUntil: e.diet_until_str,
+
+          symptoms:
+            e.diet_info?.symptoms || [],
+
+          dietNotes:
+            e.diet_info?.dietNotes || '',
+
+          avoidFoods:
+            e.diet_info?.avoidFoods || [],
+
+          dietAdvice:
+            e.diet_info?.dietAdvice || []
+        }))
+
+      feedingConflicts =
+        await findFeedingConflicts(
+          petId,
+          weekStart,
+          weekEnd,
+          events
+        )
+
+      const insight =
+        await getDietAlerts(
+          petId,
+          {
+            startDate: weekStart,
+            endDate: weekEnd
+          }
+        )
+
+      if (insight) {
+        const b = insight.basis
+
+        dietAlerts = {
+          basis: {
+            records: b.records,
+            loggedDays: b.loggedDays,
+            excludedSuspiciousRecords:
+              b.excluded,
+            enoughDataToAnalyze:
+              b.enough,
+            avgDailyKcal:
+              b.avgDailyKcal,
+            macroEnergyShare:
+              b.macroShare,
+            topFoods:
+              b.topFoods,
+            skipped:
+              b.skipped
+          },
+
+          alerts:
+            insight.alerts.map(a => ({
+              id: a.id,
+              level: a.level,
+              title: a.title,
+              message: a.message
+            }))
+        }
+      }
+    } catch (dietErr) {
+      console.warn(
+        '⚠️ 飲食與健康整合資料讀取失敗，略過：',
+        dietErr.message
+      )
+    }
+
+    // ==================================================
     // 12. 整理資料
     // ==================================================
 
@@ -678,7 +800,18 @@ router.post('/weekly-report', async (req, res) => {
       expenses: {
         total: totalExpense,
         records: expenseRows
-      }
+      },
+
+      // 健康事件與飲食的整合資料
+      dietHealth: {
+        events:
+          dietHealthEvents,
+
+        feedingConflicts
+      },
+
+      // 依餵食紀錄分析的飲食提醒
+      dietAlerts
     }
 
     // ==================================================
@@ -764,6 +897,31 @@ router.post('/weekly-report', async (req, res) => {
 
 只能描述本週資料本身。
 
+9. dietHealth.events 是健康諮詢 AI 或飼主記錄下來、
+與飲食有關的健康事件。
+
+- 有事件時，必須在「健康與諮詢分析」說明事件
+  與飲食注意事項，並在「飲食分析」交叉說明。
+- dietUntil 是飲食注意期的最後一天。
+  若早於本週開始，只需簡短帶過。
+- dietHealth.feedingConflicts 是本週餵食紀錄中，
+  事件之後、注意期內，與建議避免的食物相符的項目。
+  有的話要明確提醒飼主確認，
+  但只能用建議語氣，
+  不要斷定是這些食物造成不適。
+- 沒有事件時，不要憑空寫飲食注意事項。
+
+10. dietAlerts 是系統依餵食紀錄整理的飲食提醒。
+
+- 用「提醒／建議」語氣整合進飲食分析，
+  不要寫成診斷。
+- level 為 info 的只需簡短帶過。
+- id 為 data_quality 或 weight_check 時，
+  請提醒飼主確認份量、單位或體重。
+- dietAlerts.basis.enoughDataToAnalyze 為 false
+  或 alerts 為空時，
+  不要編造飲食異常。
+
 【週報格式】
 
 ## 本週總覽
@@ -777,6 +935,8 @@ router.post('/weekly-report', async (req, res) => {
 - 主要食物
 - 重要營養資訊
 - 是否有需要確認的內容
+- dietAlerts 中值得提醒的項目
+- 餵食紀錄是否與健康事件建議避免的食物相符
 
 ## 🐾 活動與行為分析
 
@@ -792,6 +952,7 @@ router.post('/weekly-report', async (req, res) => {
 - 健康紀錄
 - 健康諮詢
 - 飼主後續回報
+- 與飲食有關的健康事件與飲食注意事項
 
 ## 📷 攝影機觀察
 
@@ -1129,11 +1290,16 @@ router.get(
           FROM weekly_reports
 
           WHERE pet_id = $1
+            AND pet_id IN (
+              SELECT id
+              FROM pets
+              WHERE owner_id = $2
+            )
 
           ORDER BY
             week_start DESC,
             created_at DESC
-        `, [petId])
+        `, [petId, req.userId])
 
       console.log(
         '📚 找到歷史週報：',

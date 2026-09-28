@@ -1,6 +1,11 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const pool = require('../db')
+const {
+  ownsPet,
+  getRecentDietEvents,
+  buildHealthHistoryWarnings
+} = require('../services/dietInsights')
 const Groq = require('groq-sdk')
 const multer = require('multer')
 
@@ -2215,6 +2220,9 @@ router.post(
 
         recentMeals = [],
 
+        // ⭐ 新增：有帶 petId 時，後端會自己讀取該寵物的健康歷史
+        petId,
+
         food
       } = req.body
 
@@ -2348,6 +2356,61 @@ router.post(
         })
 
 
+      /*
+       * ⭐ 健康歷史警訊
+       *
+       * 依 petId 讀取該寵物近期「與飲食有關」的健康紀錄
+       * （包含健康諮詢 AI 記錄的事件與建議避免的食物）。
+       * 這些警訊只是提醒（requireAck: false），不會阻擋儲存。
+       * 讀取失敗時不影響原本的檢查結果。
+       */
+
+      let healthWarnings = []
+
+      try {
+        if (
+          petId &&
+          await ownsPet(
+            petId,
+            req.userId
+          )
+        ) {
+          const events =
+            await getRecentDietEvents(
+              petId
+            )
+
+          healthWarnings =
+            buildHealthHistoryWarnings({
+              food: {
+                name:
+                  foodName,
+
+                category:
+                  foodObject.category,
+
+                fatPer100g:
+                  nutrition.fat_pct
+              },
+
+              events
+            })
+        }
+
+      } catch (healthErr) {
+        console.error(
+          '健康歷史警訊讀取失敗（不影響原本檢查）：',
+          healthErr
+        )
+      }
+
+
+      const allWarnings = [
+        ...warnings,
+        ...healthWarnings
+      ]
+
+
       return res.json({
         success: true,
 
@@ -2358,12 +2421,13 @@ router.post(
           history,
 
           safe:
-            warnings.length === 0,
+            allWarnings.length === 0,
 
           hasWarning:
-            warnings.length > 0,
+            allWarnings.length > 0,
 
-          warnings
+          warnings:
+            allWarnings
         }
       })
 
