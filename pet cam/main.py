@@ -31,10 +31,11 @@ CAMERA_SOURCE = "rtsp://nigel1:nigel123@nigel-petcam.asuscomm.com:554/stream2"
 # COCO:
 # 15 = cat
 # 16 = dog
-PET_CLASSES = [15, 16]
+#改成0 1分別是貓狗
+PET_CLASSES = [0, 1]
 
 # YOLO
-model = YOLO("yolov8n.pt")
+model = YOLO("runs/detect/runs/train/pawcare_v1/weights/best.pt")
 
 # Node.js API
 PET_API_URL = "http://localhost:4000"
