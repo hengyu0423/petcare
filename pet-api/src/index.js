@@ -136,6 +136,40 @@ const initDB = async () => {
 
     CREATE INDEX IF NOT EXISTS idx_notifications_created
     ON notifications(created_at DESC);
+
+    -- ======================================================
+    -- 健康諮詢 AI 與飲食管理整合
+    -- 不新增資料表，直接擴充既有的 health_records
+    -- ======================================================
+
+    -- 原本程式有使用 severity，但建表語法裡沒有，這裡補上（已存在則略過）
+    ALTER TABLE health_consultations
+      ADD COLUMN IF NOT EXISTS severity VARCHAR(20);
+
+    ALTER TABLE health_records
+      -- manual = 使用者手動新增；ai_consult = 健康諮詢 AI 自動記錄
+      ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'manual',
+      -- normal / urgent / emergency
+      ADD COLUMN IF NOT EXISTS severity VARCHAR(20),
+      -- 這筆健康事件是否與飲食有關
+      ADD COLUMN IF NOT EXISTS diet_relevant BOOLEAN NOT NULL DEFAULT FALSE,
+      -- 結構化飲食資訊：{ symptoms, dietNotes, avoidFoods, dietAdvice }
+      ADD COLUMN IF NOT EXISTS diet_info JSONB NOT NULL DEFAULT '{}'::jsonb,
+      -- 飲食注意事項的有效期限（含當天），過期後視為「已過去」
+      ADD COLUMN IF NOT EXISTS diet_until DATE;
+
+    CREATE INDEX IF NOT EXISTS idx_health_records_pet_diet
+    ON health_records(pet_id, date DESC)
+    WHERE diet_relevant = TRUE;
+
+    -- 飼主的飲食偏好（用餐次數、主食類型、目標、避免的食物…），
+    -- 存在既有的 pets 資料表，不另建資料表
+    ALTER TABLE pets
+      ADD COLUMN IF NOT EXISTS diet_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+    -- 使用者的通知偏好（哪些類型的通知要收），存在既有的 users 資料表
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS notification_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
   `)
   console.log('✅ 資料表準備完成')
 }

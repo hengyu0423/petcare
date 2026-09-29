@@ -2,6 +2,10 @@ import React, { useEffect, useRef, useState } from 'react'
 
 const CAMERA_API = 'http://localhost:8000'
 const API = 'http://localhost:4000/api'
+const authHeaders = () => {
+  const token = localStorage.getItem('paw-token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 const ranges = {
   '20m': { label: '20 分鐘', minutes: 20, bucket: 5 },
@@ -113,7 +117,9 @@ export default function PetCam({ petId = 8 }) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${API}/notifications?petId=${petId}`)
+      const res = await fetch(`${API}/notifications?petId=${petId}`, {
+        headers: authHeaders()
+      })
       if (!res.ok) return
 
       const data = await res.json()
@@ -138,7 +144,8 @@ export default function PetCam({ petId = 8 }) {
 
     try {
       const res = await fetch(`${API}/notifications/${id}/read`, {
-        method: 'PATCH'
+        method: 'PATCH',
+        headers: authHeaders()
       })
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

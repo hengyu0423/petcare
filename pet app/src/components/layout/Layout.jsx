@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import NotificationBell from '../notifications/NotificationBell'
 
 const NAV_ITEMS = [
   { to: '/dashboard',      icon: '🏠', label: '主頁總覽' },
@@ -83,18 +84,21 @@ export default function Layout() {
           md:static md:z-auto md:w-56 md:translate-x-0 md:shadow-none md:pt-0 md:pb-0 md:shrink-0
         `}
       >
-        {/* Logo 列（手機上另有關閉鈕） */}
+        {/* Logo 列：通知鈴鐺 + 手機上另有關閉鈕 */}
         <div className="px-4 py-4 md:py-5 border-b border-gray-100 flex items-center justify-between">
           <Logo onClick={close} />
-          <button
-            onClick={close}
-            aria-label="關閉選單"
-            className="md:hidden p-2 -mr-2 rounded-lg text-gray-500 hover:bg-gray-100"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <button
+              onClick={close}
+              aria-label="關閉選單"
+              className="md:hidden p-2 -mr-2 rounded-lg text-gray-500 hover:bg-gray-100"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* User card */}
@@ -138,7 +142,7 @@ export default function Layout() {
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col">
 
-        {/* 手機頂部列：漢堡鈕 + Logo（電腦版隱藏） */}
+        {/* 手機頂部列：漢堡鈕 + Logo + 通知鈴鐺（電腦版隱藏） */}
         <header className="md:hidden shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-gray-200 pt-[env(safe-area-inset-top)] box-content">
           <button
             onClick={() => setOpen(true)}
@@ -151,7 +155,10 @@ export default function Layout() {
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <Logo />
+          <div className="flex-1">
+            <Logo />
+          </div>
+          <NotificationBell />
         </header>
 
         <main className="flex-1 overflow-auto">

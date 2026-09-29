@@ -230,6 +230,299 @@ function overrideSeverity(text, aiSeverity) {
 
 
 // ======================================================
+// 健康事件（與飲食管理整合）
+//
+// AI 除了回覆飼主，還會輸出一個結構化的 healthEvent。
+// 重要事件會寫入既有的 health_records（不另建資料表），
+// 並綁定 pet_id，供飲食管理頁面與飲食 AI 使用。
+// ======================================================
+
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Taipei'
+const { createNotification } = require('../services/notifications')
+
+const SEVERITY_RANK = {
+  normal: 0,
+  urgent: 1,
+  emergency: 2
+}
+
+// 事件類型：label 為顯示名稱，days 為預設的飲食注意天數
+const HEALTH_EVENT_TYPES = {
+  vomiting: { label: '嘔吐', days: 3 },
+  diarrhea: { label: '腹瀉', days: 5 },
+  constipation: { label: '便秘／排便異常', days: 5 },
+  appetite_loss: { label: '食慾不振', days: 3 },
+  dehydration: { label: '脫水', days: 3 },
+  allergy: { label: '過敏', days: 14 },
+  poisoning: { label: '疑似中毒／誤食', days: 7 },
+  illness: { label: '疾病', days: 7 },
+  other: { label: '其他健康事件', days: 5 }
+}
+
+const MAX_DIET_DAYS = 30
+
+function cleanText(value, maxLen) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen)
+}
+
+function cleanList(value, maxItems, maxLen) {
+  if (!Array.isArray(value)) return []
+
+  const seen = new Set()
+  const result = []
+
+  for (const item of value) {
+    const text = cleanText(item, maxLen)
+
+    if (text && !seen.has(text)) {
+      seen.add(text)
+      result.push(text)
+    }
+
+    if (result.length >= maxItems) break
+  }
+
+  return result
+}
+
+// 將 AI 輸出的 healthEvent 整理成可安全寫入資料庫的格式
+// 不是重要事件則回傳 null
+function sanitizeHealthEvent(raw) {
+  if (!raw || typeof raw !== 'object' || raw.detected !== true) {
+    return null
+  }
+
+  const type = HEALTH_EVENT_TYPES[raw.type] ? raw.type : 'other'
+  const defaults = HEALTH_EVENT_TYPES[type]
+
+  const title =
+    cleanText(raw.title, 60) || defaults.label
+
+  const summary = cleanText(raw.summary, 300)
+
+  const dietRelevant = raw.dietRelevant === true
+
+  let durationDays = Math.round(Number(raw.durationDays))
+
+  if (!Number.isFinite(durationDays) || durationDays < 1) {
+    durationDays = defaults.days
+  }
+
+  durationDays = Math.min(durationDays, MAX_DIET_DAYS)
+
+  return {
+    type,
+    title,
+    summary,
+    dietRelevant,
+    symptoms: cleanList(raw.symptoms, 8, 30),
+    dietNotes: cleanText(raw.dietNotes, 300),
+    avoidFoods: cleanList(raw.avoidFoods, 10, 40),
+    dietAdvice: cleanList(raw.dietAdvice, 5, 100),
+    durationDays
+  }
+}
+
+// ------------------------------------------------------
+// 關鍵字備援：AI 沒有回傳事件時，只檢查「這一次」飼主的訊息
+// 避免因為 AI 格式異常而漏掉嘔吐、腹瀉等重要事件
+// ------------------------------------------------------
+
+const FALLBACK_RULES = [
+  {
+    type: 'vomiting',
+    symptom: '嘔吐',
+    keywords: ['嘔吐', '一直吐', '反覆吐', '吐了', '吐黃水', '吐白沫']
+  },
+  {
+    type: 'diarrhea',
+    symptom: '腹瀉',
+    keywords: ['腹瀉', '拉肚子', '稀便', '水便', '軟便', '糞便很稀']
+  },
+  {
+    type: 'constipation',
+    symptom: '排便異常',
+    keywords: ['便秘', '排便困難', '解不出來', '不大便', '沒有大便']
+  },
+  {
+    type: 'appetite_loss',
+    symptom: '食慾不振',
+    keywords: ['食慾不振', '完全不吃', '不想吃', '厭食', '不吃飯']
+  },
+  {
+    type: 'allergy',
+    symptom: '疑似過敏',
+    keywords: ['過敏', '紅疹', '一直抓癢', '皮膚癢']
+  },
+  {
+    type: 'poisoning',
+    symptom: '誤食／中毒',
+    keywords: ['中毒', '誤食']
+  }
+]
+
+// 關鍵字前面若有否定詞（例如「沒有嘔吐」），就不算
+function isNegated(text, index) {
+  const before = text.slice(Math.max(0, index - 3), index)
+  return /[沒無未別]/.test(before) || before.endsWith('不會')
+}
+
+function detectEventFallback(userText) {
+  const text = String(userText || '').replace(/\s+/g, '')
+
+  for (const rule of FALLBACK_RULES) {
+    for (const keyword of rule.keywords) {
+      const index = text.indexOf(keyword)
+
+      if (index !== -1 && !isNegated(text, index)) {
+        const defaults = HEALTH_EVENT_TYPES[rule.type]
+
+        return {
+          type: rule.type,
+          title: defaults.label,
+          summary: cleanText(userText, 200),
+          dietRelevant: true,
+          symptoms: [rule.symptom],
+          dietNotes:
+            '飼主回報此症狀，調整飲食前請先留意腸胃狀況，' +
+            '避免突然換食物或給予高油脂食物。',
+          avoidFoods: [],
+          dietAdvice: [],
+          durationDays: defaults.days
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+async function ownsPet(petId, userId) {
+  const result = await pool.query(
+    'SELECT id FROM pets WHERE id = $1 AND owner_id = $2',
+    [petId, userId]
+  )
+
+  return result.rows.length > 0
+}
+
+function mergeUnique(a = [], b = [], max) {
+  return [...new Set([...(a || []), ...(b || [])])].slice(0, max)
+}
+
+// ------------------------------------------------------
+// 儲存健康事件到 health_records
+//
+// 同一隻寵物、同一天、同一種事件，只會保留一筆（更新而不是重複新增），
+// 避免飼主連續追問時產生一堆重複紀錄。
+// ------------------------------------------------------
+async function saveHealthEvent({ petId, event, severity }) {
+  const dietInfo = {
+    symptoms: event.symptoms,
+    dietNotes: event.dietNotes,
+    avoidFoods: event.avoidFoods,
+    dietAdvice: event.dietAdvice
+  }
+
+  const existingResult = await pool.query(
+    `
+    SELECT *
+    FROM health_records
+    WHERE pet_id = $1
+      AND source = 'ai_consult'
+      AND type = $2
+      AND date = (NOW() AT TIME ZONE $3::text)::date
+    ORDER BY id DESC
+    LIMIT 1
+    `,
+    [petId, event.type, APP_TIMEZONE]
+  )
+
+  // ---------- 已有同一天同類型：合併更新 ----------
+  if (existingResult.rows.length > 0) {
+    const old = existingResult.rows[0]
+    const oldInfo = old.diet_info || {}
+
+    const mergedSeverity =
+      (SEVERITY_RANK[severity] ?? 0) >=
+      (SEVERITY_RANK[old.severity] ?? 0)
+        ? severity
+        : old.severity
+
+    const mergedInfo = {
+      symptoms: mergeUnique(oldInfo.symptoms, dietInfo.symptoms, 8),
+      dietNotes: dietInfo.dietNotes || oldInfo.dietNotes || '',
+      avoidFoods: mergeUnique(oldInfo.avoidFoods, dietInfo.avoidFoods, 10),
+      dietAdvice: mergeUnique(oldInfo.dietAdvice, dietInfo.dietAdvice, 5)
+    }
+
+    const updated = await pool.query(
+      `
+      UPDATE health_records
+      SET
+        title = $2,
+        description = COALESCE(NULLIF($3, ''), description),
+        severity = $4,
+        diet_relevant = (diet_relevant OR $5),
+        diet_info = $6::jsonb,
+        diet_until = GREATEST(
+          diet_until,
+          (NOW() AT TIME ZONE $7::text)::date + $8::int
+        )
+      WHERE id = $1
+      RETURNING *
+      `,
+      [
+        old.id,
+        event.title,
+        event.summary,
+        mergedSeverity,
+        event.dietRelevant,
+        JSON.stringify(mergedInfo),
+        APP_TIMEZONE,
+        event.durationDays
+      ]
+    )
+
+    return { record: updated.rows[0], isUpdate: true }
+  }
+
+  // ---------- 新增 ----------
+  const inserted = await pool.query(
+    `
+    INSERT INTO health_records
+      (pet_id, type, title, description, date,
+       source, severity, diet_relevant, diet_info, diet_until)
+    VALUES
+      (
+        $1, $2, $3, $4,
+        (NOW() AT TIME ZONE $5::text)::date,
+        'ai_consult', $6, $7, $8::jsonb,
+        (NOW() AT TIME ZONE $5::text)::date + $9::int
+      )
+    RETURNING *
+    `,
+    [
+      petId,
+      event.type,
+      event.title,
+      event.summary || null,
+      APP_TIMEZONE,
+      severity,
+      event.dietRelevant,
+      JSON.stringify(dietInfo),
+      event.durationDays
+    ]
+  )
+
+  return { record: inserted.rows[0], isUpdate: false }
+}
+
+
+// ======================================================
 // 取得某隻寵物的對話紀錄
 //
 // GET /consultations/pet/:petId
@@ -276,7 +569,8 @@ router.post('/ai', async (req, res) => {
   try {
     const {
       systemPrompt,
-      messages
+      messages,
+      petId
     } = req.body
 
 
@@ -455,11 +749,49 @@ content 必須使用以下格式：
 說明是否需要立即或儘快就醫。
 
 
+【healthEvent：重要健康事件】
+
+除了回答飼主，你還要判斷「這次對話」是否出現值得記錄的重要健康事件，
+例如嘔吐、腹瀉、便秘或排便異常、食慾不振、脫水、過敏、疑似中毒或誤食、
+疾病，或需要調整飲食的情況。
+
+- 有重要事件：detected 填 true，並填寫其他欄位。
+- 只是一般閒聊、預防保健、衛教問題，或飼主明確表示沒有症狀：
+  detected 填 false，其他欄位可省略。
+- 只根據飼主實際描述的內容填寫，不要編造飼主沒說過的症狀。
+
+healthEvent 欄位：
+
+- type：只能是 vomiting、diarrhea、constipation、appetite_loss、
+  dehydration、allergy、poisoning、illness、other 其中之一
+- title：10 字內的短標題，例如「嘔吐」「急性腹瀉」
+- summary：一句話（40 字內）描述發生了什麼事
+- symptoms：症狀關鍵字陣列，例如 ["嘔吐", "精神差"]
+- dietRelevant：是否與飲食有關（true 或 false）。
+  腸胃症狀、食慾、過敏、誤食、需要限制或調整食物的疾病，通常為 true
+- dietNotes：與飲食有關的重要提醒，一句話（60 字內）。
+  例如「腸胃不適期間避免高脂肪食物，少量多餐」。沒有就填空字串
+- avoidFoods：這段期間應避免的食物或食物類型陣列，沒有就填 []
+- dietAdvice：飲食調整建議陣列，最多 3 項，每項 30 字內，沒有就填 []
+- durationDays：飲食注意事項建議持續幾天（1～30 的整數）
+
 請只輸出 JSON，不要輸出其他文字：
 
 {
   "severity": "normal 或 urgent 或 emergency",
-  "content": "完整給飼主看的回答"
+  "content": "完整給飼主看的回答",
+  "healthEvent": {
+    "detected": true,
+    "type": "vomiting",
+    "title": "嘔吐",
+    "summary": "今天嘔吐數次",
+    "symptoms": ["嘔吐"],
+    "dietRelevant": true,
+    "dietNotes": "腸胃不適期間避免高脂肪食物，少量多餐",
+    "avoidFoods": ["高脂肪食物", "人類食物"],
+    "dietAdvice": ["暫時少量多餐"],
+    "durationDays": 3
+  }
 }
 `
 
@@ -499,7 +831,7 @@ content 必須使用以下格式：
 
         include_reasoning: false,
 
-        max_completion_tokens: 350,
+        max_completion_tokens: 800,
 
         temperature: 0.3,
 
@@ -553,7 +885,8 @@ content 必須使用以下格式：
 
     let aiResult = {
       severity: 'urgent',
-      content: ''
+      content: '',
+      healthEvent: null
     }
 
 
@@ -566,6 +899,9 @@ content 必須使用以下格式：
 
       aiResult.content =
         parsed.content || ''
+
+      aiResult.healthEvent =
+        parsed.healthEvent || null
 
     } catch (err) {
       console.error(
@@ -669,6 +1005,118 @@ content 必須使用以下格式：
 
 
     // ==================================================
+    // ⭐ 儲存重要健康事件（與飲食管理整合）
+    //
+    // 不能因為儲存失敗而讓飼主收不到 AI 回覆，
+    // 所以整段包在 try/catch 裡。
+    // ==================================================
+
+    let savedEvent = null
+
+    try {
+      const aiFailed =
+        content.startsWith('AI 回覆格式異常') ||
+        content.startsWith('目前無法取得 AI 回覆')
+
+      // 優先使用 AI 的判斷，沒有的話用關鍵字備援（只看最新一則飼主訊息）
+      let event =
+        sanitizeHealthEvent(
+          aiResult.healthEvent
+        )
+
+      if (!event && !aiFailed) {
+        const lastUserMessage =
+          [...cleanMessages]
+            .reverse()
+            .find(msg =>
+              msg.role === 'user'
+            )
+
+        event =
+          detectEventFallback(
+            lastUserMessage?.content
+          )
+      }
+
+      // 只記錄「重要」事件：與飲食有關，或嚴重程度不是一般
+      const isImportant =
+        event &&
+        (
+          event.dietRelevant ||
+          finalSeverity !== 'normal'
+        )
+
+      if (
+        isImportant &&
+        petId &&
+        await ownsPet(
+          petId,
+          req.userId
+        )
+      ) {
+        const saved =
+          await saveHealthEvent({
+            petId,
+            event,
+            severity:
+              finalSeverity
+          })
+
+        savedEvent = {
+          id: saved.record.id,
+          type: saved.record.type,
+          title: saved.record.title,
+          dietRelevant:
+            saved.record.diet_relevant,
+          isUpdate:
+            saved.isUpdate
+        }
+
+        console.log(
+          '🩺 已記錄健康事件：',
+          savedEvent
+        )
+
+        // 嚴重度較高才發通知，避免每次諮詢都跳提醒
+        if (
+          finalSeverity === 'urgent' ||
+          finalSeverity === 'emergency'
+        ) {
+          await createNotification({
+            petId,
+
+            type: 'health_alert',
+
+            title:
+              `健康提醒：${event.title}`,
+
+            message:
+              event.dietNotes ||
+              event.summary ||
+              `AI 健康諮詢記錄了一筆「${event.title}」事件，建議留意。`,
+
+            severity:
+              finalSeverity,
+
+            metadata: {
+              recordId:
+                saved.record.id,
+              eventType:
+                event.type
+            }
+          })
+        }
+      }
+
+    } catch (saveErr) {
+      console.error(
+        '儲存健康事件失敗（不影響 AI 回覆）：',
+        saveErr
+      )
+    }
+
+
+    // ==================================================
     // 回傳前端
     // ==================================================
 
@@ -677,6 +1125,9 @@ content 必須使用以下格式：
 
       data: {
         content,
+
+        healthEvent:
+          savedEvent,
 
         severity:
           finalSeverity,
