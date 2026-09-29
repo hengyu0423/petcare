@@ -2,6 +2,7 @@ const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const Groq = require('groq-sdk')
 const pool = require('../db')
+const { createNotification } = require('../services/notifications')
 const {
   getDietEventsInRange,
   findFeedingConflicts,
@@ -1204,6 +1205,40 @@ ${prompt}
 
       savedReport =
         inserted.rows[0]
+    }
+
+    // ==================================================
+    // 17.5 通知飼主週報已完成
+    // ==================================================
+
+    try {
+      await createNotification({
+        petId,
+
+        type:
+          'weekly_report_ready',
+
+        title:
+          `${weekStart} ~ ${weekEnd} 週報已完成`,
+
+        message:
+          '本週的健康與飲食週報已經產生，點進健康週報查看完整內容。',
+
+        severity:
+          'info',
+
+        metadata: {
+          weekStart,
+          weekEnd,
+          reportId:
+            savedReport.id
+        }
+      })
+    } catch (notifyErr) {
+      console.warn(
+        '⚠️ 週報通知建立失敗，略過：',
+        notifyErr.message
+      )
     }
 
     // ==================================================

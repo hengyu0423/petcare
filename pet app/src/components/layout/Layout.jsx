@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import NotificationBell from '../notifications/NotificationBell'
 
 export default function Layout() {
   const { user, logout } = useAuthStore()
@@ -23,8 +24,8 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
 
-        {/* Logo：點擊回首頁 */}
-        <div className="px-4 py-5 border-b border-gray-100">
+        {/* Logo：點擊回首頁 + 通知鈴鐺 */}
+        <div className="px-4 py-5 border-b border-gray-100 flex items-center justify-between">
           <NavLink
             to="/dashboard"
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
@@ -37,6 +38,8 @@ export default function Layout() {
               PawCare
             </span>
           </NavLink>
+
+          <NotificationBell />
         </div>
 
         {/* User card */}

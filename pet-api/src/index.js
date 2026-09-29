@@ -166,6 +166,10 @@ const initDB = async () => {
     -- 存在既有的 pets 資料表，不另建資料表
     ALTER TABLE pets
       ADD COLUMN IF NOT EXISTS diet_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+    -- 使用者的通知偏好（哪些類型的通知要收），存在既有的 users 資料表
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS notification_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
   `)
   console.log('✅ 資料表準備完成')
 }

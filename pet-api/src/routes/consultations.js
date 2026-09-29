@@ -238,6 +238,7 @@ function overrideSeverity(text, aiSeverity) {
 // ======================================================
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Taipei'
+const { createNotification } = require('../services/notifications')
 
 const SEVERITY_RANK = {
   normal: 0,
@@ -1075,6 +1076,36 @@ healthEvent 欄位：
           '🩺 已記錄健康事件：',
           savedEvent
         )
+
+        // 嚴重度較高才發通知，避免每次諮詢都跳提醒
+        if (
+          finalSeverity === 'urgent' ||
+          finalSeverity === 'emergency'
+        ) {
+          await createNotification({
+            petId,
+
+            type: 'health_alert',
+
+            title:
+              `健康提醒：${event.title}`,
+
+            message:
+              event.dietNotes ||
+              event.summary ||
+              `AI 健康諮詢記錄了一筆「${event.title}」事件，建議留意。`,
+
+            severity:
+              finalSeverity,
+
+            metadata: {
+              recordId:
+                saved.record.id,
+              eventType:
+                event.type
+            }
+          })
+        }
       }
 
     } catch (saveErr) {

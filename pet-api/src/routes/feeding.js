@@ -5,6 +5,7 @@ const multer = require('multer')
 const { GoogleGenerativeAI } = require('@google/generative-ai')
 const { ownsPet, getDietAlerts } = require('../services/dietInsights')
 const { sanitizePreferences } = require('../services/mealPlan')
+const { createNotification } = require('../services/notifications')
 
 router.use(requireAuth)
 
@@ -290,6 +291,26 @@ router.post('/', async (req, res) => {
         notes || null
       ]
     )
+
+    // 有 warning 等級的飲食異常提醒才通知（同一種提醒 24 小時內只會有一筆，
+    // 見 services/notifications.js 的防洗版邏輯），失敗不影響餵食紀錄本身
+    try {
+      const insight = await getDietAlerts(petId)
+      const top = insight?.alerts?.find(a => a.level === 'warning')
+
+      if (top) {
+        await createNotification({
+          petId,
+          type: 'feeding_reminder',
+          title: `飲食提醒：${top.title}`,
+          message: top.suggestion || top.message,
+          severity: 'info',
+          metadata: { alertId: top.id }
+        })
+      }
+    } catch (notifyErr) {
+      console.warn('⚠️ 飲食提醒通知建立失敗，略過：', notifyErr.message)
+    }
 
     res.json({
       success: true,
