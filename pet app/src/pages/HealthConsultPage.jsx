@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 
 import { api } from '../lib/api'
+import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
 
 
 // =====================================================
@@ -123,6 +124,7 @@ export default function HealthConsultPage() {
 
   const [selectedPet, setSelectedPet] =
     useState(null)
+  const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
 
   const [input, setInput] =
     useState('')
@@ -559,7 +561,7 @@ export default function HealthConsultPage() {
 
   return (
     <div
-      className="flex h-full"
+      className="flex h-full overflow-hidden"
       style={{
         height:
           'calc(100vh - 0px)'
@@ -570,7 +572,7 @@ export default function HealthConsultPage() {
           左側：寵物
       =============================================== */}
 
-      <div className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
+      <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-56">
 
         <div className="px-4 py-4 border-b border-gray-100">
 
@@ -600,9 +602,10 @@ export default function HealthConsultPage() {
               <button
                 key={pet.id}
 
-                onClick={() =>
+                onClick={() => {
                   setSelectedPet(pet)
-                }
+                  setPetOpen(false)
+                }}
 
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                   selectedPet?.id === pet.id
@@ -636,14 +639,21 @@ export default function HealthConsultPage() {
 
         </div>
 
-      </div>
+      </PetDrawer>
 
 
       {/* ===============================================
           右側
       =============================================== */}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+
+        <PetPickerBar
+          emoji={selectedPet ? (EMOJI[selectedPet.species] || '🐾') : ''}
+          name={selectedPet?.name}
+          sub={selectedPet ? (selectedPet.breed || selectedPet.species) : ''}
+          onOpen={() => setPetOpen(true)}
+        />
 
         {!selectedPet ? (
 
@@ -658,7 +668,8 @@ export default function HealthConsultPage() {
             </p>
 
             <p className="text-sm">
-              從左側選擇一隻寵物開始健康諮詢
+              <span className="md:hidden">點上方選擇一隻寵物開始健康諮詢</span>
+              <span className="hidden md:inline">從左側選擇一隻寵物開始健康諮詢</span>
             </p>
 
           </div>
@@ -671,7 +682,7 @@ export default function HealthConsultPage() {
                 寵物 Header
             =========================================== */}
 
-            <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 shrink-0">
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-3 shrink-0">
 
               <span className="text-3xl">
                 {EMOJI[selectedPet.species] || '🐾'}
@@ -747,7 +758,7 @@ export default function HealthConsultPage() {
                 聊天訊息
             =========================================== */}
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
 
               {loadingHistory ? (
 

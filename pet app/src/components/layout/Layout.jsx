@@ -88,7 +88,9 @@ export default function Layout() {
         <div className="px-4 py-4 md:py-5 border-b border-gray-100 flex items-center justify-between">
           <Logo onClick={close} />
           <div className="flex items-center gap-1">
-            <NotificationBell />
+            <div className="hidden md:block">
+              <NotificationBell />
+            </div>
             <button
               onClick={close}
               aria-label="關閉選單"

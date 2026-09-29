@@ -115,7 +115,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute left-full top-0 ml-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 max-h-[70vh] flex flex-col">
+        <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] md:left-full md:right-auto md:top-0 md:ml-2 md:mt-0 md:w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 max-h-[70vh] flex flex-col">
 
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <p className="text-sm font-bold text-gray-800">通知</p>

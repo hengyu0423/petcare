@@ -2,13 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
-<<<<<<< HEAD
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
-=======
 import MealPlanSection from '../components/diet/MealPlanSection'
 import DietPreferencesModal from '../components/diet/DietPreferencesModal'
 import FoodCheckSteps from '../components/diet/FoodCheckSteps'
->>>>>>> 0052d56b24134bd7e83d8e1840904a85b53c0396
 
 const EMOJI = {
   dog: '🐶',
@@ -370,8 +367,8 @@ export default function DietPage() {
 
       setSmartError(
         err.response?.data?.error ||
-        err.message ||
-        '無法取得飲食推薦'
+          err.message ||
+          '無法取得飲食推薦'
       )
     } finally {
       setSmartLoading(false)
@@ -429,8 +426,8 @@ export default function DietPage() {
 
       setSmartError(
         err.response?.data?.error ||
-        err.message ||
-        '食物檢查失敗'
+          err.message ||
+          '食物檢查失敗'
       )
 
       return null
@@ -581,8 +578,8 @@ export default function DietPage() {
 
       setAiError(
         err.response?.data?.error ||
-        err.message ||
-        'AI 分析失敗'
+          err.message ||
+          'AI 分析失敗'
       )
     } finally {
       setAiAnalyzing(false)
@@ -654,8 +651,8 @@ export default function DietPage() {
 
       const estimatedAmount = Number(
         result.estimated_weight_g ||
-        result.estimatedAmountG ||
-        100
+          result.estimatedAmountG ||
+          100
       )
 
       const mealNutrition = calcNutrition(
@@ -699,8 +696,8 @@ export default function DietPage() {
 
       setAiError(
         err.response?.data?.error ||
-        err.message ||
-        '圖片分析失敗，請稍後再試'
+          err.message ||
+          '圖片分析失敗，請稍後再試'
       )
     } finally {
       setAiAnalyzing(false)
@@ -810,8 +807,8 @@ export default function DietPage() {
 
       setAiError(
         err.response?.data?.error ||
-        err.message ||
-        '食物分析失敗，請稍後再試'
+          err.message ||
+          '食物分析失敗，請稍後再試'
       )
     } finally {
       setAiAnalyzing(false)
@@ -888,8 +885,8 @@ export default function DietPage() {
 
       setAdviceError(
         err.response?.data?.error ||
-        err.message ||
-        '無法取得建議，請稍後再試'
+          err.message ||
+          '無法取得建議，請稍後再試'
       )
     } finally {
       setLoadingAdvice(false)
@@ -919,17 +916,17 @@ export default function DietPage() {
 
   const caloriePct = recommended
     ? Math.min(
-      (todayCalories / recommended) * 100,
-      100
-    )
+        (todayCalories / recommended) * 100,
+        100
+      )
     : 0
 
   const previewNutrition =
     selectedFood && form.amountG
       ? calcNutrition(
-        selectedFood,
-        Number(form.amountG)
-      )
+          selectedFood,
+          Number(form.amountG)
+        )
       : null
 
   const suggestedFood = (() => {
@@ -1031,7 +1028,7 @@ export default function DietPage() {
     <div className="flex h-full overflow-hidden">
 
       {/* 左側：選擇寵物 */}
-      <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="lg:w-52">
+      <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-52">
 
         <div className="px-4 py-4 border-b border-gray-100">
           <h2 className="text-sm font-bold text-gray-800">
@@ -1050,10 +1047,11 @@ export default function DietPage() {
                 setAdviceError('')
                 setPetOpen(false)
               }}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${selectedPet?.id === pet.id
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                selectedPet?.id === pet.id
                   ? 'bg-green-50 border-green-300'
                   : 'bg-gray-50 border-gray-100 hover:border-green-200'
-                }`}
+              }`}
             >
               <span className="text-xl">
                 {EMOJI[pet.species] || '🐾'}
@@ -1076,28 +1074,28 @@ export default function DietPage() {
         </div>
 
         <div className="p-3 border-t border-gray-100">
-          <Link
-            to="/food-database"
-            className="group block w-full rounded-xl border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-3 hover:border-green-300 hover:shadow-sm transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white border border-green-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
-                🗄️
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-700 group-hover:text-green-600 transition-colors">
-                  食物資料庫
-                </p>
-                <p className="text-[11px] text-gray-400 mt-0.5">
-                  查看食物營養資訊
-                </p>
-              </div>
-              <span className="text-green-500 group-hover:translate-x-0.5 transition-transform">
-                →
-              </span>
-            </div>
-          </Link>
-        </div>
+  <Link
+    to="/food-database"
+    className="group block w-full rounded-xl border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-3 hover:border-green-300 hover:shadow-sm transition-all"
+  >
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-white border border-green-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
+        🗄️
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-gray-700 group-hover:text-green-600 transition-colors">
+          食物資料庫
+        </p>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          查看食物營養資訊
+        </p>
+      </div>
+      <span className="text-green-500 group-hover:translate-x-0.5 transition-transform">
+        →
+      </span>
+    </div>
+  </Link>
+</div>
       </PetDrawer>
 
       {/* 右側主要內容 */}
@@ -1109,8 +1107,6 @@ export default function DietPage() {
           sub={selectedPet ? (selectedPet.weight ? `${selectedPet.weight}kg` : selectedPet.species) : ''}
           onOpen={() => setPetOpen(true)}
         />
-
-        
 
         {!selectedPet ? (
           <div className="flex items-center justify-center h-full flex-col gap-3 text-gray-400">
@@ -1443,7 +1439,7 @@ export default function DietPage() {
             {activeTab === 'records' && (
               <>
             {/* 統計卡片 */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 
               <div className="bg-white border border-gray-200 rounded-xl p-4">
 
@@ -1483,8 +1479,8 @@ export default function DietPage() {
                             caloriePct > 100
                               ? '#ef4444'
                               : caloriePct > 80
-                                ? '#f97316'
-                                : '#22c55e'
+                              ? '#f97316'
+                              : '#22c55e'
                         }}
                       />
 
@@ -1588,8 +1584,8 @@ export default function DietPage() {
                           ? '🥣'
                           : record.food_name?.includes('罐') ||
                             record.food_name?.includes('濕')
-                            ? '🥫'
-                            : '🍖'}
+                          ? '🥫'
+                          : '🍖'}
                       </div>
 
                       <div className="flex-1 min-w-0">
@@ -1698,9 +1694,9 @@ export default function DietPage() {
                       const barHeight =
                         max > 0
                           ? Math.max(
-                            (cal / max) * 100,
-                            10
-                          )
+                              (cal / max) * 100,
+                              10
+                            )
                           : 10
 
                       const dateStr = (() => {
@@ -2038,17 +2034,19 @@ export default function DietPage() {
 
                         {smartDiet.history?.hasData && (
                           <div className="flex flex-wrap gap-1.5 mt-3">
-                            <span className={`text-[11px] px-2 py-1 rounded-full ${smartDiet.history.fatStatus === '正常'
+                            <span className={`text-[11px] px-2 py-1 rounded-full ${
+                              smartDiet.history.fatStatus === '正常'
                                 ? 'bg-white text-green-600'
                                 : 'bg-amber-100 text-amber-700'
-                              }`}>
+                            }`}>
                               脂肪：{smartDiet.history.fatStatus}
                             </span>
 
-                            <span className={`text-[11px] px-2 py-1 rounded-full ${smartDiet.history.fiberStatus === '正常'
+                            <span className={`text-[11px] px-2 py-1 rounded-full ${
+                              smartDiet.history.fiberStatus === '正常'
                                 ? 'bg-white text-green-600'
                                 : 'bg-amber-100 text-amber-700'
-                              }`}>
+                            }`}>
                               纖維：{smartDiet.history.fiberStatus}
                             </span>
 
@@ -2084,10 +2082,11 @@ export default function DietPage() {
                     setInputMode('image')
                     setAiError('')
                   }}
-                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${inputMode === 'image'
+                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    inputMode === 'image'
                       ? 'bg-white text-green-600 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
-                    }`}
+                  }`}
                 >
                   📷 圖片辨識
                 </button>
@@ -2098,10 +2097,11 @@ export default function DietPage() {
                     setInputMode('manual')
                     setAiError('')
                   }}
-                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${inputMode === 'manual'
+                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    inputMode === 'manual'
                       ? 'bg-white text-green-600 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
-                    }`}
+                  }`}
                 >
                   ✏️ 手動輸入
                 </button>
@@ -2839,10 +2839,10 @@ export default function DietPage() {
                     {addRecord.isPending
                       ? '新增中...'
                       : checkingFood
-                        ? '檢查中...'
-                        : warningAccepted
-                          ? '⚠️ 確認儲存'
-                          : '新增餵食紀錄'}
+                      ? '檢查中...'
+                      : warningAccepted
+                      ? '⚠️ 確認儲存'
+                      : '新增餵食紀錄'}
                   </button>
 
                 </div>
