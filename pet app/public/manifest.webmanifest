@@ -1,0 +1,16 @@
+{
+  "name": "PawCare 寵物管理平台",
+  "short_name": "PawCare",
+  "description": "寵物健康、飲食、財務與即時監控管理",
+  "lang": "zh-TW",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#22c55e",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

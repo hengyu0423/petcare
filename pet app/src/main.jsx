@@ -16,3 +16,9 @@ createRoot(document.getElementById('root')).render(
     </QueryClientProvider>
   </StrictMode>
 )
+// PWA：只在正式環境註冊 Service Worker
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(console.error)
+  })
+}

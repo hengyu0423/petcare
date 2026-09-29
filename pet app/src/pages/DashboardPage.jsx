@@ -22,17 +22,17 @@ function StatCard({
   iconBg
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-shadow">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 h-full md:h-auto hover:shadow-sm transition-shadow">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide truncate">
           {label}
         </span>
-        <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center text-base`}>
+        <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center text-base shrink-0`}>
           {icon}
         </div>
       </div>
 
-      <div className="text-2xl font-bold text-gray-800 mb-1">
+      <div className="text-xl md:text-2xl font-bold text-gray-800 mb-1 break-words">
         {value}
         {unit && (
           <span className="text-sm font-normal text-gray-400">
@@ -130,7 +130,7 @@ export default function DashboardPage() {
           : '晚安'
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-4 md:p-6 max-w-5xl">
 
       {/* Header */}
       <div className="mb-6">
@@ -215,7 +215,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 
         <StatCard
           label="寵物總數"
@@ -226,7 +226,7 @@ export default function DashboardPage() {
           iconBg="bg-green-50"
         />
 
-        <Link to="/expenses" className="block">
+        <Link to="/expenses" className="block h-full">
           <StatCard
             label="本月支出"
             value={`TWD ${totalExpense.toFixed(0)}`}
@@ -238,7 +238,7 @@ export default function DashboardPage() {
           />
         </Link>
 
-        <Link to="/weekly-report" className="block">
+        <Link to="/weekly-report" className="block h-full">
           <StatCard
             label="健康週報"
             value="查看"
@@ -312,7 +312,7 @@ export default function DashboardPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {pets.map(pet => (
               <Link
                 key={pet.id}
