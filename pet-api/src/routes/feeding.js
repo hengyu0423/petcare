@@ -4,6 +4,7 @@ const pool = require('../db')
 const multer = require('multer')
 const { GoogleGenerativeAI } = require('@google/generative-ai')
 const { ownsPet, getDietAlerts } = require('../services/dietInsights')
+const { sanitizePreferences } = require('../services/mealPlan')
 
 router.use(requireAuth)
 
@@ -110,6 +111,58 @@ router.get('/pet/:petId/diet-alerts', async (req, res) => {
     })
   } catch (err) {
     console.error('飲食異常分析失敗：', err)
+    res.status(500).json({ success: false, error: '伺服器錯誤' })
+  }
+})
+
+// ================================
+// 飼主的飲食偏好（供「今日飲食計畫」與餵食檢查使用）
+// GET / PUT /feeding/pet/:petId/diet-preferences
+// 存在 pets.diet_preferences
+// ================================
+router.get('/pet/:petId/diet-preferences', async (req, res) => {
+  try {
+    if (!(await ownsPet(req.params.petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
+    const result = await pool.query(
+      'SELECT diet_preferences FROM pets WHERE id = $1',
+      [req.params.petId]
+    )
+
+    res.json({
+      success: true,
+      data: sanitizePreferences(result.rows[0]?.diet_preferences)
+    })
+  } catch (err) {
+    console.error('讀取飲食偏好失敗：', err)
+    res.status(500).json({ success: false, error: '伺服器錯誤' })
+  }
+})
+
+router.put('/pet/:petId/diet-preferences', async (req, res) => {
+  try {
+    const prefs = sanitizePreferences(req.body)
+
+    const result = await pool.query(
+      `UPDATE pets
+       SET diet_preferences = $2::jsonb
+       WHERE id = $1 AND owner_id = $3
+       RETURNING diet_preferences`,
+      [req.params.petId, JSON.stringify(prefs), req.userId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
+    res.json({
+      success: true,
+      data: sanitizePreferences(result.rows[0].diet_preferences)
+    })
+  } catch (err) {
+    console.error('儲存飲食偏好失敗：', err)
     res.status(500).json({ success: false, error: '伺服器錯誤' })
   }
 })

@@ -53,7 +53,10 @@ const CFG = {
   // 「高脂肪食物」的判斷門檻（每 100g 脂肪克數）。
   // 與 food.js 的 DIET_RULES.veryHighFat 一致，而不是 highFat(12)：
   // 一般乾糧的脂肪本來就常在 12–18%，用 12 會把乾糧也當成高脂肪食物而誤報。
-  highFatPer100g: 18
+  highFatPer100g: 18,
+
+  // 乾糧／主食罐的高脂肪門檻（一般乾糧不會超過這個值）
+  stapleHighFatPer100g: 25
 }
 
 const STAPLE_CATEGORIES = new Set(['dry', 'wet'])
@@ -274,6 +277,7 @@ function buildHealthHistoryWarnings({ food, events = [] }) {
       avoidWarnings.push({
         level: 'warning',
         source: 'health_history',
+        check: 'health',
         kind: 'avoid_food',
         requireAck: false,
         title: `「${food.name}」可能屬於建議避免的食物`,
@@ -290,6 +294,7 @@ function buildHealthHistoryWarnings({ food, events = [] }) {
     reminderWarnings.push({
       level: stillActive ? 'warning' : 'info',
       source: 'health_history',
+      check: 'health',
       kind: 'recent_event',
       requireAck: false,
       title: `此寵物近期曾有${e.title}紀錄`,
@@ -318,6 +323,7 @@ function buildHealthHistoryWarnings({ food, events = [] }) {
       giWarnings.push({
         level: 'warning',
         source: 'health_history',
+        check: 'health',
         kind: 'gi_high_fat',
         requireAck: false,
         title: `近期有${e.title}紀錄，此食物脂肪偏高`,
@@ -334,6 +340,116 @@ function buildHealthHistoryWarnings({ food, events = [] }) {
     ...avoidWarnings.slice(0, 3),
     ...giWarnings,
     ...reminderWarnings.slice(0, 3)
+  ]
+}
+
+// ======================================================
+// C2. 餵食前檢查流程的其他階段
+//
+// 每個警訊都有 check 欄位，標示它屬於哪個檢查階段：
+//   health     → 健康歷史與飼主偏好
+//   recentDiet → 近期飲食
+//   nutrition  → 營養與食物安全
+// 前端依此顯示「檢查流程」。
+// ======================================================
+
+// 從食物名稱判斷它標示給哪個物種（沒有標示則回傳 null）
+function foodSpeciesTag(name) {
+  const n = String(name || '')
+  const cat = /貓|猫|cat|kitten/i.test(n)
+  const dog = /犬|狗|dog|puppy/i.test(n)
+
+  if (cat && !dog) return 'cat'
+  if (dog && !cat) return 'dog'
+  return null
+}
+
+// 階段：營養與食物安全（食物本身合不合適）
+function buildNutritionChecks({ pet, food }) {
+  const warnings = []
+  const sKey = speciesKey(pet?.species)
+  const tag = foodSpeciesTag(food?.name)
+
+  // 貓吃犬用食物、狗吃貓用食物：營養需求不同
+  if (sKey && tag && tag !== sKey) {
+    const petText = sKey === 'cat' ? '貓' : '狗'
+    const foodText = tag === 'cat' ? '貓用' : '犬用'
+
+    warnings.push({
+      level: 'warning',
+      check: 'nutrition',
+      kind: 'species_mismatch',
+      requireAck: false,
+      title: `「${food.name}」標示為${foodText}配方`,
+      reason: `${petText}和${tag === 'cat' ? '狗' : '貓'}的營養需求不同，長期餵食可能不夠適合。`,
+      suggestion: `建議選擇標示${petText}用的食物。`
+    })
+  }
+
+  // 脂肪偏高的食物。
+  // 乾糧／主食罐本身脂肪就偏高，所以門檻較高（25）；
+  // 若一個「乾糧」脂肪超過 25%，通常是分類填錯（例如把漢堡分類成乾糧）。
+  const fatThreshold = STAPLE_CATEGORIES.has(food?.category)
+    ? CFG.stapleHighFatPer100g
+    : CFG.highFatPer100g
+
+  if (num(food?.fatPer100g, 0) >= fatThreshold) {
+    warnings.push({
+      level: 'warning',
+      check: 'nutrition',
+      kind: 'high_fat_food',
+      requireAck: false,
+      title: `「${food.name}」脂肪偏高`,
+      reason: `脂肪約 ${round(num(food.fatPer100g, 0), 1)} g / 100g，屬於高脂肪食物。`,
+      suggestion: '建議只偶爾少量給予，並避免和其他高脂食物一起餵。'
+    })
+  }
+
+  return warnings
+}
+
+// 階段：近期飲食（同一種非主食最近是不是吃太多次）
+// recentRecords: 最近 3 天的餵食紀錄 [{ foodName, day }]
+function buildRecentDietWarnings({ food, recentRecords = [] }) {
+  if (!food?.name || STAPLE_CATEGORIES.has(food.category)) return []
+
+  const key = normName(food.name)
+  const count = recentRecords.filter(r => normName(r.foodName) === key).length
+
+  if (count < 3) return []
+
+  return [
+    {
+      level: 'info',
+      check: 'recentDiet',
+      kind: 'repeat_food',
+      requireAck: false,
+      title: `近 3 天已餵過「${food.name}」${count} 次`,
+      reason: '同一種非主食重複出現，營養可能不夠多樣。',
+      suggestion: '建議搭配完整主食，並適度更換食物。'
+    }
+  ]
+}
+
+// 階段：健康歷史與飼主偏好（飼主自己設定要避免的食物／過敏）
+// 這是飼主明確設定的，所以維持「需要確認」（不設 requireAck: false）
+function buildOwnerPreferenceWarnings({ food, prefs }) {
+  const term = matchAvoidTerm(
+    { name: food?.name, category: food?.category, fatPer100g: food?.fatPer100g },
+    prefs?.avoidFoods
+  )
+
+  if (!term) return []
+
+  return [
+    {
+      level: 'danger',
+      check: 'health',
+      kind: 'owner_avoid',
+      title: `「${food.name}」在你設定的避免清單中`,
+      reason: `你在飲食偏好中設定要避免「${term}」。`,
+      suggestion: '建議改選其他食物。'
+    }
   ]
 }
 
@@ -814,6 +930,16 @@ async function findFeedingConflicts(petId, startDate, endDate, events) {
 
 module.exports = {
   CFG,
+  STAPLE_CATEGORIES,
+  GI_EVENT_TYPES,
+  num,
+  round,
+  dayDiff,
+  speciesKey,
+  foodSpeciesTag,
+  buildNutritionChecks,
+  buildRecentDietWarnings,
+  buildOwnerPreferenceWarnings,
   ownsPet,
   getRecentDietEvents,
   getDietEventsInRange,

@@ -161,6 +161,11 @@ const initDB = async () => {
     CREATE INDEX IF NOT EXISTS idx_health_records_pet_diet
     ON health_records(pet_id, date DESC)
     WHERE diet_relevant = TRUE;
+
+    -- 飼主的飲食偏好（用餐次數、主食類型、目標、避免的食物…），
+    -- 存在既有的 pets 資料表，不另建資料表
+    ALTER TABLE pets
+      ADD COLUMN IF NOT EXISTS diet_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
   `)
   console.log('✅ 資料表準備完成')
 }

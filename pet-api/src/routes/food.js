@@ -4,8 +4,18 @@ const pool = require('../db')
 const {
   ownsPet,
   getRecentDietEvents,
-  buildHealthHistoryWarnings
+  buildHealthHistoryWarnings,
+  buildNutritionChecks,
+  buildRecentDietWarnings,
+  buildOwnerPreferenceWarnings
 } = require('../services/dietInsights')
+const {
+  sanitizePreferences,
+  isCandidateStaple,
+  buildMealPlan
+} = require('../services/mealPlan')
+
+const DIET_TZ = process.env.APP_TIMEZONE || 'Asia/Taipei'
 const Groq = require('groq-sdk')
 const multer = require('multer')
 
@@ -1436,6 +1446,10 @@ function checkFoodWarning({
       warnings.push({
         level: rule.level,
 
+        check: 'nutrition',
+
+        kind: 'unsafe_food',
+
         title:
           rule.title,
 
@@ -1471,6 +1485,10 @@ function checkFoodWarning({
     warnings.push({
       level: 'warning',
 
+      check: 'recentDiet',
+
+      kind: 'history_high_fat',
+
       title:
         '近期脂肪攝取已偏高',
 
@@ -1498,6 +1516,10 @@ function checkFoodWarning({
   ) {
     warnings.push({
       level: 'info',
+
+      check: 'recentDiet',
+
+      kind: 'history_low_fiber',
 
       title:
         '近期纖維攝取偏低',
@@ -1540,6 +1562,10 @@ function checkFoodWarning({
     warnings.push({
       level: 'warning',
 
+      check: 'health',
+
+      kind: 'obesity_calories',
+
       title:
         '目前健康狀況需注意熱量攝取',
 
@@ -1553,6 +1579,85 @@ function checkFoodWarning({
 
 
   return warnings
+}
+
+
+/* =========================================================
+   餵食前檢查流程（「自己選擇」與「依照飲食計畫」共用）
+
+   1. 健康歷史與飼主偏好  (check: 'health')
+   2. 近期飲食            (check: 'recentDiet')
+   3. 營養與食物安全      (check: 'nutrition')
+
+   回傳 warnings（全部）與 checks（依階段分組，給前端顯示流程）
+========================================================= */
+
+function evaluateFood({
+  pet,
+  food,
+  category,
+  history = null,
+  healthSummary = '',
+  baseWarnings,
+  events = [],
+  prefs = null,
+  recentRecords = []
+}) {
+  const base =
+    baseWarnings ??
+    checkFoodWarning({ pet, food, history, healthSummary })
+
+  const desc = {
+    name: food.food_name,
+    category,
+    fatPer100g: food.fat_pct
+  }
+
+  const warnings = [
+    ...base,
+    ...buildOwnerPreferenceWarnings({ food: desc, prefs }),
+    ...buildHealthHistoryWarnings({ food: desc, events }),
+    ...buildNutritionChecks({ pet, food: desc }),
+    ...buildRecentDietWarnings({ food: desc, recentRecords })
+  ]
+
+  const checks = { health: [], recentDiet: [], nutrition: [] }
+
+  for (const w of warnings) {
+    ;(checks[w.check] || checks.nutrition).push(w)
+  }
+
+  return { warnings, checks }
+}
+
+// 讀取某隻寵物的檢查背景：飼主偏好、近期健康事件、最近 3 天餵食
+async function loadPetDietContext(petId) {
+  const [petResult, events, recent] = await Promise.all([
+    pool.query(
+      'SELECT diet_preferences FROM pets WHERE id = $1',
+      [petId]
+    ),
+    getRecentDietEvents(petId),
+    pool.query(
+      `
+      SELECT food_name, to_char(fed_at, 'YYYY-MM-DD') AS day
+      FROM feeding_records
+      WHERE pet_id = $1
+        AND fed_at >= (NOW() AT TIME ZONE $2::text)::date - 2
+      ORDER BY fed_at DESC
+      `,
+      [petId, DIET_TZ]
+    )
+  ])
+
+  return {
+    prefs: sanitizePreferences(petResult.rows[0]?.diet_preferences),
+    events,
+    recentRecords: recent.rows.map(r => ({
+      foodName: r.food_name,
+      day: r.day
+    }))
+  }
 }
 
 
@@ -2357,15 +2462,21 @@ router.post(
 
 
       /*
-       * ⭐ 健康歷史警訊
+       * ⭐ 餵食前檢查流程：
+       *   健康歷史與飼主偏好 → 近期飲食 → 營養與食物安全
        *
-       * 依 petId 讀取該寵物近期「與飲食有關」的健康紀錄
-       * （包含健康諮詢 AI 記錄的事件與建議避免的食物）。
-       * 這些警訊只是提醒（requireAck: false），不會阻擋儲存。
+       * 有帶 petId 時，後端會自己讀取這隻寵物的健康歷史、
+       * 飼主偏好與最近 3 天的餵食紀錄。
+       * 新增的警訊都只是提醒（requireAck: false），
+       * 只有「飼主自己設定要避免」的食物需要確認。
        * 讀取失敗時不影響原本的檢查結果。
        */
 
-      let healthWarnings = []
+      let context = {
+        prefs: null,
+        events: [],
+        recentRecords: []
+      }
 
       try {
         if (
@@ -2375,40 +2486,38 @@ router.post(
             req.userId
           )
         ) {
-          const events =
-            await getRecentDietEvents(
+          context =
+            await loadPetDietContext(
               petId
             )
-
-          healthWarnings =
-            buildHealthHistoryWarnings({
-              food: {
-                name:
-                  foodName,
-
-                category:
-                  foodObject.category,
-
-                fatPer100g:
-                  nutrition.fat_pct
-              },
-
-              events
-            })
         }
 
-      } catch (healthErr) {
+      } catch (contextErr) {
         console.error(
-          '健康歷史警訊讀取失敗（不影響原本檢查）：',
-          healthErr
+          '讀取寵物飲食背景失敗（不影響原本檢查）：',
+          contextErr
         )
       }
 
 
-      const allWarnings = [
-        ...warnings,
-        ...healthWarnings
-      ]
+      const evaluated =
+        evaluateFood({
+          pet,
+
+          food:
+            nutrition,
+
+          category:
+            foodObject.category,
+
+          baseWarnings:
+            warnings,
+
+          ...context
+        })
+
+      const allWarnings =
+        evaluated.warnings
 
 
       return res.json({
@@ -2427,7 +2536,10 @@ router.post(
             allWarnings.length > 0,
 
           warnings:
-            allWarnings
+            allWarnings,
+
+          checks:
+            evaluated.checks
         }
       })
 
@@ -2736,5 +2848,225 @@ ${recommendation.reason}
   }
 )
 
+
+
+/* =========================================================
+   今日飲食計畫
+   GET /food/meal-plan/:petId
+
+   依品種、貓／狗、年齡、體重、目前健康狀況、過往健康紀錄、
+   飼主偏好，從食物資料庫挑選今天的建議餵食。
+   每個候選食物都先經過與「自己選擇」相同的檢查流程。
+========================================================= */
+
+router.get(
+  '/meal-plan/:petId',
+  async (req, res) => {
+    try {
+      const petId = Number(req.params.petId)
+
+      if (
+        !Number.isInteger(petId) ||
+        !(await ownsPet(petId, req.userId))
+      ) {
+        return res.status(404).json({
+          success: false,
+          error: '找不到寵物'
+        })
+      }
+
+      const petResult = await pool.query(
+        `
+        SELECT
+          id, name, species, breed, weight,
+          to_char(birth_date, 'YYYY-MM-DD') AS birth_date
+        FROM pets
+        WHERE id = $1
+        `,
+        [petId]
+      )
+
+      const pet = petResult.rows[0]
+
+      const context =
+        await loadPetDietContext(petId)
+
+      const [
+        clock,
+        foodsResult,
+        healthResult,
+        mealsResult
+      ] = await Promise.all([
+        pool.query(
+          `SELECT to_char((NOW() AT TIME ZONE $1::text)::date, 'YYYY-MM-DD') AS today`,
+          [DIET_TZ]
+        ),
+
+        pool.query(
+          `
+          SELECT *
+          FROM food_items
+          WHERE owner_id = $1
+             OR is_preset = TRUE
+          ORDER BY is_preset DESC, id ASC
+          `,
+          [req.userId]
+        ),
+
+        // 過往健康紀錄（用來判斷是否需要控制體重）
+        pool.query(
+          `
+          SELECT title, description
+          FROM health_records
+          WHERE pet_id = $1
+            AND date >= (NOW() AT TIME ZONE $2::text)::date - 90
+          `,
+          [petId, DIET_TZ]
+        ),
+
+        // 最近的餵食（用已儲存的營養數值換算成每 100g，避免再呼叫 AI）
+        pool.query(
+          `
+          SELECT
+            food_name,
+            amount_g::float AS amount_g,
+            calories::float AS calories,
+            protein_g::float AS protein_g,
+            fat_g::float AS fat_g,
+            carb_g::float AS carb_g,
+            to_char(fed_at, 'YYYY-MM-DD HH24:MI') AS fed_at
+          FROM feeding_records
+          WHERE pet_id = $1
+            AND fed_at >= (NOW() AT TIME ZONE $2::text)::date - 6
+            AND calories IS NOT NULL
+            AND amount_g > 0
+            AND amount_g <= 2000
+          ORDER BY fed_at DESC
+          LIMIT 10
+          `,
+          [petId, DIET_TZ]
+        )
+      ])
+
+      const today = clock.rows[0].today
+
+      const todayResult = await pool.query(
+        `
+        SELECT
+          food_name,
+          calories::float AS calories,
+          (EXTRACT(HOUR FROM fed_at) * 60
+            + EXTRACT(MINUTE FROM fed_at))::int AS minutes
+        FROM feeding_records
+        WHERE pet_id = $1
+          AND fed_at >= $2::date
+          AND fed_at < ($2::date + 1)
+        `,
+        [petId, today]
+      )
+
+      const healthSummary = [
+        ...healthResult.rows.map(
+          r => `${r.title || ''} ${r.description || ''}`
+        ),
+        ...context.events.map(
+          e => e.diet_info?.dietNotes || ''
+        )
+      ].join('\n')
+
+      const weightControl =
+        /肥胖|過重/.test(healthSummary)
+
+      const normalizedMeals =
+        await Promise.all(
+          mealsResult.rows.map(r =>
+            normalizeMeal({
+              food_name: r.food_name,
+              amount_g: r.amount_g,
+              calories_per_100g:
+                (r.calories / r.amount_g) * 100,
+              protein_pct:
+                ((r.protein_g ?? 0) / r.amount_g) * 100,
+              fat_pct:
+                ((r.fat_g ?? 0) / r.amount_g) * 100,
+              carb_pct:
+                ((r.carb_g ?? 0) / r.amount_g) * 100,
+              fiber_pct: 0,
+              fed_at: r.fed_at
+            })
+          )
+        )
+
+      const history =
+        analyzeDietHistory(normalizedMeals)
+
+      // 每個候選主食都跑一次和「自己選擇」相同的檢查流程
+      const sKey =
+        /cat|貓/i.test(pet.species || '')
+          ? 'cat'
+          : /dog|狗|犬/i.test(pet.species || '')
+            ? 'dog'
+            : null
+
+      const warningsByFoodId = {}
+
+      for (const f of foodsResult.rows) {
+        if (!sKey || !isCandidateStaple(f, sKey)) continue
+
+        const evaluated = evaluateFood({
+          pet,
+
+          food: {
+            food_name: f.name,
+            calories_per_100g: toSafeNumber(f.calories_per_100g),
+            protein_pct: toSafeNumber(f.protein_pct),
+            fat_pct: toSafeNumber(f.fat_pct),
+            carb_pct: toSafeNumber(f.carb_pct),
+            fiber_pct: toSafeNumber(f.fiber_pct)
+          },
+
+          category: f.category,
+          history,
+          healthSummary,
+          ...context
+        })
+
+        // 計畫本身已經依體重狀況調整熱量，不必在每個選項重複顯示
+        warningsByFoodId[f.id] =
+          evaluated.warnings.filter(
+            w => w.kind !== 'obesity_calories'
+          )
+      }
+
+      const plan = buildMealPlan({
+        pet,
+        prefs: context.prefs,
+        events: context.events,
+        foods: foodsResult.rows,
+        warningsByFoodId,
+        todayRecords: todayResult.rows.map(r => ({
+          foodName: r.food_name,
+          calories: r.calories,
+          minutes: r.minutes
+        })),
+        weightControl,
+        refDate: today
+      })
+
+      res.json({
+        success: true,
+        data: plan
+      })
+
+    } catch (err) {
+      console.error('產生飲食計畫失敗：', err)
+
+      res.status(500).json({
+        success: false,
+        error: '伺服器錯誤'
+      })
+    }
+  }
+)
 
 module.exports = router

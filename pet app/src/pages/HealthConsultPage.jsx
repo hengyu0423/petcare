@@ -468,6 +468,14 @@ export default function HealthConsultPage() {
             ]
           })
 
+          // 飲食計畫也要依新的健康事件重新產生
+          queryClient.invalidateQueries({
+            queryKey: [
+              'meal-plan',
+              selectedPet.id
+            ]
+          })
+
           // 綁定寵物 id，切換寵物後就不會顯示別隻的提示
           setSavedNotice({
             ...healthEvent,

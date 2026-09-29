@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import MealPlanSection from '../components/diet/MealPlanSection'
+import DietPreferencesModal from '../components/diet/DietPreferencesModal'
+import FoodCheckSteps from '../components/diet/FoodCheckSteps'
 
 const EMOJI = {
   dog: '🐶',
@@ -115,6 +118,12 @@ export default function DietPage() {
   const [warningAccepted, setWarningAccepted] = useState(false)
   const [checkedFoodKey, setCheckedFoodKey] = useState('')
 
+  // 飼主的飲食偏好視窗
+  const [showPrefs, setShowPrefs] = useState(false)
+
+  // 頁面分頁：today｜alerts｜records｜advice
+  const [activeTab, setActiveTab] = useState('today')
+
   // 需要使用者按「仍要儲存」確認的警訊（維持原本的行為），
   // 以及只是提醒、不阻擋操作的警訊（例如健康歷史提醒）
   const ackWarnings = foodWarnings.filter(w => w.requireAck !== false)
@@ -192,6 +201,11 @@ export default function DietPage() {
         .then(r => r.data.data),
     enabled: !!selectedPet
   })
+
+
+  const healthAlertCount =
+    dietHealthEvents.length +
+    (dietAlerts?.alerts?.length || 0)
 
   // 把結構化的健康事件整理成給飲食 AI 的文字
   const buildHealthEventSummary = () => {
@@ -451,6 +465,33 @@ export default function DietPage() {
     }
   }
 
+  // 依照飲食計畫餵食：帶入建議的食物與份量，
+  // 然後和「自己選擇」一樣先經過餵食前檢查，最後由使用者確認。
+  const openPlanMeal = async (meal, option) => {
+    resetAddForm()
+    setShowAddModal(true)
+
+    const food = foods.find(f => String(f.id) === String(option.foodId))
+
+    if (!food) return
+
+    setSelectedFood(food)
+
+    setForm(f => ({
+      ...f,
+      foodItemId: String(food.id),
+      foodName: food.name,
+      amountG: option.amountG ? String(option.amountG) : '',
+      fedAt: getLocalDateTime(),
+      notes: `依飲食計畫（${meal.label}）`
+    }))
+
+    await checkFoodSafety({
+      ...food,
+      food_name: food.name
+    })
+  }
+
   const addRecord = useMutation({
     mutationFn: payload => api.post('/feeding', payload),
 
@@ -458,6 +499,7 @@ export default function DietPage() {
       qc.invalidateQueries({ queryKey: ['feeding'] })
       qc.invalidateQueries({ queryKey: ['feeding-stats'] })
       qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
+      qc.invalidateQueries({ queryKey: ['meal-plan'] })
 
       setShowAddModal(false)
 
@@ -472,6 +514,7 @@ export default function DietPage() {
       qc.invalidateQueries({ queryKey: ['feeding'] })
       qc.invalidateQueries({ queryKey: ['feeding-stats'] })
       qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
+      qc.invalidateQueries({ queryKey: ['meal-plan'] })
     }
   })
 
@@ -1137,6 +1180,58 @@ export default function DietPage() {
               </div>
             </div>
 
+
+            {/* 分頁：今日建議／健康提醒／餵食紀錄／AI 建議 */}
+            <div className="flex items-center gap-1.5 border-b border-gray-100 mb-6 overflow-x-auto overflow-y-hidden">
+
+              {[
+                { key: 'today', label: '🍽️ 今日建議' },
+                {
+                  key: 'alerts',
+                  label: '⚠️ 健康提醒',
+                  count: healthAlertCount
+                },
+                { key: 'records', label: '📋 餵食紀錄' },
+                { key: 'advice', label: '🤖 AI 建議' }
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`relative flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                    activeTab === tab.key
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  {tab.label}
+
+                  {tab.count > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+
+            </div>
+
+            {activeTab === 'today' && (
+              <>
+            {/* 今天要餵什麼：A. 依照飲食計畫／B. 自己選擇 */}
+            <MealPlanSection
+              key={selectedPet.id}
+              pet={selectedPet}
+              onUseMeal={openPlanMeal}
+              onOpenManual={openAddModal}
+              onEditPreferences={() => setShowPrefs(true)}
+            />
+
+              </>
+            )}
+
+            {activeTab === 'alerts' && (
+              <>
             {/* 近期健康事件與飲食注意 */}
             {dietHealthEvents.length > 0 && (
               <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6">
@@ -1328,6 +1423,11 @@ export default function DietPage() {
               </div>
             )}
 
+              </>
+            )}
+
+            {activeTab === 'records' && (
+              <>
             {/* 統計卡片 */}
             <div className="grid grid-cols-4 gap-3 mb-6">
 
@@ -1698,6 +1798,11 @@ export default function DietPage() {
               </div>
             )}
 
+              </>
+            )}
+
+            {activeTab === 'advice' && (
+              <>
             {/* AI 飲食建議 */}
             <div className="bg-white border border-gray-200 rounded-xl p-5 mt-4">
 
@@ -1823,10 +1928,21 @@ export default function DietPage() {
 
             </div>
 
+              </>
+            )}
+
           </div>
         )}
 
       </div>
+
+      {/* 飲食偏好 */}
+      {showPrefs && selectedPet && (
+        <DietPreferencesModal
+          pet={selectedPet}
+          onClose={() => setShowPrefs(false)}
+        />
+      )}
 
       {/* 新增餵食 Modal */}
       {showAddModal && (
@@ -2411,6 +2527,13 @@ export default function DietPage() {
 
                   </>
                 )}
+
+                {/* 餵食前檢查流程：健康歷史 → 近期飲食 → 營養與安全 → 確認 */}
+                <FoodCheckSteps
+                  warnings={foodWarnings}
+                  checking={checkingFood}
+                  checked={!!checkedFoodKey}
+                />
 
                 {/* 飲食警訊 */}
                 {checkingFood && (
