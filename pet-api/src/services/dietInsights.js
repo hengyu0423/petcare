@@ -11,6 +11,7 @@
 // ======================================================
 
 const pool = require('../db')
+const { ageInMonths } = require('../utils/petAge')
 
 const TZ = process.env.APP_TIMEZONE || 'Asia/Taipei'
 
@@ -291,7 +292,12 @@ function buildHealthHistoryWarnings({ food, events = [] }) {
     // ---- 2. 近期健康事件提醒（有紀錄才會出現）----
     const stillActive = Boolean(e.is_active)
 
-    reminderWarnings.push({
+    // 已明確過了飲食注意期（有 diet_until 且早於今天）→ 不再產生「近期曾有…紀錄」提醒，
+    // 避免舊事件一直佔版面。事件仍保留在 health_records，供 AI 與週報參考。
+    // 沒有設定注意期的事件（例如手動新增）維持原本「近 N 天」的提醒。
+    const expired = !stillActive && Boolean(e.diet_until_str)
+
+    if (!expired) reminderWarnings.push({
       level: stillActive ? 'warning' : 'info',
       source: 'health_history',
       check: 'health',
@@ -646,7 +652,7 @@ function analyzeFeedingPattern({
   const [minKg, maxKg] = CFG.weightRangeKg
 
   const ageMonths = pet?.birth_date
-    ? Math.floor(dayDiff(String(pet.birth_date).slice(0, 10), endDate) / 30.4)
+    ? ageInMonths(pet.birth_date, endDate)
     : null
 
   const isYoung = ageMonths !== null && ageMonths < CFG.youngMonths

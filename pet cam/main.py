@@ -35,7 +35,7 @@ CAMERA_SOURCE = "rtsp://nigel1:nigel123@nigel-petcam.asuscomm.com:554/stream2"
 PET_CLASSES = [0, 1]
 
 # YOLO
-model = YOLO("runs/detect/runs/train/pawcare_v1/weights/best.pt")
+model = YOLO("../runs/detect/runs/train/pawcare_v1/weights/best.pt")
 
 # Node.js API
 PET_API_URL = "http://localhost:4000"

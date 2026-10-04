@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import { petAgeText } from '../lib/petAge'
 
 const EMOJI   = { dog:'🐶', cat:'🐱', bird:'🐦', rabbit:'🐰', fish:'🐟', other:'🐾' }
 const SPECIES = [['dog','狗'],['cat','貓'],['bird','鳥'],['rabbit','兔子'],['fish','魚'],['other','其他']]
@@ -124,7 +125,10 @@ export default function PetsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-800">{pet.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{pet.breed || SPECIES.find(s => s[0]===pet.species)?.[1]}</p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {pet.breed || SPECIES.find(s => s[0]===pet.species)?.[1]}
+                      {petAgeText(pet.birth_date) ? ` · ${petAgeText(pet.birth_date)}` : ''}
+                    </p>
                     {pet.weight && <p className="text-xs text-gray-300 mt-0.5">{pet.weight} kg</p>}
                   </div>
                 </Link>

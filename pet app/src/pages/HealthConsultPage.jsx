@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 
 import { api } from '../lib/api'
+import { petAgeText } from '../lib/petAge'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
 
 
@@ -245,35 +246,7 @@ export default function HealthConsultPage() {
   // 計算年齡
   // ===================================================
 
-  const getAge = birthDate => {
-    if (!birthDate) {
-      return '年齡不明'
-    }
-
-    const birth =
-      new Date(birthDate)
-
-    const months =
-      Math.floor(
-        (
-          Date.now() -
-          birth.getTime()
-        ) /
-        (
-          1000 *
-          60 *
-          60 *
-          24 *
-          30.4
-        )
-      )
-
-    if (months < 12) {
-      return `${months} 個月`
-    }
-
-    return `${Math.floor(months / 12)} 歲`
-  }
+  const getAge = birthDate => petAgeText(birthDate) || '年齡不明'
 
 
   // ===================================================

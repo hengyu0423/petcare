@@ -3,6 +3,7 @@ const requireAuth = require('../middleware/auth')
 const Groq = require('groq-sdk')
 const pool = require('../db')
 const { createNotification } = require('../services/notifications')
+const { ageInMonths, formatAge } = require('../utils/petAge')
 const {
   getDietEventsInRange,
   findFeedingConflicts,
@@ -31,18 +32,7 @@ router.post('/health-analysis', async (req, res) => {
   }
 
   try {
-    const age = pet.birth_date
-      ? (() => {
-          const months = Math.floor(
-            (Date.now() - new Date(pet.birth_date)) /
-            (1000 * 60 * 60 * 24 * 30.4)
-          )
-
-          return months < 12
-            ? `${months} 個月大`
-            : `${Math.floor(months / 12)} 歲`
-        })()
-      : '年齡不明'
+    const age = formatAge(ageInMonths(pet.birth_date)) || '年齡不明'
 
     const prompt = `
 請根據以下寵物資料與症狀，提供簡短、直接的健康建議。

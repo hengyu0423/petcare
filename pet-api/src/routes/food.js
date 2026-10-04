@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const pool = require('../db')
+const { ageInMonths, formatAge } = require('../utils/petAge')
 const {
   ownsPet,
   getRecentDietEvents,
@@ -2600,36 +2601,7 @@ router.post(
        * 年齡
        */
 
-      const age =
-        pet.birth_date
-          ? (() => {
-              const months =
-                Math.floor(
-                  (
-                    Date.now() -
-                    new Date(
-                      pet.birth_date
-                    )
-                  ) /
-                  (
-                    1000 *
-                    60 *
-                    60 *
-                    24 *
-                    30.4
-                  )
-                )
-
-
-              return months < 12
-                ? `${months} 個月`
-                : `${Math.floor(
-                    months / 12
-                  )} 歲`
-
-            })()
-
-          : '年齡不明'
+      const age = formatAge(ageInMonths(pet.birth_date)) || '年齡不明'
 
 
       /*

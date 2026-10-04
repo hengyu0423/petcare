@@ -23,6 +23,7 @@ const {
   speciesKey,
   foodSpeciesTag
 } = require('./dietInsights')
+const { ageInMonths, formatAge } = require('../utils/petAge')
 
 // ------------------------------------------------------
 // 可調整的設定
@@ -156,11 +157,7 @@ function stageOf(ageMonths) {
 }
 
 function ageText(ageMonths) {
-  if (ageMonths === null || ageMonths === undefined) return null
-  if (ageMonths < 12) return `${Math.max(ageMonths, 0)} 個月`
-  const years = Math.floor(ageMonths / 12)
-  const rest = ageMonths % 12
-  return rest ? `${years} 歲 ${rest} 個月` : `${years} 歲`
+  return formatAge(ageMonths)
 }
 
 // 每日建議熱量（粗估，不是處方）
@@ -272,7 +269,7 @@ function buildMealPlan({
   const weightKg = num(pet?.weight)
 
   const ageMonths = pet?.birth_date
-    ? Math.max(Math.floor(dayDiff(String(pet.birth_date).slice(0, 10), refDate) / 30.4), 0)
+    ? ageInMonths(pet.birth_date, refDate)
     : null
 
   const stage = stageOf(ageMonths)

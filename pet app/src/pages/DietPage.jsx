@@ -85,6 +85,7 @@ export default function DietPage() {
 
   const [selectedPet, setSelectedPet] = useState(null)
   const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
+  const [showPastHealthEvents, setShowPastHealthEvents] = useState(false) // 展開已過注意期的健康事件
   const [selectedDate, setSelectedDate] = useState(today)
 
   const [showAddModal, setShowAddModal] = useState(false)
@@ -205,8 +206,15 @@ export default function DietPage() {
   })
 
 
+  // 注意期內的事件才算「提醒」；已過注意期的預設收合，不佔版面也不計入數字
+  const activeHealthEvents = dietHealthEvents.filter(e => e.is_active)
+  const pastHealthEvents = dietHealthEvents.filter(e => !e.is_active)
+  const visibleHealthEvents = showPastHealthEvents
+    ? [...activeHealthEvents, ...pastHealthEvents]
+    : activeHealthEvents
+
   const healthAlertCount =
-    dietHealthEvents.length +
+    activeHealthEvents.length +
     (dietAlerts?.alerts?.length || 0)
 
   // 把結構化的健康事件整理成給飲食 AI 的文字
@@ -1263,7 +1271,7 @@ export default function DietPage() {
 
                 <div className="space-y-3">
 
-                  {dietHealthEvents.map(event => {
+                  {visibleHealthEvents.map(event => {
                     const info = event.diet_info || {}
                     const severity =
                       HEALTH_SEVERITY[event.severity]
@@ -1359,6 +1367,24 @@ export default function DietPage() {
                   })}
 
                 </div>
+
+                {activeHealthEvents.length === 0 && (
+                  <p className="text-sm text-gray-400">
+                    目前沒有注意期內的健康事件 👍
+                  </p>
+                )}
+
+                {pastHealthEvents.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPastHealthEvents(v => !v)}
+                    className="text-xs text-gray-400 hover:text-gray-600 mt-3"
+                  >
+                    {showPastHealthEvents
+                      ? '收合已過注意期的紀錄 ▲'
+                      : `已過注意期（${pastHealthEvents.length} 筆）▼`}
+                  </button>
+                )}
 
                 <p className="text-xs text-gray-400 mt-3">
                   AI 記錄僅供參考，不能取代獸醫診斷。

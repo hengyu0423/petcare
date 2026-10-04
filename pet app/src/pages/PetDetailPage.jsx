@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { petAgeText } from '../lib/petAge'
 
 const EMOJI   = { dog:'🐶', cat:'🐱', bird:'🐦', rabbit:'🐰', fish:'🐟', other:'🐾' }
 const SPECIES = [['dog','狗'],['cat','貓'],['bird','鳥'],['rabbit','兔子'],['fish','魚'],['other','其他']]
@@ -67,10 +68,7 @@ export default function PetDetailPage() {
     </div>
   )
 
-  const age = pet.birth_date ? (() => {
-    const months = Math.floor((Date.now() - new Date(pet.birth_date)) / (1000 * 60 * 60 * 24 * 30.4))
-    return months < 12 ? `${months} 個月` : `${Math.floor(months / 12)} 歲`
-  })() : null
+  const age = petAgeText(pet.birth_date)
 
   return (
     <div className="p-6 max-w-xl">
