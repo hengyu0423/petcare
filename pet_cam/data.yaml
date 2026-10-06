@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['cat']
+
+roboflow:
+  workspace: ouo-1re2z
+  project: my-first-project-gfsab
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/ouo-1re2z/my-first-project-gfsab/dataset/2
