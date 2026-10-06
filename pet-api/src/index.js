@@ -193,4 +193,9 @@ app.get('/api/ping', async (_req, res) => {
   res.json({ ok: true, time: result.rows[0].now })
 })
 
-app.listen(PORT, () => console.log(`🐾 API running on http://localhost:${PORT}`))
+// 本機開發才自己監聽 port；在 Vercel 上由平台接手，只需要匯出 app
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => console.log(`🐾 API running on http://localhost:${PORT}`))
+}
+
+module.exports = app
