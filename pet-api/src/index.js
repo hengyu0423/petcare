@@ -6,7 +6,9 @@ const pool = require('./db')
 const app = express()
 const PORT = process.env.PORT || 4000
 
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
+const allowed = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',').map(s => s.trim())
+app.use(cors({ origin: allowed }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ limit: '10mb', extended: true }))
 

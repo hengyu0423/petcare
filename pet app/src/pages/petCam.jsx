@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 
 const CAMERA_API = 'http://localhost:8000'
-const API = 'http://localhost:4000/api'
+const API = '/api'
 const authHeaders = () => {
   const token = localStorage.getItem('paw-token')
   return token ? { Authorization: `Bearer ${token}` } : {}
