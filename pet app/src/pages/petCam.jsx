@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 
-const CAMERA_API = 'http://localhost:8000'
+const CAMERA_API = import.meta.env.VITE_CAMERA_API_URL || 'http://localhost:8000'
 const API = '/api'
 const authHeaders = () => {
   const token = localStorage.getItem('paw-token')
