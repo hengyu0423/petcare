@@ -38,7 +38,7 @@ PET_CLASSES = [0, 1]
 model = YOLO("../runs/detect/runs/train/pawcare_v1/weights/best.pt")
 
 # Node.js API
-PET_API_URL = "http://localhost:4000"
+PET_API_URL = os.getenv("PET_API_URL", "https://petcare-api-six.vercel.app")
 
 # ⚠️ 改成你 Neon pets 資料表裡這隻寵物的 id
 PET_ID = 8
@@ -171,7 +171,7 @@ def save_mood_to_database(data):
         response = requests.post(
             f"{PET_API_URL}/api/mood-records",
             json=payload,
-            timeout=5,
+            timeout=10,
         )
 
         response.raise_for_status()
@@ -204,7 +204,7 @@ def send_camera_notification(notification_type, title, message):
         response = requests.post(
             NOTIFICATION_API_URL,
             json=payload,
-            timeout=5,
+            timeout=10,
         )
 
         response.raise_for_status()
