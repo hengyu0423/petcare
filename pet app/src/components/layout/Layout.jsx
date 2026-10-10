@@ -6,11 +6,11 @@ import NotificationBell from '../notifications/NotificationBell'
 const NAV_ITEMS = [
   { to: '/dashboard',      icon: '🏠', label: '主頁總覽' },
   { to: '/pets',           icon: '🐶', label: '我的寵物' },
-  { to: '/expenses',       icon: '💰', label: '財務管理' },
-  { to: '/health-consult', icon: '🏥', label: '健康諮詢' },
   { to: '/diet',           icon: '🍽️', label: '飲食管理' },
+  { to: '/health-consult', icon: '🏥', label: '健康諮詢' },
   { to: '/weekly-report',  icon: '📋', label: '健康週報' },
   { to: '/pet-cam',        icon: '📹', label: '即時監控' },
+  { to: '/expenses',       icon: '💰', label: '財務管理' },
 ]
 
 function Logo({ onClick }) {
