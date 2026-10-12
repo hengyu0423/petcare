@@ -35,7 +35,12 @@ CAMERA_SOURCE = "rtsp://nigel1:nigel123@nigel-petcam.asuscomm.com:554/stream2"
 PET_CLASSES = [0, 1]
 
 # YOLO
-model = YOLO("../runs/detect/runs/train/pawcare_v1/weights/best.pt")
+model = YOLO("./runs/petv1/weights/best.pt")
+
+try:
+    print("🧠 YOLO 執行裝置：", model.device)
+except Exception:
+    pass
 
 # Node.js API
 PET_API_URL = os.getenv("PET_API_URL", "https://petcare-api-six.vercel.app")
@@ -53,7 +58,14 @@ PET_ID = 8
 MOOD_RECORD_INTERVAL_SECONDS = 60
 
 # YOLO 偶爾會漏掉一兩幀，所以先容許幾秒
-MISSING_GRACE_SECONDS = 5
+MISSING_GRACE_SECONDS = 8
+
+# YOLO 偵測信心門檻（太高會讓縮起來/側身的寵物被濾掉）
+DETECT_CONF = 0.33
+
+# 診斷：沒偵測到時，每隔幾秒用低門檻再跑一次，印出最高信心值
+DEBUG_MISS_INTERVAL_SECONDS = 5
+DEBUG_MISS_CONF = 0.05
 
 # 連續多久沒有看到寵物才通知主人
 MISSING_ALERT_MINUTES = 20
@@ -107,6 +119,9 @@ last_seen_at = None
 
 # 連續未偵測從何時開始
 not_detected_since = None
+
+# 診斷用：上次印出漏偵測資訊的時間
+last_miss_debug_time = 0.0
 
 # 此次未偵測事件是否已發過提醒
 missing_alert_sent = False
@@ -360,6 +375,67 @@ def analyze_live_frame(x1, y1, x2, y2, conf):
 # 開啟攝影機
 # =========================================================
 
+class LatestFrameReader:
+    """
+    獨立執行緒持續讀取 RTSP，只保留「最新一幀」。
+    YOLO 處理較慢時，舊的畫面會直接丟掉，不會在緩衝區堆積
+    造成越來越嚴重的延遲（畫面慢十幾秒）。
+    """
+
+    def __init__(self, cap):
+        self.cap = cap
+        self.lock = threading.Lock()
+        self.frame = None
+        self.frame_id = 0
+        self.last_returned_id = 0
+        self.failed = False
+        self.stopped = False
+
+        self.thread = threading.Thread(
+            target=self._run,
+            daemon=True,
+        )
+        self.thread.start()
+
+    def _run(self):
+        while not self.stopped and not stop_event.is_set():
+            success, frame = self.cap.read()
+
+            if not success:
+                self.failed = True
+                break
+
+            with self.lock:
+                self.frame = frame
+                self.frame_id += 1
+
+    def read(self, timeout=5.0):
+        start = time.time()
+
+        while time.time() - start < timeout:
+            with self.lock:
+                if (
+                    self.frame is not None
+                    and self.frame_id != self.last_returned_id
+                ):
+                    self.last_returned_id = self.frame_id
+                    return True, self.frame
+
+                failed = self.failed
+
+            if failed:
+                return False, None
+
+            time.sleep(0.005)
+
+        return False, None
+
+    def release(self):
+        self.stopped = True
+        self.thread.join(timeout=2)
+        self.cap.release()
+
+
 def open_camera():
     print("")
     print("📷 正在連接 RTSP 攝影機...")
@@ -407,6 +483,7 @@ def camera_worker():
     global last_seen_at
     global not_detected_since
     global missing_alert_sent
+    global last_miss_debug_time
 
     while not stop_event.is_set():
 
@@ -451,6 +528,11 @@ def camera_worker():
         camera_error = ""
         prev_center = None
 
+        # 只處理最新畫面，避免延遲累積
+        reader = LatestFrameReader(cap)
+        infer_times = []
+        last_infer_log_time = time.time()
+
         # =================================================
         # 持續讀取
         # =================================================
@@ -460,7 +542,7 @@ def camera_worker():
             and
             not stop_event.is_set()
         ):
-            success, frame = cap.read()
+            success, frame = reader.read()
 
             # =============================================
             # 無法取得畫面
@@ -498,12 +580,26 @@ def camera_worker():
             # =============================================
 
             try:
+                infer_start = time.time()
+
                 results = model(
                     frame,
-                    conf=0.4,
+                    conf=DETECT_CONF,
                     classes=PET_CLASSES,
                     verbose=False,
                 )
+
+                infer_times.append(time.time() - infer_start)
+
+                # 每 10 秒印一次平均單幀耗時，用來判斷是不是 YOLO 太慢
+                if time.time() - last_infer_log_time >= 10:
+                    avg_ms = sum(infer_times) / len(infer_times) * 1000
+                    print(
+                        f"⏱ YOLO 平均單幀 {avg_ms:.0f} ms "
+                        f"(約 {1000 / max(avg_ms, 1):.1f} FPS)"
+                    )
+                    infer_times = []
+                    last_infer_log_time = time.time()
 
             except Exception as e:
                 print(
@@ -640,6 +736,36 @@ def camera_worker():
                 if not_detected_since is None:
                     not_detected_since = now
 
+                # 診斷：用低門檻再偵測一次，看是「信心值太低」還是「完全認不出」
+                if (
+                    time.time() - last_miss_debug_time
+                    >= DEBUG_MISS_INTERVAL_SECONDS
+                ):
+                    last_miss_debug_time = time.time()
+
+                    try:
+                        debug_results = model(
+                            frame,
+                            conf=DEBUG_MISS_CONF,
+                            classes=PET_CLASSES,
+                            verbose=False,
+                        )
+                        debug_boxes = debug_results[0].boxes
+
+                        if len(debug_boxes) > 0:
+                            best_conf = float(debug_boxes.conf.max())
+                            print(
+                                f"🔍 漏偵測：最高信心值 {best_conf:.2f} "
+                                f"(門檻 {DETECT_CONF})"
+                            )
+                        else:
+                            print(
+                                "🔍 漏偵測：低門檻也完全沒有偵測結果"
+                            )
+
+                    except Exception as e:
+                        print("🔍 診斷偵測失敗：", e)
+
                 missing_seconds = int(
                     (
                         now - not_detected_since
@@ -726,7 +852,7 @@ def camera_worker():
         # 斷線
         # =============================================
 
-        cap.release()
+        reader.release()
 
         print("🔄 2 秒後重新連接攝影機...")
         time.sleep(2)
