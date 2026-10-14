@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/layout/Layout'
@@ -10,10 +11,13 @@ import ExpensesPage from './pages/ExpensesPage'
 import ExpenseReportPage from './pages/ExpenseReportPage'
 import HealthConsultPage from './pages/HealthConsultPage'
 import DietPage from './pages/DietPage'
-import FoodDatabasePage from './pages/FoodDatabasePage' 
+import FoodDatabasePage from './pages/FoodDatabasePage'
 import CommunityPage from './pages/CommunityPage'
 import WeeklyReportPage from './pages/WeeklyReportPage'
 import PetCam from './pages/petCam'
+
+// 新增：AI 寵物心情辨識
+import PetEmotion from './pages/PetEmotion'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore(s => s.token)
@@ -23,14 +27,23 @@ function PrivateRoute({ children }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login"    element={<LoginPage />} />
+      <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Layout />
+          </PrivateRoute>
+        }
+      >
         <Route index element={<Navigate to="/dashboard" replace />} />
+
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="pets"      element={<PetsPage />} />
-        <Route path="pets/:id"  element={<PetDetailPage />} />
-        <Route path="expenses"       element={<ExpensesPage />} />
+        <Route path="pets" element={<PetsPage />} />
+        <Route path="pets/:id" element={<PetDetailPage />} />
+        <Route path="expenses" element={<ExpensesPage />} />
         <Route path="expense-report" element={<ExpenseReportPage />} />
         <Route path="health-consult" element={<HealthConsultPage />} />
         <Route path="diet" element={<DietPage />} />
@@ -38,7 +51,11 @@ export default function App() {
         <Route path="community" element={<CommunityPage />} />
         <Route path="weekly-report" element={<WeeklyReportPage />} />
         <Route path="pet-cam" element={<PetCam />} />
+
+        {/* 新增：AI 寵物心情辨識 */}
+        <Route path="pet-emotion" element={<PetEmotion />} />
+
       </Route>
     </Routes>
   )
-} 
+}

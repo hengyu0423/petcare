@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/health-consult', icon: '🏥', label: '健康諮詢' },
   { to: '/weekly-report',  icon: '📋', label: '健康週報' },
   { to: '/pet-cam',        icon: '📹', label: '即時監控' },
+   { to: '/pet-emotion',    icon: '🐾', label: 'AI 寵物心情辨識' },
   { to: '/expenses',       icon: '💰', label: '財務管理' },
 ]
 
