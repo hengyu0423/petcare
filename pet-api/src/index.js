@@ -190,6 +190,7 @@ app.use('/api/posts', require('./routes/posts'))
 app.use('/api/mood-records', require('./routes/moodRecords'))
 app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/pet-emotion', require('./routes/petEmotion'))
+app.use('/api/assistant', require('./routes/assistant'))
 
 app.get('/api/ping', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')

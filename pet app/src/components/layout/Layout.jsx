@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import NotificationBell from '../notifications/NotificationBell'
+import AssistantWidget from '../assistant/AssistantWidget'
 
 const NAV_ITEMS = [
   { to: '/dashboard',      icon: '🏠', label: '主頁總覽' },
@@ -168,6 +169,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* 右下角 AI 小助理（健康諮詢頁除外） */}
+      <AssistantWidget />
 
     </div>
   )
