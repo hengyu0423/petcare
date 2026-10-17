@@ -67,6 +67,16 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  // 小助理回覆裡的「通知」連結：直接打開通知偏好設定
+  useEffect(() => {
+    const openPrefs = () => {
+      setOpen(false)
+      setShowPrefs(true)
+    }
+    window.addEventListener('paw:open-notification-settings', openPrefs)
+    return () => window.removeEventListener('paw:open-notification-settings', openPrefs)
+  }, [])
+
   // SSE：有新通知就即時更新，不用等下一次 polling
   useEffect(() => {
     const token = localStorage.getItem('paw-token')
