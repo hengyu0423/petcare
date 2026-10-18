@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const Groq = require('groq-sdk')
 const jwt = require('jsonwebtoken')
+const multer = require('multer')
 
 const requireAuth = require('../middleware/auth')
 const pool = require('../db')
@@ -61,6 +62,76 @@ function chatRateLimit(req, res, next) {
     })
   }
   next()
+}
+
+// ======================================================
+// 食物照片：上傳限制與限流
+//
+// 照片只在記憶體裡處理，不會存檔、也不會寫進資料庫。
+// 前端會先把照片縮小到 1024px 內再傳（Vercel 函式的請求大小上限約 4.5MB）。
+// ======================================================
+
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024
+const PHOTOS_PER_MIN = 5 // 每張照片會呼叫 Gemini + Groq，比純文字貴，另外限流
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_PHOTO_BYTES, files: 1 }
+})
+
+const photoHits = new Map()
+
+function isPhotoRateLimited(userId) {
+  const now = Date.now()
+  const recent = (photoHits.get(userId) || []).filter(t => t > now - 60 * 1000)
+  if (recent.length >= PHOTOS_PER_MIN) {
+    photoHits.set(userId, recent)
+    return true
+  }
+  recent.push(now)
+  photoHits.set(userId, recent)
+  return false
+}
+
+// 聊天請求可以是 JSON，也可以是帶照片的 multipart（JSON 內容放在 payload 欄位）。
+// 沒有照片的請求原樣通過。
+function acceptPhoto(req, res, next) {
+  photoUpload.single('image')(req, res, err => {
+    if (err) {
+      return res.status(400).json({
+        success: false,
+        error:
+          err.code === 'LIMIT_FILE_SIZE'
+            ? '照片太大了，請換一張或縮小後再傳'
+            : '照片上傳失敗，請再試一次'
+      })
+    }
+
+    if (typeof req.body?.payload === 'string') {
+      try {
+        req.body = JSON.parse(req.body.payload)
+      } catch {
+        return res.status(400).json({ success: false, error: '請求格式錯誤' })
+      }
+    }
+
+    if (req.file) {
+      if (!ALLOWED_PHOTO_TYPES.has(req.file.mimetype)) {
+        return res
+          .status(400)
+          .json({ success: false, error: '只支援 JPG、PNG、WebP 照片' })
+      }
+      if (isPhotoRateLimited(req.userId)) {
+        return res.status(429).json({
+          success: false,
+          error: '照片分析太頻繁了，請稍等一下再傳'
+        })
+      }
+    }
+
+    next()
+  })
 }
 
 // ======================================================
@@ -346,6 +417,149 @@ async function toolGetDietAlerts({ req, pet }) {
   }
 }
 
+// 與飲食頁面相同的餵食前檢查（健康歷史 → 近期飲食 → 營養與食物安全，含巧克力、洋蔥、葡萄等危險食物規則）
+async function runFoodCheck({ req, pet, food }) {
+  const hs = await pool.query(
+    `SELECT title, description
+       FROM health_records
+      WHERE pet_id = $1
+        AND date >= (NOW() AT TIME ZONE $2::text)::date - 90`,
+    [pet.id, TZ]
+  )
+  const healthSummary = hs.rows
+    .map(r => `${r.title || ''} ${r.description || ''}`)
+    .join('\n')
+
+  const check = await callInternal(req, '/api/food/check-food', {
+    method: 'POST',
+    body: {
+      petId: pet.id,
+      pet: {
+        id: pet.id,
+        name: pet.name,
+        species: pet.species,
+        breed: pet.breed,
+        gender: pet.gender,
+        weight: pet.weight,
+        birth_date: pet.birth_date
+      },
+      healthSummary,
+      recentMeals: [],
+      food: {
+        food_name: food.name,
+        category: food.category,
+        calories_per_100g: food.calories_per_100g,
+        protein_pct: food.protein_pct,
+        fat_pct: food.fat_pct,
+        carb_pct: food.carb_pct,
+        fiber_pct: food.fiber_pct
+      }
+    }
+  })
+
+  return (check.warnings || []).map(w => ({
+    level: w.level,
+    title: w.title,
+    reason: w.reason,
+    requireAck: w.requireAck !== false
+  }))
+}
+
+// 辨識結果只留下乾淨的食物名稱（防止照片裡的文字被當成指令帶進 prompt）
+const cleanFoodName = text =>
+  String(text || '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/[`"'<>{}[\]\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40)
+
+const num = v => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+// 照片 → 辨識食物（沿用 /api/food/ai-analyze-image：Gemini 辨識 + Groq 估營養）
+// → 針對選定寵物做餵食前檢查。回傳的 verdict 由規則決定，不交給 AI 自己判斷。
+//   avoid   有 danger 等級的警訊（例如巧克力、洋蔥、葡萄、木糖醇）
+//   caution 有 warning 等級的警訊
+//   ok      檢查過、沒有警訊
+//   unknown 沒有選寵物或檢查失敗，只有辨識結果
+async function analyzeFoodPhoto({ req, file, pet, onStatus }) {
+  onStatus?.('正在辨識食物…')
+
+  let analysis
+  try {
+    const form = new FormData()
+    form.append('image', new Blob([file.buffer], { type: file.mimetype }), 'photo.jpg')
+
+    const res = await fetch(internalBase(req) + '/api/food/ai-analyze-image', {
+      method: 'POST',
+      headers: { Authorization: req.headers.authorization }, // Content-Type 交給 FormData 自己帶 boundary
+      body: form,
+      signal: AbortSignal.timeout(25000)
+    })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.success) throw new Error(json?.error || `辨識失敗（${res.status}）`)
+    analysis = json.data
+  } catch (err) {
+    console.error('assistant photo analyze error:', err)
+    return { ok: false, reason: 'analysis_failed' }
+  }
+
+  const name = cleanFoodName(analysis.food_name || analysis.image_food_name)
+  if (!name || name === '未知食物' || cleanFoodName(analysis.image_food_name) === '未知食物') {
+    return { ok: false, reason: 'unrecognized' }
+  }
+
+  const food = {
+    name,
+    category: analysis.category || 'other',
+    calories_per_100g: num(analysis.calories_per_100g),
+    protein_pct: num(analysis.protein_pct),
+    fat_pct: num(analysis.fat_pct),
+    carb_pct: num(analysis.carb_pct),
+    fiber_pct: num(analysis.fiber_pct)
+  }
+
+  let warnings = []
+  let checked = false
+
+  if (pet) {
+    onStatus?.(`正在檢查是否適合 ${pet.name}…`)
+    try {
+      warnings = await runFoodCheck({ req, pet, food })
+      checked = true
+    } catch (err) {
+      console.error('assistant photo check error:', err)
+    }
+  }
+
+  const verdict = !checked
+    ? 'unknown'
+    : warnings.some(w => w.level === 'danger')
+      ? 'avoid'
+      : warnings.some(w => w.level === 'warning')
+        ? 'caution'
+        : 'ok'
+
+  return {
+    ok: true,
+    name,
+    verdict,
+    checked,
+    petName: pet?.name || null,
+    nutrition: {
+      kcal: food.calories_per_100g,
+      protein: food.protein_pct,
+      fat: food.fat_pct,
+      carb: food.carb_pct,
+      fiber: food.fiber_pct
+    },
+    warnings: warnings.map(w => ({ level: w.level, title: w.title, reason: w.reason }))
+  }
+}
+
 async function toolProposeFeeding({ req, pet, userId }, args) {
   const name = String(args.food_name || '').trim().slice(0, 100)
   const amount = Number(args.amount_g)
@@ -407,51 +621,7 @@ async function toolProposeFeeding({ req, pet, userId }, args) {
   const fatG = per(food.fat_pct)
   const carbG = per(food.carb_pct)
 
-  // 與飲食頁面相同的餵食前檢查（健康歷史 → 近期飲食 → 營養）
-  const hs = await pool.query(
-    `SELECT title, description
-       FROM health_records
-      WHERE pet_id = $1
-        AND date >= (NOW() AT TIME ZONE $2::text)::date - 90`,
-    [pet.id, TZ]
-  )
-  const healthSummary = hs.rows
-    .map(r => `${r.title || ''} ${r.description || ''}`)
-    .join('\n')
-
-  const check = await callInternal(req, '/api/food/check-food', {
-    method: 'POST',
-    body: {
-      petId: pet.id,
-      pet: {
-        id: pet.id,
-        name: pet.name,
-        species: pet.species,
-        breed: pet.breed,
-        gender: pet.gender,
-        weight: pet.weight,
-        birth_date: pet.birth_date
-      },
-      healthSummary,
-      recentMeals: [],
-      food: {
-        food_name: food.name,
-        category: food.category,
-        calories_per_100g: food.calories_per_100g,
-        protein_pct: food.protein_pct,
-        fat_pct: food.fat_pct,
-        carb_pct: food.carb_pct,
-        fiber_pct: food.fiber_pct
-      }
-    }
-  })
-
-  const warnings = (check.warnings || []).map(w => ({
-    level: w.level,
-    title: w.title,
-    reason: w.reason,
-    requireAck: w.requireAck !== false
-  }))
+  const warnings = await runFoodCheck({ req, pet, food: { ...food, name: food.name } })
 
   const action = {
     petId: pet.id,
@@ -528,7 +698,38 @@ function formatPetLines(pets) {
     .join('\n')
 }
 
-function buildSystemPrompt({ petContext, petLines, page, hasTools }) {
+function describePhoto(photo) {
+  if (!photo) return ''
+
+  if (!photo.ok) {
+    return `
+【使用者剛傳來一張食物照片，但系統沒辦法辨識】
+原因：${photo.reason === 'unrecognized' ? '看不出照片裡是什麼食物' : '辨識服務暫時失敗'}。
+請用一兩句話請使用者換個角度、光線更好、讓食物佔滿畫面再拍一次，或直接輸入食物名稱。不要猜測是什麼食物，也不要給能不能吃的結論。
+`
+  }
+
+  return `
+【使用者剛傳來一張食物照片（系統已辨識並檢查，以下結果可信）】
+${JSON.stringify({
+    辨識結果: photo.name,
+    每100克營養: photo.nutrition,
+    檢查對象: photo.petName,
+    結論: { avoid: '不建議餵食', caution: '可以少量，但要注意', ok: '目前沒有發現問題', unknown: '未能檢查是否適合寵物' }[photo.verdict],
+    警訊: photo.warnings
+  })}
+
+回答照片問題的規則：
+- 第一句直接給結論，必須和上面的「結論」與「警訊」一致，不可以自己推翻。
+- 接著用一兩句說明原因（引用警訊內容），再給一個實用建議（例如份量要少、先確認成分）。
+- 「結論」是「不建議餵食」時，語氣要明確，並提醒若已經吃進去、出現不舒服要盡快聯絡獸醫。
+- 提醒辨識可能有誤（混合食物、調味、成分從照片看不出來），請使用者確認食物名稱。
+- 結論是「未能檢查是否適合寵物」時，說明只有辨識結果，請使用者先選好寵物再問。
+- 想記錄餵食的話，請先到 [食物資料庫](/food-database) 新增這個食物，再告訴你餵了多少公克。
+`
+}
+
+function buildSystemPrompt({ petContext, petLines, page, hasTools, photo }) {
   const abilityRules = hasTools
     ? `- 使用者已選定寵物，你可以用工具做這幾件事：
   · 使用者問「今天餵什麼／飲食計畫」→ 呼叫 get_meal_plan，用口語整理成簡短建議；
@@ -582,6 +783,7 @@ ${abilityRules}
 【PawCare 功能清單】
 ${APP_KNOWLEDGE}
 
+${describePhoto(photo)}
 【使用者目前所在頁面】
 ${pageLabel(page)}
 
@@ -710,19 +912,26 @@ async function prepareChat(req) {
   }
 
   // 沒有選寵物時不開放工具（工具都需要知道是哪隻寵物）
-  return { clean, pet, petContext, petLines, page, useTools: Boolean(pet) }
+  return { clean, pet, petContext, petLines, page, file: req.file || null, useTools: Boolean(pet) }
 }
 
 // hooks: { onText(text), onStatus(text), onReset() }
 // 回傳 { finalText, pendingAction }；被中止時回傳 null
 async function runChatLoop({ req, prep, hooks = {}, signal }) {
-  const { clean, pet, petContext, petLines, page } = prep
+  const { clean, pet, petContext, petLines, page, file } = prep
   let useTools = prep.useTools
   // gpt-oss 這類模型支援 reasoning 參數（調低可大幅加快回應）；不支援的模型會回 400，再退回不帶參數
   let useReasoningParams = true
 
+  // 有附照片時先辨識並檢查，結果同時放進 prompt（讓 AI 解釋）和回傳給前端（顯示結論卡片）
+  let foodPhoto = null
+  if (file) {
+    foodPhoto = await analyzeFoodPhoto({ req, file, pet, onStatus: hooks.onStatus })
+    if (signal?.aborted) return null
+  }
+
   const promptFor = hasTools =>
-    buildSystemPrompt({ petContext, petLines, page, hasTools })
+    buildSystemPrompt({ petContext, petLines, page, hasTools, photo: foodPhoto })
 
   const convo = [{ role: 'system', content: promptFor(useTools) }, ...clean]
   const ctx = { req, pet, userId: req.userId }
@@ -871,7 +1080,7 @@ async function runChatLoop({ req, prep, hooks = {}, signal }) {
   }
 
   if (signal?.aborted) return null
-  return { finalText, pendingAction }
+  return { finalText, pendingAction, foodPhoto }
 }
 
 const friendlyError = err =>
@@ -885,7 +1094,7 @@ const friendlyError = err =>
 // body: { messages: [{role, content}], petId?, page? }
 // ======================================================
 
-router.post('/chat', chatRateLimit, async (req, res) => {
+router.post('/chat', chatRateLimit, acceptPhoto, async (req, res) => {
   try {
     const prep = await prepareChat(req)
     if (prep.error) {
@@ -904,7 +1113,7 @@ router.post('/chat', chatRateLimit, async (req, res) => {
 
     res.json({
       success: true,
-      data: { reply: out.finalText, pendingAction: out.pendingAction }
+      data: { reply: out.finalText, pendingAction: out.pendingAction, foodPhoto: out.foodPhoto }
     })
   } catch (err) {
     console.error('Assistant chat error:', err)
@@ -918,9 +1127,9 @@ router.post('/chat', chatRateLimit, async (req, res) => {
 //   status  { text }          工具執行中的進度文字
 //   delta   { text }          回答的新文字
 //   reset   {}                把目前已顯示的文字清掉（模型改變主意去呼叫工具時）
-//   done    { reply, pendingAction }   最終結果（以這個為準）
+//   done    { reply, pendingAction, foodPhoto }   最終結果（以這個為準）；foodPhoto 是照片辨識與檢查的結論
 //   error   { error, status }
-router.post('/chat/stream', chatRateLimit, async (req, res) => {
+router.post('/chat/stream', chatRateLimit, acceptPhoto, async (req, res) => {
   let prep
 
   try {
@@ -975,7 +1184,11 @@ router.post('/chat/stream', chatRateLimit, async (req, res) => {
       if (!out.finalText) {
         send('error', { error: '小助理暫時沒有回應，請再試一次', status: 502 })
       } else {
-        send('done', { reply: out.finalText, pendingAction: out.pendingAction })
+        send('done', {
+          reply: out.finalText,
+          pendingAction: out.pendingAction,
+          foodPhoto: out.foodPhoto
+        })
       }
     }
   } catch (err) {

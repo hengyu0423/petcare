@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
@@ -54,7 +54,13 @@ function linkifyFeatureText(text) {
   if (!text) return text
 
   const slots = []
-  const stash = md => SLOT(slots.push(md) - 1)
+  // 記錄哪些頁面已經有連結：同一則回答裡，每個頁面最多再依名稱補一次，避免一行出現兩個連結
+  const linkedTargets = new Set()
+  const stash = md => {
+    const target = /\]\(([^)]+)\)$/.exec(md)?.[1]
+    if (target) linkedTargets.add(target)
+    return SLOT(slots.push(md) - 1)
+  }
 
   let s = String(text)
 
@@ -83,20 +89,46 @@ function linkifyFeatureText(text) {
     }
   )
 
-  const applyName = (chunk, name, to) => {
-    if (!chunk || chunk.startsWith('\u0000')) return chunk
-    if (!chunk.includes(name)) return chunk
-    return chunk.split(name).join(stash(`[${name}](${to})`))
+  // 在還沒變成連結的文字裡，把第一個 name 換成連結；成功回傳 true
+  const linkFirst = (name, to) => {
+    let done = false
+    s = s
+      .split(/(\u0000\d+\u0000)/)
+      .map(part => {
+        if (done || !part || part.startsWith('\u0000')) return part
+        const i = part.indexOf(name)
+        if (i < 0) return part
+        done = true
+        return part.slice(0, i) + stash(`[${name}](${to})`) + part.slice(i + name.length)
+      })
+      .join('')
+    return done
   }
 
-  for (const { name, to } of FEATURE_NAMES) {
-    s = s.split(/(\u0000\d+\u0000)/).map(part => applyName(part, name, to)).join('')
+  // 同一頁有多個名稱（手機使用／加到主畫面）時，取先出現的那個
+  const candidates = FEATURE_NAMES
+    .map(f => ({ ...f, pos: s.indexOf(f.name) }))
+    .filter(f => f.pos >= 0)
+    .sort((x, y) => x.pos - y.pos || y.name.length - x.name.length)
+
+  for (const { name, to } of candidates) {
+    if (!linkedTargets.has(to)) linkFirst(name, to)
   }
 
-  s = s
-    .split(/(\u0000\d+\u0000)/)
-    .map(part => applyName(part, '通知', '/notifications'))
-    .join('')
+  // 「通知」是常見詞（例如「請立即通知獸醫」），只有「通知：…」這種功能說明才補成連結
+  if (!linkedTargets.has('/notifications')) {
+    let done = false
+    s = s
+      .split(/(\u0000\d+\u0000)/)
+      .map(part => {
+        if (done || part.startsWith('\u0000')) return part
+        return part.replace(/通知(?=[：:])/, () => {
+          done = true
+          return stash('[通知](/notifications)')
+        })
+      })
+      .join('')
+  }
 
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => slots[Number(i)])
 }
@@ -149,6 +181,11 @@ const PAGE_SUGGESTIONS = {
   '/pet-cam': ['即時監控怎麼設定？'],
   '/expenses': ['怎麼記錄醫療支出？']
 }
+// 快速提問列最前面的「拍照」：點了不是送出文字，而是打開選照片
+const PHOTO_CHIP = '📷 拍照問能不能吃'
+const PHOTO_MAX_SIDE = 1024 // 送出前縮小到這個邊長以內（Vercel 函式的請求上限約 4.5MB，手機原圖常常超過）
+const PHOTO_THUMB_SIDE = 160
+
 const DEFAULT_SUGGESTIONS = [
   '今天可以餵什麼？',
   'PawCare 有哪些功能？',
@@ -187,21 +224,89 @@ function loadPetId() {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+// ---------- 食物照片：縮小、轉成 JPEG ----------
+async function loadBitmap(file) {
+  if (window.createImageBitmap) {
+    try {
+      return await window.createImageBitmap(file, { imageOrientation: 'from-image' })
+    } catch {
+      try {
+        return await window.createImageBitmap(file)
+      } catch { /* 改用 Image 後備 */ }
+    }
+  }
+
+  const url = URL.createObjectURL(file)
+  try {
+    return await new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('decode'))
+      img.src = url
+    })
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+// 回傳 { blob, thumb, previewUrl }；讀不到圖片時丟出帶有中文說明的錯誤
+async function preparePhoto(file) {
+  if (!file || !String(file.type).startsWith('image/')) {
+    throw new Error('請選擇圖片檔案（JPG、PNG、WebP）')
+  }
+
+  let bitmap
+  try {
+    bitmap = await loadBitmap(file)
+  } catch {
+    throw new Error('讀不到這張照片，請換一張試試')
+  }
+
+  const draw = side => {
+    const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('這個瀏覽器無法處理照片')
+    ctx.fillStyle = '#ffffff' // PNG 的透明處轉成 JPEG 會變黑，先鋪白底
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    return canvas
+  }
+  const toBlob = (canvas, quality) =>
+    new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality))
+
+  try {
+    const canvas = draw(PHOTO_MAX_SIDE)
+    let blob = await toBlob(canvas, 0.82)
+    if (blob && blob.size > 2.5 * 1024 * 1024) blob = await toBlob(canvas, 0.6)
+    if (!blob) throw new Error('這個瀏覽器無法處理照片')
+
+    const thumb = draw(PHOTO_THUMB_SIDE).toDataURL('image/jpeg', 0.7)
+    return { blob, thumb, previewUrl: URL.createObjectURL(blob) }
+  } finally {
+    bitmap.close?.()
+  }
+}
+
 // ---------- 串流 ----------
 // 預設走同網域的 /api（經 vercel.json 轉發）。如果發現文字不是逐字出現而是一次跳出來，
 // 代表轉發層把串流緩衝住了：在前端專案設定 VITE_API_URL 為 API 網域即可直連。
 const STREAM_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 async function streamChat(body, { signal, onStatus, onDelta, onReset }) {
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   let res
   try {
     res = await fetch(`${STREAM_BASE}/api/assistant/chat/stream`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        // 帶照片時是 FormData，Content-Type（含 boundary）要交給瀏覽器自己設
+        ...(isForm ? {} : { 'Content-Type': 'application/json' }),
         Authorization: `Bearer ${localStorage.getItem('paw-token')}`
       },
-      body: JSON.stringify(body),
+      body: isForm ? body : JSON.stringify(body),
       signal
     })
   } catch (err) {
@@ -268,6 +373,66 @@ async function streamChat(body, { signal, onStatus, onDelta, onReset }) {
     throw e
   }
   return result
+}
+
+// ---------- 食物照片的結論卡片 ----------
+// 結論（verdict）由後端規則決定（危險食物、健康歷史、近期飲食…），不是 AI 自己說了算。
+const VERDICTS = {
+  avoid: { label: '不建議餵食', box: 'border-red-200 bg-red-50', pill: 'bg-red-500 text-white' },
+  caution: { label: '可以少量，要注意', box: 'border-amber-200 bg-amber-50', pill: 'bg-amber-500 text-white' },
+  ok: { label: '目前沒發現問題', box: 'border-green-200 bg-green-50', pill: 'bg-green-500 text-white' },
+  unknown: { label: '只有辨識，未檢查', box: 'border-gray-200 bg-gray-50', pill: 'bg-gray-400 text-white' }
+}
+
+function FoodPhotoCard({ photo }) {
+  const v = VERDICTS[photo.verdict] || VERDICTS.unknown
+  const n = photo.nutrition || {}
+  const hasNutrition = Number(n.kcal) > 0
+
+  return (
+    <div className={`mt-1.5 w-[85%] rounded-2xl border p-3 text-sm ${v.box}`}>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-gray-500">
+            {photo.petName && photo.checked ? `針對 ${photo.petName}` : '照片辨識'}
+          </p>
+          <p className="font-semibold text-gray-800 break-words">{photo.name}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${v.pill}`}>
+          {v.label}
+        </span>
+      </div>
+
+      <p className="mt-1.5 text-xs text-gray-600">
+        {hasNutrition
+          ? `每 100g 約 ${n.kcal} kcal・蛋白質 ${n.protein}g・脂肪 ${n.fat}g・碳水 ${n.carb}g`
+          : '營養資料不足'}
+      </p>
+
+      {photo.warnings?.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {photo.warnings.map((w, i) => (
+            <li
+              key={i}
+              className={`rounded-lg px-2 py-1 text-xs ${
+                w.level === 'danger'
+                  ? 'bg-red-100 text-red-800'
+                  : w.level === 'warning'
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-white/70 text-gray-600'
+              }`}
+            >
+              {w.title}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="mt-2 text-[10px] text-gray-400">
+        辨識結果可能有誤，請自行確認食物與成分
+      </p>
+    </div>
+  )
 }
 
 // ---------- 餵食確認卡 ----------
@@ -469,6 +634,8 @@ export default function AssistantWidget() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [petId, setPetId] = useState(loadPetId)
+  const [photo, setPhoto] = useState(null) // 準備隨下一則訊息送出的照片 { blob, thumb, previewUrl }
+  const [photoError, setPhotoError] = useState('')
   const [showPwaHint, setShowPwaHint] = useState(false)
 
   const dragRef = useRef(null)
@@ -476,6 +643,7 @@ export default function AssistantWidget() {
   const endRef = useRef(null)
   const inputRef = useRef(null)
   const abortRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const { data: pets = [] } = useQuery({
     queryKey: ['assistant-pets'],
@@ -552,6 +720,16 @@ export default function AssistantWidget() {
   // 登出或離開時中止還沒完成的回答
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // 離開時釋放還沒送出的照片預覽
+  const photoRef = useRef(null)
+  photoRef.current = photo
+  useEffect(
+    () => () => {
+      if (photoRef.current) URL.revokeObjectURL(photoRef.current.previewUrl)
+    },
+    []
+  )
+
   // 新訊息出現時捲到最底
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -604,16 +782,59 @@ export default function AssistantWidget() {
     })
   }
 
+  // ---------- 食物照片 ----------
+  const openPicker = () => {
+    if (!loading) fileInputRef.current?.click()
+  }
+
+  const removePhoto = () => {
+    setPhoto(old => {
+      if (old) URL.revokeObjectURL(old.previewUrl)
+      return null
+    })
+    setPhotoError('')
+  }
+
+  const onPickFile = async e => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // 讓同一張照片可以重新選
+    if (!file) return
+
+    try {
+      const prepared = await preparePhoto(file)
+      setPhoto(old => {
+        if (old) URL.revokeObjectURL(old.previewUrl)
+        return prepared
+      })
+      setPhotoError('')
+    } catch (err) {
+      setPhotoError(err.message || '讀不到這張照片，請換一張試試')
+    }
+  }
+
   // ---------- 傳送訊息（串流） ----------
   const send = async text => {
-    const content = String(text ?? input).trim()
+    const fromInput = text == null // 是自己打的字（不是點建議按鈕）
+    const typed = String(text ?? input).trim()
+    const attached = photo
+    // 只傳照片、沒打字時，用一句預設的問題
+    const content =
+      typed ||
+      (attached
+        ? activePet
+          ? `這個可以給 ${activePet.name} 吃嗎？`
+          : '這個可以給寵物吃嗎？'
+        : '')
     if (!content || loading) return
 
     // 記住是哪隻寵物的對話：回答途中就算切換了寵物，內容也會寫回原本那份
     const key = chatKey
     const petForSend = activePetId
 
-    const next = [...messages, { role: 'user', content }]
+    const next = [
+      ...messages,
+      { role: 'user', content, ...(attached ? { thumb: attached.thumb } : {}) }
+    ]
     const sid = `s${Date.now()}`
 
     updateChat(key, () => [
@@ -621,6 +842,8 @@ export default function AssistantWidget() {
       { role: 'assistant', content: '', streaming: true, status: null, sid }
     ])
     setInput('')
+    setPhoto(null) // 預覽先收起來；失敗時下面會放回去（照片的網址等結束後才釋放）
+    setPhotoError('')
     setLoading(true)
 
     const controller = new AbortController()
@@ -638,13 +861,22 @@ export default function AssistantWidget() {
       page: pathname
     }
 
+    // 有照片時改用 multipart：照片 + payload（JSON）
+    let body = payload
+    if (attached) {
+      body = new FormData()
+      body.append('image', attached.blob, 'photo.jpg')
+      body.append('payload', JSON.stringify(payload))
+    }
+
     let streamed = ''
+    let restorePhoto = false // 還沒拿到任何回答就失敗／中止：把照片放回去，不用重拍
 
     try {
       let result
 
       try {
-        result = await streamChat(payload, {
+        result = await streamChat(body, {
           signal: controller.signal,
           onStatus: s => patch({ status: s }),
           onDelta: t => {
@@ -659,7 +891,7 @@ export default function AssistantWidget() {
       } catch (err) {
         // 串流連不上或被中間層擋掉，而且還沒出現任何文字 → 改用一次回完的版本
         if (err.fallback && !streamed) {
-          const { data } = await api.post('/assistant/chat', payload, {
+          const { data } = await api.post('/assistant/chat', body, {
             signal: controller.signal
           })
           if (!data.success) throw new Error(data.error || '小助理暫時無法回答')
@@ -672,6 +904,7 @@ export default function AssistantWidget() {
       patch({
         content: result.reply,
         pendingAction: result.pendingAction || null,
+        foodPhoto: result.foodPhoto || null,
         streaming: false,
         status: null
       })
@@ -679,6 +912,7 @@ export default function AssistantWidget() {
       const aborted = err.name === 'AbortError' || err.code === 'ERR_CANCELED'
 
       if (aborted) {
+        restorePhoto = !streamed
         // 使用者按了停止（或切換了寵物）：保留已經出現的文字，沒有文字就拿掉這則
         updateChat(key, ms =>
           streamed
@@ -696,6 +930,7 @@ export default function AssistantWidget() {
           status: null
         })
       } else {
+        restorePhoto = true
         patch({
           content:
             err.response?.data?.error ||
@@ -709,6 +944,16 @@ export default function AssistantWidget() {
     } finally {
       setLoading(false)
       abortRef.current = null
+
+      if (attached) {
+        if (restorePhoto) {
+          // 照片和打的字一起放回去，使用者直接再按一次送出就好
+          setPhoto(old => old ?? attached)
+          if (fromInput && typed) setInput(cur => cur || typed)
+        } else {
+          URL.revokeObjectURL(attached.previewUrl)
+        }
+      }
     }
   }
 
@@ -768,29 +1013,37 @@ export default function AssistantWidget() {
 
   const handleSubmit = e => {
     e.preventDefault()
-    send(input)
+    send() // 不帶參數：表示內容來自輸入框（建議按鈕才會帶文字）
   }
 
-  // 站內連結：只允許已知功能路徑，擋掉 //example.com 這類外部網址
-  const markdownComponents = {
-    a: ({ href, children }) => {
-      if (isInternalHref(href)) {
-        return (
-          <a
-            href={href === '/notifications' || href === '/pwa-install' ? '#' : href}
-            onClick={e => {
-              e.preventDefault()
-              goTo(href)
-            }}
-            className="text-green-600 underline underline-offset-2 font-medium hover:text-green-700"
-          >
-            {children}
-          </a>
-        )
+  // 站內連結：只允許已知功能路徑，擋掉 //example.com 這類外部網址。
+  // 用 ref 拿最新的 goTo，讓 components 物件保持不變——否則每次渲染（串流時每個字都會）
+  // 都會把所有連結整個卸載重建，造成閃爍，也讓 hover／點擊中的連結失效。
+  const goToRef = useRef(goTo)
+  goToRef.current = goTo
+
+  const markdownComponents = useMemo(
+    () => ({
+      a: ({ href, children }) => {
+        if (isInternalHref(href)) {
+          return (
+            <a
+              href={href === '/notifications' || href === '/pwa-install' ? '#' : href}
+              onClick={e => {
+                e.preventDefault()
+                goToRef.current(href)
+              }}
+              className="text-green-600 underline underline-offset-2 font-medium hover:text-green-700"
+            >
+              {children}
+            </a>
+          )
+        }
+        return <span>{children}</span>
       }
-      return <span>{children}</span>
-    }
-  }
+    }),
+    []
+  )
 
   // ---------- 面板位置（電腦版：跟著球走；手機版：底部抽屜） ----------
   const PANEL_W = 380
@@ -815,6 +1068,7 @@ export default function AssistantWidget() {
 
   const pageKey = Object.keys(PAGE_SUGGESTIONS).find(k => pathname.startsWith(k))
   const suggestions = [
+    PHOTO_CHIP,
     ...new Set([...(PAGE_SUGGESTIONS[pageKey] || []), ...DEFAULT_SUGGESTIONS])
   ].slice(0, 6)
 
@@ -917,7 +1171,7 @@ export default function AssistantWidget() {
                 <div className="max-w-[85%] bg-white border border-gray-200 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-gray-700 leading-relaxed">
                   <p>嗨！我是 PawCare 小助理 🐾</p>
                   <p className="mt-1">
-                    可以問我怎麼使用各項功能、日常寵物照護的小問題，也能幫你查今天該餵什麼、記錄餵食。
+                    可以問我怎麼使用各項功能、日常寵物照護的小問題，也能幫你查今天該餵什麼、記錄餵食，或拍張食物照片問我能不能吃。
                   </p>
                 </div>
               </div>
@@ -955,6 +1209,13 @@ export default function AssistantWidget() {
                 m.role === 'user' ? (
                   <div key={i} className="flex justify-end">
                     <div className="max-w-[85%] bg-green-500 text-white rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                      {m.thumb && (
+                        <img
+                          src={m.thumb}
+                          alt="已傳送的食物照片"
+                          className="mb-1.5 h-28 w-28 rounded-lg object-cover bg-white/20"
+                        />
+                      )}
                       {m.content}
                     </div>
                   </div>
@@ -996,6 +1257,8 @@ export default function AssistantWidget() {
                       )}
                     </div>
 
+                    {m.foodPhoto?.ok && <FoodPhotoCard photo={m.foodPhoto} />}
+
                     {m.pendingAction && (
                       <FeedingCard
                         action={m.pendingAction}
@@ -1013,7 +1276,44 @@ export default function AssistantWidget() {
             </div>
 
             {/* 快速提問：一直都在，點一下直接送出；可橫向滑動 */}
-            <ChipRow items={suggestions} disabled={loading} onPick={send} />
+            <ChipRow
+              items={suggestions}
+              disabled={loading}
+              onPick={q => (q === PHOTO_CHIP ? openPicker() : send(q))}
+            />
+
+            {/* 準備傳送的照片 */}
+            {(photo || photoError) && (
+              <div className="shrink-0 bg-white px-3 pt-2">
+                {photo && (
+                  <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-1.5">
+                    <img
+                      src={photo.thumb}
+                      alt="準備傳送的食物照片"
+                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    />
+                    <p className="min-w-0 flex-1 text-xs text-green-800">
+                      傳送後會辨識食物，並檢查是否適合{activePet ? ` ${activePet.name}` : '寵物'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      aria-label="移除照片"
+                      className="shrink-0 rounded-lg p-1.5 text-green-700 hover:bg-green-100"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {photoError && (
+                  <p role="alert" className="mt-1 text-xs text-red-500">
+                    {photoError}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* 輸入列 */}
             <form
@@ -1021,6 +1321,27 @@ export default function AssistantWidget() {
               className="shrink-0 bg-white px-3 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3"
             >
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  disabled={loading}
+                  aria-label="選擇食物照片"
+                  className="shrink-0 w-10 h-10 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-green-600 disabled:opacity-40 flex items-center justify-center transition-colors"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                    <circle cx="12" cy="13" r="3" />
+                  </svg>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={onPickFile}
+                  className="hidden"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                />
                 <input
                   ref={inputRef}
                   value={input}
@@ -1032,7 +1353,7 @@ export default function AssistantWidget() {
                     }
                   }}
                   maxLength={MAX_INPUT}
-                  placeholder="輸入問題，或說「剛餵了 50g 雞胸肉」"
+                  placeholder="輸入問題，或點左邊拍照"
                   className="flex-1 min-w-0 border border-gray-200 rounded-full px-4 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
                 />
 
@@ -1048,7 +1369,7 @@ export default function AssistantWidget() {
                 ) : (
                   <button
                     type="submit"
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && !photo}
                     aria-label="送出"
                     className="shrink-0 w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:hover:bg-green-500 text-white flex items-center justify-center transition-colors"
                   >
