@@ -172,6 +172,24 @@ const initDB = async () => {
     -- 使用者的通知偏好（哪些類型的通知要收），存在既有的 users 資料表
     ALTER TABLE users
       ADD COLUMN IF NOT EXISTS notification_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+    -- ======================================================
+    -- 寵物體重紀錄（成長曲線）
+    -- pets.weight 仍是「目前體重」，由程式永遠同步成日期最新的那一筆；
+    -- 這張表保存歷史，同一隻寵物同一天只留一筆。
+    -- ======================================================
+    CREATE TABLE IF NOT EXISTS pet_weight_records (
+      id SERIAL PRIMARY KEY,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      weight DECIMAL(6,2) NOT NULL,
+      measured_on DATE NOT NULL,
+      note VARCHAR(200),
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (pet_id, measured_on)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pet_weight_records_pet_date
+    ON pet_weight_records(pet_id, measured_on DESC);
   `)
   console.log('✅ 資料表準備完成')
 }

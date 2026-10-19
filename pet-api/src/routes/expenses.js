@@ -4,9 +4,19 @@ const pool = require('../db')
 
 router.use(requireAuth)
 
+// 這隻寵物是不是目前登入的使用者的（id 不是數字也視為不是）
+async function ownsPet(petId, userId) {
+  if (!/^\d+$/.test(String(petId))) return false
+  const r = await pool.query('SELECT 1 FROM pets WHERE id=$1 AND owner_id=$2', [petId, userId])
+  return r.rows.length > 0
+}
+
 // 取得某寵物所有支出
 router.get('/pet/:petId', async (req, res) => {
   try {
+    if (!(await ownsPet(req.params.petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
     const result = await pool.query(
       'SELECT * FROM expenses WHERE pet_id=$1 ORDER BY date DESC',
       [req.params.petId]
@@ -65,6 +75,9 @@ router.get('/monthly', async (req, res) => {
 router.post('/', async (req, res) => {
   const { petId, category, title, amount, date, notes } = req.body
   try {
+    if (!(await ownsPet(petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
     const result = await pool.query(
       `INSERT INTO expenses (pet_id, category, title, amount, date, notes)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
@@ -79,7 +92,20 @@ router.post('/', async (req, res) => {
 // 刪除支出
 router.delete('/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM expenses WHERE id=$1', [req.params.id])
+    // 只能刪自己寵物的支出
+    if (!/^\d+$/.test(req.params.id)) {
+      return res.status(404).json({ success: false, error: '找不到這筆支出' })
+    }
+    const result = await pool.query(
+      `DELETE FROM expenses e
+        USING pets p
+        WHERE e.id = $1 AND e.pet_id = p.id AND p.owner_id = $2
+        RETURNING e.id`,
+      [req.params.id, req.userId]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: '找不到這筆支出' })
+    }
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ success: false, error: '伺服器錯誤' })

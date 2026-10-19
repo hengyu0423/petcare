@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import { petAgeText } from '../lib/petAge'
+import { petAgeText, ageInMonths } from '../lib/petAge'
+import { lifeStage, nextBirthday, formatKg, todayString } from '../lib/petInsights'
 
 const EMOJI   = { dog:'🐶', cat:'🐱', bird:'🐦', rabbit:'🐰', fish:'🐟', other:'🐾' }
 const SPECIES = [['dog','狗'],['cat','貓'],['bird','鳥'],['rabbit','兔子'],['fish','魚'],['other','其他']]
@@ -10,6 +11,36 @@ const GENDER  = [['male','男'],['female','女'],['unknown','不明']]
 
 const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
 const selectCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+
+// 卡片上的小標籤：生命階段、體重、快到的生日
+function PetChips({ pet }) {
+  const birthDate = pet.birth_date ? String(pet.birth_date).slice(0, 10) : null
+  const stage = lifeStage(pet.species, birthDate ? ageInMonths(birthDate) : null)
+  const birthday = nextBirthday(birthDate, todayString())
+  const soon = birthday && birthday.daysUntil <= 30
+
+  if (!stage && !pet.weight && !soon) return null
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {stage && (
+        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${stage.cls}`}>
+          {stage.emoji} {stage.label}
+        </span>
+      )}
+      {pet.weight && (
+        <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-500">
+          ⚖️ {formatKg(pet.weight)} kg
+        </span>
+      )}
+      {soon && (
+        <span className="rounded-full border border-pink-200 bg-pink-50 px-2 py-0.5 text-[11px] font-medium text-pink-600">
+          🎂 {birthday.isToday ? '今天生日' : `${birthday.daysUntil} 天後生日`}
+        </span>
+      )}
+    </div>
+  )
+}
 
 function PetModal({ onClose, onSave, saving }) {
   const [form, setForm] = useState({ name:'', species:'dog', breed:'', gender:'unknown', birthDate:'', weight:'', notes:'' })
@@ -97,7 +128,9 @@ export default function PetsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">我的寵物</h1>
-          <p className="text-sm text-gray-400 mt-0.5">管理你的毛孩子資料</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {pets.length > 0 ? `共 ${pets.length} 隻 ・ 點進去可以看體重成長曲線與健康紀錄` : '管理你的毛孩子資料'}
+          </p>
         </div>
         <button onClick={() => setShowModal(true)}
           className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm">
@@ -129,7 +162,7 @@ export default function PetsPage() {
                       {pet.breed || SPECIES.find(s => s[0]===pet.species)?.[1]}
                       {petAgeText(pet.birth_date) ? ` · ${petAgeText(pet.birth_date)}` : ''}
                     </p>
-                    {pet.weight && <p className="text-xs text-gray-300 mt-0.5">{pet.weight} kg</p>}
+                    <PetChips pet={pet} />
                   </div>
                 </Link>
                 <button onClick={() => { if(confirm(`確定刪除 ${pet.name}？`)) deletePet.mutate(pet.id) }}
