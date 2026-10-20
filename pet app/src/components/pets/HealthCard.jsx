@@ -155,7 +155,7 @@ export default function HealthCard({ petId }) {
   const visible = showAll ? sorted : sorted.slice(0, PREVIEW)
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="健康紀錄與提醒">
+    <section id="health-card" className="scroll-mt-4 bg-white rounded-2xl border border-gray-200 p-5" aria-label="健康紀錄與提醒">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-bold text-gray-800">健康紀錄與提醒</h2>
         <button

@@ -112,7 +112,7 @@ export default function WeightCard({ pet }) {
         }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="體重與成長曲線">
+    <section id="weight-card" className="scroll-mt-4 bg-white rounded-2xl border border-gray-200 p-5" aria-label="體重與成長曲線">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-gray-800">體重與成長曲線</h2>

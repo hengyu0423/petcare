@@ -160,48 +160,30 @@ router.post('/', async (req, res) => {
   }
 })
 
+// 只更新基本資料。體重一律走 /:id/weights，這裡不碰 pets.weight，
+// 確保「目前體重」永遠等於日期最新的體重紀錄。
 router.put('/:id', async (req, res) => {
-  const { name, species, breed, gender, birthDate, weight, notes } = req.body
+  const { name, species, breed, gender, birthDate, notes } = req.body
 
-  const hasWeight = weight !== undefined && weight !== null && weight !== '' && Number(weight) !== 0
-  const weightValue = hasWeight ? parseWeight(weight) : null
-  if (hasWeight && weightValue === null) return fail(res, 400, WEIGHT_RANGE_MESSAGE)
+  if (!name || !String(name).trim()) return fail(res, 400, '請填寫名字')
+  if (!species) return fail(res, 400, '請選擇種類')
 
   try {
-    const pet = await withTransaction(async db => {
-      const result = await db.query(
-        `UPDATE pets SET name=$1, species=$2, breed=$3, gender=$4,
-         birth_date=$5, weight=$6, notes=$7, updated_at=NOW()
-         WHERE id=$8 AND owner_id=$9 RETURNING *`,
-        [name, species, breed || null, gender || 'unknown', birthDate || null, weightValue, notes || null, req.params.id, req.userId]
-      )
-      if (result.rows.length === 0) return null
-      const updated = result.rows[0]
+    const birth = birthDate ? String(birthDate).slice(0, 10) : null
+    if (birth) {
+      if (!isRealDate(birth)) return fail(res, 400, '生日格式不正確')
+      if (birth > await todayString()) return fail(res, 400, '生日不能是未來')
+    }
 
-      // 編輯時把體重改了：同步記一筆今天的體重，成長曲線才會跟著更新。
-      // 體重沒變（只是改名字之類）就不新增。
-      if (weightValue !== null) {
-        const latest = await db.query(
-          `SELECT weight FROM pet_weight_records
-            WHERE pet_id = $1
-            ORDER BY measured_on DESC, id DESC LIMIT 1`,
-          [updated.id]
-        )
-        if (latest.rows.length === 0 || Number(latest.rows[0].weight) !== weightValue) {
-          await upsertWeight(
-            db, updated.id, weightValue,
-            "(NOW() AT TIME ZONE $3::text)::date", [TZ], null
-          )
-          await syncCurrentWeight(db, updated.id)
-          const fresh = await db.query('SELECT * FROM pets WHERE id = $1', [updated.id])
-          return fresh.rows[0]
-        }
-      }
-      return updated
-    })
+    const result = await pool.query(
+      `UPDATE pets SET name=$1, species=$2, breed=$3, gender=$4,
+       birth_date=$5, notes=$6, updated_at=NOW()
+       WHERE id=$7 AND owner_id=$8 RETURNING *`,
+      [String(name).trim(), species, breed || null, gender || 'unknown', birth, notes || null, req.params.id, req.userId]
+    )
 
-    if (!pet) return fail(res, 404, '找不到寵物')
-    res.json({ success: true, data: pet })
+    if (result.rows.length === 0) return fail(res, 404, '找不到寵物')
+    res.json({ success: true, data: result.rows[0] })
   } catch (err) {
     serverError(res, err)
   }
@@ -316,6 +298,101 @@ router.delete('/:id/weights/:recordId', async (req, res) => {
 
     if (currentWeight === undefined) return fail(res, 404, '找不到紀錄')
     res.json({ success: true, data: { currentWeight } })
+  } catch (err) {
+    serverError(res, err)
+  }
+})
+
+// ======================================================
+// 近況摘要（寵物詳細頁用）
+// GET /pets/:id/overview
+//   consultation：最後一次健康諮詢（問題、AI 回覆、嚴重程度）
+//   mood        ：即時監控近 24 小時的狀態（最後一筆 + 最常見的狀態）
+// 時間一律回傳「幾分鐘前」，不受欄位是否帶時區、伺服器時區影響。
+// ======================================================
+
+const minutesAgo = col => `FLOOR(EXTRACT(EPOCH FROM (NOW() - ${col})) / 60)::int`
+
+async function latestConsultation(petId) {
+  const q = await pool.query(
+    `SELECT content, ${minutesAgo('created_at')} AS minutes_ago
+       FROM health_consultations
+      WHERE pet_id = $1 AND role = 'user'
+      ORDER BY created_at DESC, id DESC LIMIT 1`,
+    [petId]
+  )
+  if (q.rows.length === 0) return null
+  const question = q.rows[0]
+
+  // 那個問題之後的第一則 AI 回覆
+  const a = await pool.query(
+    `SELECT content, severity
+       FROM health_consultations
+      WHERE pet_id = $1 AND role = 'assistant'
+        AND created_at >= (SELECT created_at FROM health_consultations
+                            WHERE pet_id = $1 AND role = 'user'
+                            ORDER BY created_at DESC, id DESC LIMIT 1)
+      ORDER BY created_at ASC, id ASC LIMIT 1`,
+    [petId]
+  )
+  const reply = a.rows[0] || null
+
+  return {
+    question: question.content,
+    reply: reply?.content || null,
+    severity: reply?.severity || null,
+    minutesAgo: Math.max(question.minutes_ago, 0)
+  }
+}
+
+async function recentMood(petId) {
+  try {
+    const latest = await pool.query(
+      `SELECT mood, behavior, ${minutesAgo('recorded_at')} AS minutes_ago
+         FROM pet_mood_records
+        WHERE pet_id = $1
+        ORDER BY recorded_at DESC LIMIT 1`,
+      [petId]
+    )
+    if (latest.rows.length === 0) return null
+
+    const counts = await pool.query(
+      `SELECT mood, COUNT(*)::int AS n
+         FROM pet_mood_records
+        WHERE pet_id = $1 AND recorded_at >= NOW() - INTERVAL '24 hours'
+        GROUP BY mood ORDER BY n DESC`,
+      [petId]
+    )
+    const samples = counts.rows.reduce((s, r) => s + r.n, 0)
+    const top = counts.rows[0]
+
+    return {
+      latest: {
+        mood: latest.rows[0].mood,
+        behavior: latest.rows[0].behavior,
+        minutesAgo: Math.max(latest.rows[0].minutes_ago, 0)
+      },
+      day: top
+        ? { mainMood: top.mood, percentage: Math.round((top.n / samples) * 100), samples }
+        : null
+    }
+  } catch (err) {
+    // 還沒架設監控（資料表不存在）就當作沒有資料
+    if (err.code === '42P01') return null
+    throw err
+  }
+}
+
+router.get('/:id/overview', async (req, res) => {
+  try {
+    const pet = await findOwnedPet(req.params.id, req.userId)
+    if (!pet) return fail(res, 404, '找不到寵物')
+
+    const [consultation, mood] = await Promise.all([
+      latestConsultation(pet.id),
+      recentMood(pet.id)
+    ])
+    res.json({ success: true, data: { consultation, mood } })
   } catch (err) {
     serverError(res, err)
   }

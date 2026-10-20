@@ -4,6 +4,7 @@ import {
   useMutation,
   useQueryClient
 } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 
 import { api } from '../lib/api'
 import { petAgeText } from '../lib/petAge'
@@ -159,6 +160,16 @@ export default function HealthConsultPage() {
       return response.data.data
     }
   })
+
+  // 從寵物詳細頁點「繼續諮詢」進來（/health-consult?pet=ID）：自動選好那隻寵物。
+  // 只在寵物清單第一次拿到時套用一次，之後使用者自己切換不受影響。
+  const [searchParams] = useSearchParams()
+  const [urlPetApplied, setUrlPetApplied] = useState(false)
+  if (!urlPetApplied && pets.length > 0) {
+    setUrlPetApplied(true)
+    const fromUrl = pets.find(p => String(p.id) === searchParams.get('pet'))
+    if (fromUrl && !selectedPet) setSelectedPet(fromUrl)
+  }
 
 
   // ===================================================
