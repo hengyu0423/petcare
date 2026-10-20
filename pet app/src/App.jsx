@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/layout/Layout'
@@ -15,9 +14,6 @@ import FoodDatabasePage from './pages/FoodDatabasePage'
 import CommunityPage from './pages/CommunityPage'
 import WeeklyReportPage from './pages/WeeklyReportPage'
 import PetCam from './pages/petCam'
-
-// 新增：AI 寵物心情辨識
-import PetEmotion from './pages/PetEmotion'
 
 function PrivateRoute({ children }) {
   const token = useAuthStore(s => s.token)
@@ -51,9 +47,7 @@ export default function App() {
         <Route path="community" element={<CommunityPage />} />
         <Route path="weekly-report" element={<WeeklyReportPage />} />
         <Route path="pet-cam" element={<PetCam />} />
-
-        {/* 新增：AI 寵物心情辨識 */}
-        <Route path="pet-emotion" element={<PetEmotion />} />
+        <Route path="pet-emotion" element={<Navigate to="/health-consult?view=emotion" replace />} />
 
       </Route>
     </Routes>

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   useQuery,
   useMutation,
   useQueryClient
 } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
 
 import { api } from '../lib/api'
 import { petAgeText } from '../lib/petAge'
@@ -127,8 +127,14 @@ export default function HealthConsultPage() {
 
   const [selectedPet, setSelectedPet] =
     useState(null)
-  const [petOpen, setPetOpen] = useState(false) 
-  const [showEmotion, setShowEmotion] = useState(false)// 手機寵物抽屜
+  const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
+
+  // 右邊目前顯示哪個畫面：'consult' = 選到的寵物的健康諮詢、'emotion' = AI 心情辨識。
+  // 記在網址的 ?view=emotion：重新整理、上一頁、從別處（例如小助理的連結）直接進來都會停在對的畫面。
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = searchParams.get('view') === 'emotion' ? 'emotion' : 'consult'
+  const showConsult = () => setSearchParams({}) // 回到諮詢（拿掉 ?view=）
+  const showEmotion = () => setSearchParams({ view: 'emotion' })
 
   const [input, setInput] =
     useState('')
@@ -160,16 +166,6 @@ export default function HealthConsultPage() {
       return response.data.data
     }
   })
-
-  // 從寵物詳細頁點「繼續諮詢」進來（/health-consult?pet=ID）：自動選好那隻寵物。
-  // 只在寵物清單第一次拿到時套用一次，之後使用者自己切換不受影響。
-  const [searchParams] = useSearchParams()
-  const [urlPetApplied, setUrlPetApplied] = useState(false)
-  if (!urlPetApplied && pets.length > 0) {
-    setUrlPetApplied(true)
-    const fromUrl = pets.find(p => String(p.id) === searchParams.get('pet'))
-    if (fromUrl && !selectedPet) setSelectedPet(fromUrl)
-  }
 
 
   // ===================================================
@@ -321,11 +317,10 @@ export default function HealthConsultPage() {
 品種：${pet.breed || '不明'}
 性別：${pet.gender || '不明'}
 年齡：${getAge(pet.birth_date)}
-體重：${
-  pet.weight
-    ? `${pet.weight} kg`
-    : '不明'
-}
+體重：${pet.weight
+            ? `${pet.weight} kg`
+            : '不明'
+          }
 
 請根據目前寵物的年齡、種類、症狀與先前對話提供健康建議。
 
@@ -590,14 +585,14 @@ export default function HealthConsultPage() {
 
                 onClick={() => {
                   setSelectedPet(pet)
+                  showConsult()
                   setPetOpen(false)
                 }}
 
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                  selectedPet?.id === pet.id
+                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${view === 'consult' && selectedPet?.id === pet.id
                     ? 'bg-green-50 border-green-300'
                     : 'bg-gray-50 border-gray-100 hover:border-green-200 hover:bg-green-50'
-                }`}
+                  }`}
               >
 
                 <span className="text-2xl">
@@ -622,61 +617,41 @@ export default function HealthConsultPage() {
             ))
 
           )}
-          
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowEmotion(true)}
-                className="w-full flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-left hover:bg-green-100 transition-all"
-              >
-                <span className="text-xl">📷</span>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-green-700">
-                    AI 心情辨識
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    拍照分析毛孩情緒
-                  </p>
-                </div>
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <p className="px-1 pb-2 text-[11px] font-semibold text-gray-400">
+              其他功能
+            </p>
 
-                <span className="text-green-600">›</span>
-              </button>
-</div>
+            <button
+              type="button"
+              onClick={() => {
+                showEmotion()
+                setPetOpen(false)
+              }}
+              aria-current={view === 'emotion' ? 'page' : undefined}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${view === 'emotion'
+                  ? 'bg-green-50 border-green-300'
+                  : 'bg-gray-50 border-gray-100 hover:border-green-200 hover:bg-green-50'
+                }`}
+            >
+              <span className="text-2xl">📷</span>
+
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">
+                  AI 心情辨識
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  拍照分析毛孩情緒
+                </p>
+              </div>
+            </button>
+          </div>
 
 
         </div>
 
       </PetDrawer>
-            
-{showEmotion && (
-  <div
-    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
-    onClick={() => setShowEmotion(false)}
-  >
-    <div
-      className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
-      onClick={e => e.stopPropagation()}
-    >
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
-        <h2 className="text-lg font-bold text-gray-800">
-          🐾 AI 寵物心情辨識
-        </h2>
-
-        <button
-          type="button"
-          onClick={() => setShowEmotion(false)}
-          className="rounded-full bg-gray-100 px-3 py-2 text-gray-600 hover:bg-gray-200"
-        >
-          ✕
-        </button>
-      </div>
-
-      <PetEmotionPage />
-    </div>
-  </div>
-)}
-
 
       {/* ===============================================
           右側
@@ -685,13 +660,37 @@ export default function HealthConsultPage() {
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         <PetPickerBar
-          emoji={selectedPet ? (EMOJI[selectedPet.species] || '🐾') : ''}
-          name={selectedPet?.name}
-          sub={selectedPet ? (selectedPet.breed || selectedPet.species) : ''}
+          emoji={view === 'emotion' ? '📷' : selectedPet ? (EMOJI[selectedPet.species] || '🐾') : ''}
+          name={view === 'emotion' ? 'AI 心情辨識' : selectedPet?.name}
+          sub={view === 'emotion' ? '拍照分析毛孩情緒' : selectedPet ? (selectedPet.breed || selectedPet.species) : ''}
           onOpen={() => setPetOpen(true)}
         />
 
-        {!selectedPet ? (
+        {view === 'emotion' ? (
+
+          // AI 心情辨識：直接顯示在右邊主畫面（跟選寵物一樣），不再另外彈出視窗
+          <div className="flex-1 min-h-0 flex flex-col">
+
+            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-3 shrink-0">
+              <span className="text-3xl">📷</span>
+
+              <div>
+                <p className="text-sm font-bold text-gray-800">
+                  AI 心情辨識
+                </p>
+                <p className="text-xs text-gray-400">
+                  拍攝或上傳寵物照片，讓 AI 分析牠可能的心情
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-gray-50">
+              <PetEmotionPage embedded />
+            </div>
+
+          </div>
+
+        ) : !selectedPet ? (
 
           <div className="flex-1 flex items-center justify-center flex-col gap-3 text-gray-400">
 
@@ -743,8 +742,8 @@ export default function HealthConsultPage() {
 
                   {selectedPet.birth_date
                     ? ` · ${getAge(
-                        selectedPet.birth_date
-                      )}`
+                      selectedPet.birth_date
+                    )}`
                     : ''}
 
                 </p>
@@ -868,12 +867,12 @@ export default function HealthConsultPage() {
                       // ⭐ 不再預設 normal
                       const severity =
                         msg.severity &&
-                        SEVERITY_CONFIG[
+                          SEVERITY_CONFIG[
                           msg.severity
-                        ]
+                          ]
                           ? SEVERITY_CONFIG[
-                              msg.severity
-                            ]
+                          msg.severity
+                          ]
                           : SEVERITY_CONFIG.unknown
 
 
@@ -885,21 +884,19 @@ export default function HealthConsultPage() {
                             `${msg.created_at}-${index}`
                           }
 
-                          className={`flex gap-3 ${
-                            isUser
+                          className={`flex gap-3 ${isUser
                               ? 'flex-row-reverse'
                               : ''
-                          }`}
+                            }`}
                         >
 
                           {/* Avatar */}
 
                           <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
-                              isUser
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${isUser
                                 ? 'bg-green-500 text-white font-bold'
                                 : 'bg-green-50 text-lg'
-                            }`}
+                              }`}
                           >
 
                             {isUser
@@ -912,19 +909,17 @@ export default function HealthConsultPage() {
                           {/* Message */}
 
                           <div
-                            className={`max-w-lg flex flex-col ${
-                              isUser
+                            className={`max-w-lg flex flex-col ${isUser
                                 ? 'items-end'
                                 : 'items-start'
-                            }`}
+                              }`}
                           >
 
                             <div
-                              className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                                isUser
+                              className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${isUser
                                   ? 'bg-green-500 text-white rounded-br-sm'
                                   : 'bg-white border border-gray-200 text-gray-700 rounded-bl-sm'
-                              }`}
+                                }`}
                             >
 
                               {isUser ? (
@@ -944,21 +939,21 @@ export default function HealthConsultPage() {
                                       '❌'
                                     ) && (
 
-                                    <div
-                                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border mb-3 ${severity.className}`}
-                                    >
+                                      <div
+                                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border mb-3 ${severity.className}`}
+                                      >
 
-                                      <span>
-                                        {severity.icon}
-                                      </span>
+                                        <span>
+                                          {severity.icon}
+                                        </span>
 
-                                      <span>
-                                        {severity.label}
-                                      </span>
+                                        <span>
+                                          {severity.label}
+                                        </span>
 
-                                    </div>
+                                      </div>
 
-                                  )}
+                                    )}
 
 
                                   {/* =====================
@@ -1082,31 +1077,31 @@ export default function HealthConsultPage() {
 
               {savedNotice &&
                 savedNotice.petId === selectedPet?.id && (
-                <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
+                  <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
 
-                  <span>
-                    🩺 已將「{savedNotice.title}」
-                    {savedNotice.isUpdate
-                      ? '更新到'
-                      : '記錄到'}
-                    {selectedPet?.name}
-                    的健康紀錄
-                    {savedNotice.dietRelevant &&
-                      '，飲食管理會參考這項資訊'}
-                  </span>
+                    <span>
+                      🩺 已將「{savedNotice.title}」
+                      {savedNotice.isUpdate
+                        ? '更新到'
+                        : '記錄到'}
+                      {selectedPet?.name}
+                      的健康紀錄
+                      {savedNotice.dietRelevant &&
+                        '，飲食管理會參考這項資訊'}
+                    </span>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSavedNotice(null)
-                    }
-                    className="text-green-500 hover:text-green-700 shrink-0"
-                  >
-                    ✕
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSavedNotice(null)
+                      }
+                      className="text-green-500 hover:text-green-700 shrink-0"
+                    >
+                      ✕
+                    </button>
 
-                </div>
-              )}
+                  </div>
+                )}
 
               {messages.length > 0 && (
 

@@ -1,36 +1,14 @@
-import { useMemo, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import { todayString, daysBetween } from '../../lib/petInsights'
+import { todayString } from '../../lib/petInsights'
+import {
+  MANUAL_TYPES, TYPE_LABEL, TYPE_EMOJI, day,
+  addMonths, upcomingReminders, useHealthRecords
+} from '../../lib/petHealth'
 
 const inputCls =
   'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all'
-
-// 手動新增時可選的類型（對應後端 health_records.type）
-export const MANUAL_TYPES = [
-  { value: 'vaccine', label: '疫苗', emoji: '💉', nextMonths: 12 },
-  { value: 'deworm', label: '驅蟲', emoji: '🪱', nextMonths: 3 },
-  { value: 'checkup', label: '健檢', emoji: '🩺', nextMonths: 12 },
-  { value: 'visit', label: '看診', emoji: '🏥', nextMonths: null },
-  { value: 'surgery', label: '手術', emoji: '🔪', nextMonths: null },
-  { value: 'other', label: '其他', emoji: '📝', nextMonths: null }
-]
-
-// 健康諮詢（AI）自動建立的紀錄類型
-const AI_TYPE_LABELS = {
-  vomiting: '嘔吐',
-  diarrhea: '腹瀉',
-  constipation: '便秘',
-  appetite_loss: '食慾不振',
-  allergy: '過敏',
-  poisoning: '誤食／中毒'
-}
-
-const TYPE_LABEL = {
-  ...Object.fromEntries(MANUAL_TYPES.map(t => [t.value, t.label])),
-  ...AI_TYPE_LABELS
-}
-const TYPE_EMOJI = Object.fromEntries(MANUAL_TYPES.map(t => [t.value, t.emoji]))
 
 const SEVERITY = {
   emergency: { label: '緊急', cls: 'bg-red-100 text-red-700' },
@@ -38,40 +16,6 @@ const SEVERITY = {
 }
 
 const PREVIEW = 6
-const day = v => (v ? String(v).slice(0, 10) : '')
-
-// 'YYYY-MM-DD' 加幾個月（月底會自動收斂，例如 1/31 + 1 個月 = 2/28）
-export function addMonths(ymd, months) {
-  const m = String(ymd).match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!m) return ''
-  const y = +m[1], mo = +m[2] - 1, d = +m[3]
-  const target = new Date(Date.UTC(y, mo + months, 1))
-  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate()
-  target.setUTCDate(Math.min(d, lastDay))
-  return target.toISOString().slice(0, 10)
-}
-
-// 給頁面上方的「下次提醒」小卡用
-export function upcomingReminders(records, today = todayString()) {
-  return (records || [])
-    .filter(r => day(r.next_date) && day(r.next_date) >= today)
-    .map(r => ({
-      id: r.id,
-      title: r.title,
-      type: r.type,
-      date: day(r.next_date),
-      daysLeft: daysBetween(today, day(r.next_date))
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-}
-
-export function useHealthRecords(petId) {
-  return useQuery({
-    queryKey: ['pet-health', petId],
-    queryFn: async () => (await api.get(`/health-records/pet/${petId}`)).data.data,
-    enabled: petId !== undefined && petId !== null // 寵物資料還沒載入時不要送出 /pet/undefined
-  })
-}
 
 // 預設選第一個類型（疫苗），名稱與下次提醒日期一開始就帶好，使用者可以直接改
 const emptyForm = today => {
@@ -117,7 +61,7 @@ export default function HealthCard({ petId }) {
     }
   }
 
-  const reminders = useMemo(() => upcomingReminders(records, today), [records, today])
+  const reminders = upcomingReminders(records, today)
 
   const addRecord = useMutation({
     mutationFn: payload => api.post('/health-records', payload),
@@ -148,14 +92,13 @@ export default function HealthCard({ petId }) {
     })
   }
 
-  const sorted = useMemo(
-    () => [...records].sort((a, b) => day(b.date).localeCompare(day(a.date)) || b.id - a.id),
-    [records]
+  const sorted = [...records].sort(
+    (a, b) => day(b.date).localeCompare(day(a.date)) || b.id - a.id
   )
   const visible = showAll ? sorted : sorted.slice(0, PREVIEW)
 
   return (
-    <section id="health-card" className="scroll-mt-4 bg-white rounded-2xl border border-gray-200 p-5" aria-label="健康紀錄與提醒">
+    <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="健康紀錄與提醒">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-bold text-gray-800">健康紀錄與提醒</h2>
         <button
@@ -174,9 +117,8 @@ export default function HealthCard({ petId }) {
           {reminders.slice(0, 3).map(r => (
             <li
               key={r.id}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-                r.daysLeft <= 7 ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
-              }`}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${r.daysLeft <= 7 ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
+                }`}
             >
               <span aria-hidden="true">{TYPE_EMOJI[r.type] || '🔔'}</span>
               <span className="min-w-0 flex-1 truncate font-medium">{r.title}</span>
@@ -198,11 +140,10 @@ export default function HealthCard({ petId }) {
                 type="button"
                 aria-pressed={form.type === t.value}
                 onClick={() => patchForm({ type: t.value }, 'type')}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  form.type === t.value
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${form.type === t.value
                     ? 'border-green-500 bg-green-500 text-white'
                     : 'border-gray-200 bg-white text-gray-600 hover:border-green-300'
-                }`}
+                  }`}
               >
                 {t.emoji} {t.label}
               </button>

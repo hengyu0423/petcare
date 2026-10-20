@@ -1,8 +1,7 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from '../store/authStore'
 
-export default function PetEmotion() {
+export default function PetEmotion({ embedded = false }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
@@ -164,19 +163,19 @@ export default function PetEmotion() {
       const apiUrl =
         (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
-      
-        const token = useAuthStore.getState().token
 
-        const response = await fetch(
+      const token = useAuthStore.getState().token
+
+      const response = await fetch(
         `${apiUrl}/api/pet-emotion`,
         {
-            method: 'POST',
-            headers: {
+          method: 'POST',
+          headers: {
             Authorization: `Bearer ${token}`
-            },
-            body: formData
+          },
+          body: formData
         }
-        )
+      )
 
 
       if (!response.ok) {
@@ -217,7 +216,11 @@ export default function PetEmotion() {
   };
 
   return (
-    <div style={{
+    <div style={embedded ? {
+      // 放在健康諮詢頁右側時：高度跟著內容、背景交給外層，不要再自己撐滿整個畫面
+      padding: "20px 15px",
+      fontFamily: "inherit"
+    } : {
       minHeight: "100vh",
       background: "#f5f7fb",
       padding: "30px 15px",
@@ -232,20 +235,25 @@ export default function PetEmotion() {
         boxShadow: "0 4px 15px rgba(0,0,0,0.08)"
       }}>
 
-        <h1 style={{
-          textAlign: "center",
-          color: "#45618a"
-        }}>
-          🐾 AI 寵物心情辨識
-        </h1>
+        {/* 放在健康諮詢頁時，上方已經有標題列，這裡就不重複 */}
+        {!embedded && (
+          <>
+            <h1 style={{
+              textAlign: "center",
+              color: "#45618a"
+            }}>
+              🐾 AI 寵物心情辨識
+            </h1>
 
-        <p style={{
-          textAlign: "center",
-          color: "#777"
-        }}>
-          拍攝或上傳寵物照片，
-          讓 AI 分析牠可能的心情
-        </p>
+            <p style={{
+              textAlign: "center",
+              color: "#777"
+            }}>
+              拍攝或上傳寵物照片，
+              讓 AI 分析牠可能的心情
+            </p>
+          </>
+        )}
 
         {/* 電腦攝影機畫面 */}
         <video
@@ -417,4 +425,3 @@ export default function PetEmotion() {
     </div>
   );
 }
-

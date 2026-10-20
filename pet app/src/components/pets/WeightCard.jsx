@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -69,26 +69,22 @@ export default function WeightCard({ pet }) {
 
   const stage = lifeStage(pet.species, birthDate ? ageInMonths(birthDate) : null)
 
-  const dateChart = useMemo(() => buildChart(records, { mode: 'date' }), [records])
-  const ageChart = useMemo(
-    () => (birthDate ? buildChart(records, { mode: 'age', birthDate }) : null),
-    [records, birthDate]
-  )
+  // 這個專案開了 React Compiler，會自動記住計算結果，所以不需要再手動 useMemo
+  const dateChart = buildChart(records, { mode: 'date' })
+  const ageChart = birthDate ? buildChart(records, { mode: 'age', birthDate }) : null
   const canUseAge = !!ageChart && ageChart.points.length > 0
   const effectiveMode = mode === 'age' && canUseAge ? 'age' : 'date'
   const chart = effectiveMode === 'age' ? ageChart : dateChart
 
-  const trend = useMemo(() => weightTrend(records), [records])
+  const trend = weightTrend(records)
   const note = weightNote(trend, stage)
   const latest = records[records.length - 1]
 
-  const history = useMemo(() => {
-    // 新到舊，並算出和前一筆（較舊）的差
-    return [...records].reverse().map((r, i, arr) => {
-      const prev = arr[i + 1]
-      return { ...r, diff: prev ? Math.round((r.weight - prev.weight) * 100) / 100 : null }
-    })
-  }, [records])
+  // 新到舊，並算出和前一筆（較舊）的差
+  const history = [...records].reverse().map((r, i, arr) => {
+    const prev = arr[i + 1]
+    return { ...r, diff: prev ? Math.round((r.weight - prev.weight) * 100) / 100 : null }
+  })
   const visibleHistory = showAll ? history : history.slice(0, HISTORY_PREVIEW)
 
   const submit = e => {
@@ -104,15 +100,15 @@ export default function WeightCard({ pet }) {
     effectiveMode === 'age'
       ? m => formatAgeAxis(m)
       : ts => {
-          const d = new Date(ts)
-          const long = chart.xDomain[1] - chart.xDomain[0] > 300 * 86400000
-          return long
-            ? `${String(d.getUTCFullYear()).slice(2)}/${d.getUTCMonth() + 1}`
-            : `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
-        }
+        const d = new Date(ts)
+        const long = chart.xDomain[1] - chart.xDomain[0] > 300 * 86400000
+        return long
+          ? `${String(d.getUTCFullYear()).slice(2)}/${d.getUTCMonth() + 1}`
+          : `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
+      }
 
   return (
-    <section id="weight-card" className="scroll-mt-4 bg-white rounded-2xl border border-gray-200 p-5" aria-label="體重與成長曲線">
+    <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="體重與成長曲線">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-gray-800">體重與成長曲線</h2>
@@ -147,9 +143,8 @@ export default function WeightCard({ pet }) {
                 type="button"
                 aria-pressed={effectiveMode === key}
                 onClick={() => setMode(key)}
-                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                  effectiveMode === key ? 'bg-green-500 text-white' : 'text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${effectiveMode === key ? 'bg-green-500 text-white' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
               >
                 {label}
               </button>
@@ -161,9 +156,8 @@ export default function WeightCard({ pet }) {
       {note && (
         <p
           role="status"
-          className={`mt-3 rounded-lg px-3 py-2 text-xs ${
-            note.level === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
-          }`}
+          className={`mt-3 rounded-lg px-3 py-2 text-xs ${note.level === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
+            }`}
         >
           {note.text}
         </p>
