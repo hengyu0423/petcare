@@ -1,32 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Bell,
+  Settings,
+  Video,
+  VideoOff,
+  AlertTriangle,
+  ClipboardCheck,
+  Utensils,
+  CheckCheck
+} from 'lucide-react'
 import { api } from '../../lib/api'
 import NotificationPreferencesModal from './NotificationPreferencesModal'
 
 // ======================================================
-// 全站通知鈴鐺
-//
-// 放在側邊欄，顯示登入使用者「所有寵物」的通知，
-// 不管目前在哪一頁都看得到。
-//
-// 更新方式：
-//   - 有新通知時，後端透過 SSE 主動推播（即時）
-//   - 額外每 60 秒 polling 一次，當作 SSE 斷線時的備援
+// 全站通知鈴鐺 (Endfield UI 工業風格)
 // ======================================================
 
-const ICON = {
-  camera_missing: '📷',
-  camera_reappeared: '🐱',
-  health_alert: '🩺',
-  weekly_report_ready: '📋',
-  feeding_reminder: '🍽️'
+function NotificationTypeIcon({ type }) {
+  switch (type) {
+    case 'camera_missing':
+      return <VideoOff size={15} className="text-[#fc6c00]" />
+    case 'camera_reappeared':
+      return <Video size={15} className="text-[#007f43]" />
+    case 'health_alert':
+      return <AlertTriangle size={15} className="text-[#de0909]" />
+    case 'weekly_report_ready':
+      return <ClipboardCheck size={15} className="text-[#25759f]" />
+    case 'feeding_reminder':
+      return <Utensils size={15} className="text-[#191919]" />
+    default:
+      return <Bell size={15} className="text-[#626262]" />
+  }
 }
 
 const SEVERITY_DOT = {
-  emergency: 'bg-red-500',
-  urgent: 'bg-amber-500',
-  warning: 'bg-amber-500',
-  info: 'bg-gray-300'
+  emergency: 'bg-[#de0909]',
+  urgent: 'bg-[#fc6c00]',
+  warning: 'bg-[#fc6c00]',
+  info: 'bg-[#25759f]'
 }
 
 function timeAgo(iso) {
@@ -56,7 +68,7 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length
 
-  // 點外面關閉下拉選單
+  // 點擊外面關閉下拉選單
   useEffect(() => {
     const handleClick = e => {
       if (boxRef.current && !boxRef.current.contains(e.target)) {
@@ -67,7 +79,7 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // 小助理回覆裡的「通知」連結：直接打開通知偏好設定
+  // 監聽來自小助理的設定開啟事件
   useEffect(() => {
     const openPrefs = () => {
       setOpen(false)
@@ -77,7 +89,7 @@ export default function NotificationBell() {
     return () => window.removeEventListener('paw:open-notification-settings', openPrefs)
   }, [])
 
-  // SSE：有新通知就即時更新，不用等下一次 polling
+  // SSE 即時推播
   useEffect(() => {
     const token = localStorage.getItem('paw-token')
     if (!token) return
@@ -90,8 +102,6 @@ export default function NotificationBell() {
       qc.invalidateQueries({ queryKey: ['notifications'] })
     })
 
-    // 連線失敗（例如伺服器重啟）時，讓瀏覽器自動重連，
-    // 不特別處理，之後的 60 秒 polling 仍會保底同步狀態
     source.onerror = () => {}
 
     return () => source.close()
@@ -110,93 +120,133 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={boxRef}>
 
+      {/* 鈴鐺觸發按鈕 */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="relative w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-        aria-label="通知"
+        className={`relative w-8 h-8 border flex items-center justify-center transition-all ${
+          open
+            ? 'border-[#191919] bg-[#f0f0f0] text-[#191919]'
+            : 'border-[#e5e5e5] bg-white text-[#626262] hover:border-[#191919] hover:bg-[#f8f9fa] hover:text-[#191919]'
+        }`}
+        aria-label="通知中心"
       >
-        🔔
+        <Bell size={16} strokeWidth={2} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-[#de0909] text-white text-[9px] font-mono font-bold flex items-center justify-center border border-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
+      {/* 下拉面板 (Endfield UI 工業彈窗樣式) */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] md:left-full md:right-auto md:top-0 md:ml-2 md:mt-0 md:w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 max-h-[70vh] flex flex-col">
+        <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] md:left-full md:right-auto md:top-0 md:ml-3 md:w-84 bg-white border border-[#191919] shadow-2xl z-50 max-h-[75vh] flex flex-col font-sans animate-fade-in">
 
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <p className="text-sm font-bold text-gray-800">通知</p>
+          {/* 頂部標題列 */}
+          <div className="flex items-center justify-between px-3.5 py-2.5 bg-[#f8f9fa] border-b border-[#e5e5e5]">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-[#fffa00] border border-[#191919]" />
+              <span className="text-xs font-bold font-mono tracking-wider text-[#191919]">
+                // NOTIFICATIONS
+              </span>
+              <span className="text-xs font-bold text-[#191919]">通知中心</span>
+            </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-xs text-green-600 font-semibold hover:underline"
+                  className="flex items-center gap-1 text-[11px] font-mono font-semibold text-[#191919] hover:text-[#fffa00] bg-[#191919] hover:bg-black text-white px-2 py-0.5 transition-colors"
                 >
+                  <CheckCheck size={12} />
                   全部已讀
                 </button>
               )}
 
               <button
                 type="button"
-                onClick={() => setShowPrefs(true)}
-                className="text-xs text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  setOpen(false)
+                  setShowPrefs(true)
+                }}
+                className="p-1 text-[#626262] hover:text-[#191919] hover:bg-[#e5e5e5] transition-colors"
+                title="通知偏好設定"
               >
-                ⚙️
+                <Settings size={14} strokeWidth={2} />
               </button>
             </div>
           </div>
 
-          <div className="overflow-y-auto flex-1">
+          {/* 內容清單 */}
+          <div className="overflow-y-auto flex-1 divide-y divide-[#f0f0f0]">
 
-            {notifications.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-10">
-                目前沒有通知
-              </p>
-            )}
-
-            {notifications.map(n => (
-              <button
-                key={n.id}
-                type="button"
-                onClick={() => !n.isRead && markRead(n.id)}
-                className={`w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 flex gap-2.5 transition-colors ${
-                  n.isRead ? 'bg-white' : 'bg-green-50/40 hover:bg-green-50'
-                }`}
-              >
-                <span className="text-lg shrink-0">
-                  {ICON[n.type] || '🔔'}
-                </span>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        SEVERITY_DOT[n.severity] || 'bg-gray-300'
-                      }`}
-                    />
-                    <p className="text-sm font-semibold text-gray-800 truncate">
-                      {n.title}
-                    </p>
+            {notifications.length === 0 ? (
+              <div className="py-12 text-center font-mono space-y-2">
+                <Bell size={24} className="mx-auto text-[#b3b3b3]" strokeWidth={1.5} />
+                <p className="text-xs text-[#8a8a8a]">
+                  // 目前尚無待讀通知 //
+                </p>
+              </div>
+            ) : (
+              notifications.map(n => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => !n.isRead && markRead(n.id)}
+                  className={`w-full text-left px-3.5 py-3 flex items-start gap-3 transition-colors ${
+                    n.isRead
+                      ? 'bg-white text-[#626262] hover:bg-[#f8f9fa]'
+                      : 'bg-[#fafafa] border-l-3 border-[#fffa00] text-[#191919] hover:bg-[#f0f0f0]'
+                  }`}
+                >
+                  {/* 圖示方塊 */}
+                  <div className="w-8 h-8 bg-white border border-[#d9d9d9] flex items-center justify-center shrink-0 mt-0.5">
+                    <NotificationTypeIcon type={n.type} />
                   </div>
 
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                    {n.message}
-                  </p>
+                  {/* 內文 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            SEVERITY_DOT[n.severity] || 'bg-[#25759f]'
+                          }`}
+                        />
+                        <p className={`text-xs truncate ${n.isRead ? 'font-medium text-[#191919]' : 'font-bold text-[#191919]'}`}>
+                          {n.title}
+                        </p>
+                      </div>
 
-                  <p className="text-xs text-gray-400 mt-1">
-                    {n.petName ? `${n.petName}・` : ''}
-                    {timeAgo(n.createdAt)}
-                  </p>
-                </div>
-              </button>
-            ))}
+                      <span className="text-[10px] font-mono text-[#8a8a8a] shrink-0">
+                        {timeAgo(n.createdAt)}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-[#626262] line-clamp-2 leading-relaxed">
+                      {n.message}
+                    </p>
+
+                    {n.petName && (
+                      <p className="text-[10px] font-mono text-[#8a8a8a] mt-1">
+                        對象：<span className="text-[#191919] font-medium">{n.petName}</span>
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
 
           </div>
+
+          {/* 底部狀態帶 */}
+          <div className="bg-[#f8f9fa] border-t border-[#e5e5e5] px-3.5 py-1.5 flex items-center justify-between text-[10px] font-mono text-[#8a8a8a]">
+            <span>PAWCARE // NOTIFICATION SERVICE</span>
+            <span>AUTO-SYNC</span>
+          </div>
+
         </div>
       )}
 

@@ -1,5 +1,17 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import {
+  CornerBrackets,
+  Button,
+  Tag
+} from '@endfield-ui/react'
+import {
+  PawPrint,
+  ArrowRight,
+  AlertCircle,
+  Lock,
+  Mail
+} from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
 
@@ -10,58 +22,101 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault()
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
     try {
       const { data } = await api.post('/auth/login', form)
       setAuth(data.data.user, data.data.token)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.error || '登入失敗，請再試一次')
-    } finally { setLoading(false) }
+      setError(err.response?.data?.error || '登入失敗，請確認帳號密碼')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
-            <span className="text-2xl">🐾</span>
+    <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4" data-theme="light">
+      <div className="relative bg-white border border-[#191919] shadow-2xl p-8 w-full max-w-sm">
+        <CornerBrackets size="md" />
+
+        {/* 品牌標識 */}
+        <div className="text-center mb-7">
+          <div className="w-12 h-12 bg-[#191919] border border-[#191919] flex items-center justify-center text-[#fffa00] relative mx-auto mb-3 shadow-xs">
+            <PawPrint size={24} strokeWidth={2.2} />
+            <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#fffa00]" />
           </div>
-          <h1 className="text-xl font-bold text-gray-800">PawCare</h1>
-          <p className="text-gray-400 text-sm mt-1">登入你的帳號</p>
+
+          <h1 className="text-xl font-black tracking-wider text-[#191919] font-sans">
+            PAWCARE
+          </h1>
+          <p className="text-[11px] font-mono text-[#8a8a8a] tracking-widest mt-0.5">
+            // USER AUTHENTICATION
+          </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-500 rounded-lg px-4 py-3 mb-5 text-sm">{error}</div>
+          <div className="bg-[#fff5f5] border border-[#ef4444] text-[#ef4444] p-3 mb-5 text-xs font-mono flex items-center gap-2">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{error}</span>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">電子郵件</label>
-            <input type="email" required value={form.email}
-              onChange={e => setForm(f => ({...f, email: e.target.value}))}
-              placeholder="your@email.com"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white focus:border-transparent transition-all" />
+            <label className="block text-[11px] font-mono text-[#8a8a8a] mb-1.5 uppercase tracking-wider">
+              電子郵件 / EMAIL
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="user@example.com"
+                className="w-full bg-[#f8f8f8] border border-[#d9d9d9] px-3.5 py-2.5 text-xs text-[#191919] font-mono focus:border-[#191919] focus:outline-hidden transition-colors"
+              />
+            </div>
           </div>
+
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">密碼</label>
-            <input type="password" required value={form.password}
-              onChange={e => setForm(f => ({...f, password: e.target.value}))}
-              placeholder="••••••••"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white focus:border-transparent transition-all" />
+            <label className="block text-[11px] font-mono text-[#8a8a8a] mb-1.5 uppercase tracking-wider">
+              帳號密碼 / PASSWORD
+            </label>
+            <div className="relative">
+              <input
+                type="password"
+                required
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="••••••••"
+                className="w-full bg-[#f8f8f8] border border-[#d9d9d9] px-3.5 py-2.5 text-xs text-[#191919] font-mono focus:border-[#191919] focus:outline-hidden transition-colors"
+              />
+            </div>
           </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg transition-all disabled:opacity-50 text-sm mt-2 shadow-sm">
-            {loading ? '登入中...' : '登入'}
-          </button>
+
+          <div className="pt-2">
+            <Button
+              type="submit"
+              variant="action"
+              disabled={loading}
+              className="w-full py-2.5 text-xs font-bold tracking-wider"
+            >
+              <span>{loading ? '驗證登入中...' : '確認登入'}</span>
+            </Button>
+          </div>
         </form>
 
-        <p className="text-center text-sm text-gray-400 mt-6">
-          還沒有帳號？{' '}
-          <Link to="/register" className="text-green-500 font-semibold hover:underline">立即註冊</Link>
-        </p>
+        <div className="mt-6 pt-4 border-t border-[#e5e5e5] text-center">
+          <p className="text-xs text-[#8a8a8a] font-mono">
+            尚未持有帳號？{' '}
+            <Link to="/register" className="text-[#191919] font-bold underline hover:text-[#d97706] transition-colors ml-1">
+              註冊新帳號 →
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )

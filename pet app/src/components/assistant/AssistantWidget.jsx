@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { PawPrint, Sparkles, X, Send, Camera, Trash2, Square } from 'lucide-react'
 import { api } from '../../lib/api'
 
 // 這些頁面不顯示小助理（健康諮詢頁本身就是 AI 對話）
@@ -378,10 +379,10 @@ async function streamChat(body, { signal, onStatus, onDelta, onReset }) {
 // ---------- 食物照片的結論卡片 ----------
 // 結論（verdict）由後端規則決定（危險食物、健康歷史、近期飲食…），不是 AI 自己說了算。
 const VERDICTS = {
-  avoid: { label: '不建議餵食', box: 'border-red-200 bg-red-50', pill: 'bg-red-500 text-white' },
-  caution: { label: '可以少量，要注意', box: 'border-amber-200 bg-amber-50', pill: 'bg-amber-500 text-white' },
-  ok: { label: '目前沒發現問題', box: 'border-green-200 bg-green-50', pill: 'bg-green-500 text-white' },
-  unknown: { label: '只有辨識，未檢查', box: 'border-gray-200 bg-gray-50', pill: 'bg-gray-400 text-white' }
+  avoid: { label: '不建議餵食', box: 'border-red-300 bg-red-50/70', pill: 'bg-red-500 text-white font-mono' },
+  caution: { label: '少量給予・注意觀察', box: 'border-amber-300 bg-amber-50/70', pill: 'bg-amber-400 text-[#191919] font-mono font-bold' },
+  ok: { label: '安全無虞・可正常食用', box: 'border-[#191919] bg-white', pill: 'bg-[#fffa00] text-[#191919] font-mono font-bold border border-[#191919]' },
+  unknown: { label: '僅完成辨識・待確認', box: 'border-[#e5e5e5] bg-[#fafafa]', pill: 'bg-[#8a8a8a] text-white font-mono' }
 }
 
 function FoodPhotoCard({ photo }) {
@@ -390,23 +391,23 @@ function FoodPhotoCard({ photo }) {
   const hasNutrition = Number(n.kcal) > 0
 
   return (
-    <div className={`mt-1.5 w-[85%] rounded-2xl border p-3 text-sm ${v.box}`}>
+    <div className={`mt-2 w-[90%] border p-3 text-sm ${v.box}`}>
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-gray-500">
-            {photo.petName && photo.checked ? `針對 ${photo.petName}` : '照片辨識'}
+          <p className="text-[10px] font-mono text-[#8a8a8a]">
+            {photo.petName && photo.checked ? `// TARGET: ${photo.petName}` : '// FOOD_RECOGNITION'}
           </p>
-          <p className="font-semibold text-gray-800 break-words">{photo.name}</p>
+          <p className="font-bold text-[#191919] break-words">{photo.name}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${v.pill}`}>
+        <span className={`shrink-0 px-2 py-0.5 text-[11px] ${v.pill}`}>
           {v.label}
         </span>
       </div>
 
-      <p className="mt-1.5 text-xs text-gray-600">
+      <p className="mt-1.5 text-xs font-mono text-[#555]">
         {hasNutrition
-          ? `每 100g 約 ${n.kcal} kcal・蛋白質 ${n.protein}g・脂肪 ${n.fat}g・碳水 ${n.carb}g`
-          : '營養資料不足'}
+          ? `每 100g 約 ${n.kcal} kcal // 蛋白質 ${n.protein}g // 脂肪 ${n.fat}g // 碳水 ${n.carb}g`
+          : '營養成份資料待補齊'}
       </p>
 
       {photo.warnings?.length > 0 && (
@@ -414,22 +415,22 @@ function FoodPhotoCard({ photo }) {
           {photo.warnings.map((w, i) => (
             <li
               key={i}
-              className={`rounded-lg px-2 py-1 text-xs ${
+              className={`px-2 py-1 text-xs font-mono border ${
                 w.level === 'danger'
-                  ? 'bg-red-100 text-red-800'
+                  ? 'bg-red-100 text-red-900 border-red-300'
                   : w.level === 'warning'
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-white/70 text-gray-600'
+                    ? 'bg-amber-100 text-amber-900 border-amber-300'
+                    : 'bg-white text-[#555] border-[#e5e5e5]'
               }`}
             >
-              {w.title}
+              [!] {w.title}
             </li>
           ))}
         </ul>
       )}
 
-      <p className="mt-2 text-[10px] text-gray-400">
-        辨識結果可能有誤，請自行確認食物與成分
+      <p className="mt-2 text-[10px] font-mono text-[#8a8a8a]">
+        // 辨識結果僅供參考，餵食前請確認食物安全與毛孩體質。
       </p>
     </div>
   )
@@ -441,16 +442,19 @@ function FeedingCard({ action, status, error, onConfirm, onCancel }) {
   const closed = status === 'done' || status === 'cancelled'
 
   return (
-    <div className="mt-1.5 w-[85%] rounded-2xl border border-green-200 bg-white p-3 text-sm shadow-sm">
-      <p className="font-semibold text-gray-800">記錄餵食</p>
+    <div className="mt-2 w-[90%] border border-[#191919] bg-white p-3 text-sm shadow-xs font-sans">
+      <div className="text-[10px] font-mono font-bold tracking-wider text-[#191919] mb-1">
+        // FEEDING_CONFIRMATION
+      </div>
+      <p className="font-bold text-[#191919]">記錄餵食項目</p>
 
-      <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-gray-600">
-        <dt>寵物</dt>
-        <dd className="text-gray-800">{action.petName}</dd>
-        <dt>食物</dt>
-        <dd className="text-gray-800">{action.foodName}</dd>
-        <dt>份量</dt>
-        <dd className="text-gray-800">{action.amountG} g（約 {action.calories} kcal）</dd>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs font-mono text-[#555]">
+        <dt>目標寵物:</dt>
+        <dd className="font-bold text-[#191919]">{action.petName}</dd>
+        <dt>指定品項:</dt>
+        <dd className="font-bold text-[#191919]">{action.foodName}</dd>
+        <dt>給予份量:</dt>
+        <dd className="font-bold text-[#191919]">{action.amountG} g (約 {action.calories} kcal)</dd>
       </dl>
 
       {action.warnings?.length > 0 && (
@@ -458,44 +462,46 @@ function FeedingCard({ action, status, error, onConfirm, onCancel }) {
           {action.warnings.map((w, i) => (
             <li
               key={i}
-              className={`rounded-lg px-2 py-1 text-xs ${
+              className={`px-2 py-1 text-xs font-mono border ${
                 w.level === 'warning'
-                  ? 'bg-amber-50 text-amber-800'
-                  : 'bg-gray-50 text-gray-600'
+                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                  : 'bg-[#fafafa] text-[#555] border-[#e5e5e5]'
               }`}
             >
-              {w.title}
+              [!] {w.title}
             </li>
           ))}
         </ul>
       )}
 
-      {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-2 text-xs font-mono text-red-500">[ERROR] {error}</p>}
 
       {status === 'done' && (
-        <p className="mt-2 text-xs font-medium text-green-600">已記錄 ✓</p>
+        <p className="mt-2 text-xs font-mono font-bold text-[#191919] bg-[#fffa00] px-2 py-1 border border-[#191919] inline-block">
+          ✓ 已成功登記餵食
+        </p>
       )}
       {status === 'cancelled' && (
-        <p className="mt-2 text-xs text-gray-400">已取消</p>
+        <p className="mt-2 text-xs font-mono text-[#8a8a8a]">已取消登記作業</p>
       )}
 
       {!closed && (
-        <div className="mt-2.5 flex gap-2">
+        <div className="mt-3 flex gap-2">
           <button
             onClick={onConfirm}
             disabled={status === 'saving'}
-            className="flex-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
+            className="flex-1 border border-[#191919] bg-[#fffa00] px-3 py-1.5 text-xs font-mono font-bold text-[#191919] hover:bg-black hover:text-[#fffa00] transition-colors disabled:opacity-50"
           >
             {status === 'saving'
-              ? '記錄中…'
+              ? '處理中...'
               : needsAck
-                ? '了解，仍要記錄'
+                ? '確認並強制記錄'
                 : '確認記錄'}
           </button>
           <button
             onClick={onCancel}
             disabled={status === 'saving'}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            className="border border-[#d9d9d9] bg-white px-3 py-1.5 text-xs font-mono text-[#555] hover:border-[#191919] hover:text-[#191919] transition-colors disabled:opacity-50"
           >
             取消
           </button>
@@ -506,7 +512,6 @@ function FeedingCard({ action, status, error, onConfirm, onCancel }) {
 }
 
 // ---------- 快速提問列：可橫向滑動 ----------
-// 手機：手指滑動；電腦：滑鼠滾輪、按住拖曳都可以。兩側有漸層提示還有更多。
 function ChipRow({ items, disabled, onPick }) {
   const ref = useRef(null)
   const drag = useRef(null)
@@ -530,7 +535,6 @@ function ChipRow({ items, disabled, onPick }) {
     return () => window.removeEventListener('resize', updateEdge)
   }, [])
 
-  // 滑鼠滾輪（上下滾）轉成橫向滑動
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -545,7 +549,6 @@ function ChipRow({ items, disabled, onPick }) {
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
-  // 滑鼠按住拖曳（觸控螢幕本來就能滑，不需要處理）
   const onMouseDown = e => {
     if (e.button !== 0) return
     const el = ref.current
@@ -561,7 +564,6 @@ function ChipRow({ items, disabled, onPick }) {
     const up = () => {
       document.removeEventListener('mousemove', move)
       document.removeEventListener('mouseup', up)
-      // 等這次 click 事件過了再清掉，拖曳結束時才不會誤觸按鈕
       setTimeout(() => {
         drag.current = null
       }, 0)
@@ -578,20 +580,20 @@ function ChipRow({ items, disabled, onPick }) {
   }
 
   return (
-    <div className="relative shrink-0 border-t border-gray-100 bg-white">
+    <div className="relative shrink-0 border-t border-[#f0f0f0] bg-white">
       <div
         ref={ref}
         onScroll={updateEdge}
         onMouseDown={onMouseDown}
         onClickCapture={onClickCapture}
-        className="flex gap-1.5 overflow-x-auto px-3 pt-2.5 select-none cursor-grab active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-1.5 overflow-x-auto px-3 py-2 select-none cursor-grab active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map(q => (
           <button
             key={q}
             onClick={() => onPick(q)}
             disabled={disabled}
-            className="shrink-0 whitespace-nowrap text-xs text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-full px-3 py-1.5 transition-colors disabled:opacity-40 disabled:hover:bg-green-50"
+            className="shrink-0 whitespace-nowrap text-xs font-mono font-medium text-[#191919] bg-[#fafafa] hover:bg-[#fffa00] border border-[#d9d9d9] hover:border-[#191919] px-2.5 py-1 transition-colors disabled:opacity-40"
           >
             {q}
           </button>
@@ -1076,7 +1078,7 @@ export default function AssistantWidget() {
 
   return (
     <>
-      {/* 收起時：可拖曳的圓形按鈕（手機開啟面板時隱藏，避免擋住面板） */}
+      {/* 收起時：可拖曳的 Endfield 工業風格按鈕 */}
       {!(open && isMobile) && (
         <button
           type="button"
@@ -1086,14 +1088,15 @@ export default function AssistantWidget() {
           onPointerUp={onPointerUp}
           onPointerCancel={() => (dragRef.current = null)}
           style={{ left: pos.x, top: pos.y, width: BALL, height: BALL, touchAction: 'none' }}
-          className={`fixed z-30 rounded-full bg-green-500 text-white text-2xl shadow-lg shadow-green-500/30
+          className={`fixed z-30 bg-[#191919] border border-[#191919] text-[#fffa00] shadow-2xl
             flex items-center justify-center select-none cursor-grab active:cursor-grabbing
-            hover:bg-green-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600
-            ${open ? 'ring-4 ring-green-200' : ''}`}
+            hover:bg-black transition-transform active:scale-95 focus-visible:outline-hidden
+            ${open ? 'ring-2 ring-[#fffa00]' : ''}`}
         >
-          🐾
+          <PawPrint size={24} strokeWidth={2.2} />
+          <div className="absolute top-0 right-0 w-2 h-2 bg-[#fffa00]" />
           {hasAlert && !open && (
-            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 bg-[#fffa00] border-2 border-[#191919]" />
           )}
         </button>
       )}
@@ -1106,28 +1109,29 @@ export default function AssistantWidget() {
           <div
             onClick={() => setOpen(false)}
             aria-hidden="true"
-            className="sm:hidden fixed inset-0 z-40 bg-black/30"
+            className="sm:hidden fixed inset-0 z-40 bg-[#000000]/40"
           />
 
           <div
             role="dialog"
             aria-label="PawCare 小助理"
+            data-theme="light"
             style={panelStyle}
-            className={`fixed z-40 bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden
-              ${isMobile ? 'inset-x-0 bottom-0 h-[80dvh] rounded-t-2xl' : 'rounded-2xl'}`}
+            className={`fixed z-40 bg-white border border-[#191919] shadow-2xl flex flex-col overflow-hidden
+              ${isMobile ? 'inset-x-0 bottom-0 h-[80dvh]' : ''}`}
           >
             {/* 標題列 */}
-            <div className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 bg-white">
-              <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center shadow-sm">
-                <span className="text-white text-base">🐾</span>
+            <div className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-[#e5e5e5] bg-[#fafafa]">
+              <div className="w-7 h-7 bg-[#191919] text-[#fffa00] border border-[#191919] flex items-center justify-center shrink-0">
+                <PawPrint size={15} strokeWidth={2.2} />
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800">PawCare 小助理</p>
-                <p className="text-[11px] text-gray-400 truncate">
+                <p className="text-xs font-bold text-[#191919] font-mono tracking-wider">PAWCARE // ASSISTANT</p>
+                <p className="text-[10px] text-[#8a8a8a] truncate font-mono">
                   {pets.length > 1 && activePet
-                    ? `與「${activePet.name}」的對話`
-                    : '問我怎麼使用，或寵物照護小問題'}
+                    ? `對話寵物：${activePet.name}`
+                    : '日常照護、餵食查詢與照片諮詢'}
                 </p>
               </div>
 
@@ -1136,7 +1140,7 @@ export default function AssistantWidget() {
                   value={activePetId ?? ''}
                   onChange={e => switchPet(Number(e.target.value))}
                   aria-label="選擇寵物"
-                  className="max-w-[6rem] truncate rounded-md border border-gray-200 bg-gray-50 px-1.5 py-1 text-xs text-gray-600 outline-none focus:border-green-400"
+                  className="max-w-[5.5rem] truncate border border-[#d9d9d9] bg-white px-1.5 py-1 text-[11px] font-mono text-[#191919] outline-hidden focus:border-[#191919]"
                 >
                   {pets.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -1147,7 +1151,7 @@ export default function AssistantWidget() {
               {messages.length > 0 && (
                 <button
                   onClick={clearChat}
-                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-md hover:bg-gray-100"
+                  className="text-[11px] font-mono text-[#8a8a8a] hover:text-[#dc2626] px-1.5 py-1 border border-transparent hover:border-[#dc2626] transition-colors"
                 >
                   清除
                 </button>
@@ -1156,47 +1160,51 @@ export default function AssistantWidget() {
               <button
                 onClick={() => setOpen(false)}
                 aria-label="關閉小助理"
-                className="p-1.5 -mr-1 rounded-lg text-gray-500 hover:bg-gray-100"
+                className="w-7 h-7 flex items-center justify-center border border-[#e5e5e5] text-[#8a8a8a] hover:text-[#191919] hover:border-[#191919] transition-colors ml-1"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
+                <X size={14} />
               </button>
             </div>
 
             {/* 對話內容 */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50">
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#fafafa]">
               {/* 歡迎訊息 */}
               <div className="flex">
-                <div className="max-w-[85%] bg-white border border-gray-200 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-gray-700 leading-relaxed">
-                  <p>嗨！我是 PawCare 小助理 🐾</p>
-                  <p className="mt-1">
-                    可以問我怎麼使用各項功能、日常寵物照護的小問題，也能幫你查今天該餵什麼、記錄餵食，或拍張食物照片問我能不能吃。
+                <div className="max-w-[85%] bg-white border-l-2 border-[#fffa00] border-y border-r border-[#e5e5e5] p-3 text-xs leading-relaxed text-[#191919] shadow-xs">
+                  <div className="flex items-center gap-1.5 font-mono font-bold text-[#191919] text-[11px] mb-1">
+                    <PawPrint size={13} className="text-[#191919]" />
+                    <span>PAWCARE_ASSISTANT</span>
+                  </div>
+                  <p>
+                    你好！我是 PawCare 寵物照護助理。可以詢問系統各項功能、日常飼育建議，或拍照快速辨識毛孩食物與營養成分。
                   </p>
                 </div>
               </div>
 
               {/* 今日提醒（還沒開始聊天時顯示） */}
               {messages.length === 0 && briefingItems.length > 0 && (
-                <div className="rounded-2xl border border-gray-200 bg-white p-3">
-                  <p className="text-xs font-semibold text-gray-700">今日提醒</p>
-                  <ul className="mt-1.5 space-y-1.5">
+                <div className="border border-[#191919] bg-white p-3 shadow-xs">
+                  <div className="text-[10px] font-mono font-bold tracking-wider text-[#191919] mb-1.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-[#fffa00] border border-[#191919]" />
+                    TODAY_REMINDERS
+                  </div>
+                  <ul className="space-y-1.5">
                     {briefingItems.map(item => (
                       <li
                         key={item.id}
-                        className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs ${
+                        className={`flex items-start gap-2 px-2.5 py-1.5 text-xs font-mono border ${
                           item.level === 'warning'
-                            ? 'bg-amber-50 text-amber-800'
-                            : 'bg-gray-50 text-gray-600'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                            : 'bg-[#fafafa] text-[#555] border-[#e5e5e5]'
                         }`}
                       >
                         <span className="flex-1">{item.text}</span>
                         {item.link && (
                           <button
                             onClick={() => goTo(item.link.to)}
-                            className="shrink-0 font-medium text-green-700 hover:underline"
+                            className="shrink-0 font-bold text-[#191919] hover:underline"
                           >
-                            查看
+                            [查看]
                           </button>
                         )}
                       </li>
@@ -1208,12 +1216,12 @@ export default function AssistantWidget() {
               {messages.map((m, i) =>
                 m.role === 'user' ? (
                   <div key={i} className="flex justify-end">
-                    <div className="max-w-[85%] bg-green-500 text-white rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    <div className="max-w-[85%] bg-[#191919] text-[#fffa00] border border-[#191919] px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap break-words font-sans">
                       {m.thumb && (
                         <img
                           src={m.thumb}
                           alt="已傳送的食物照片"
-                          className="mb-1.5 h-28 w-28 rounded-lg object-cover bg-white/20"
+                          className="mb-2 h-28 w-28 object-cover border border-[#444]"
                         />
                       )}
                       {m.content}
@@ -1222,31 +1230,30 @@ export default function AssistantWidget() {
                 ) : (
                   <div key={i} className="flex flex-col items-start">
                     <div
-                      className={`max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed border break-words ${
+                      className={`max-w-[88%] border px-3.5 py-2.5 text-xs leading-relaxed break-words shadow-xs ${
                         m.isError
-                          ? 'bg-red-50 border-red-100 text-red-600'
-                          : 'bg-white border-gray-200 text-gray-700'
+                          ? 'bg-red-50 border-red-300 text-red-700 font-mono'
+                          : 'bg-white border-[#e5e5e5] text-[#191919]'
                       }`}
                     >
                       {m.isError ? (
                         m.content
                       ) : m.streaming && !m.content ? (
-                        // 還沒有文字：顯示工具進度，或三個跳動的點
                         m.status ? (
-                          <span className="text-gray-400">{m.status}</span>
+                          <span className="font-mono text-[11px] text-[#8a8a8a]">{m.status}</span>
                         ) : (
-                          <span className="flex gap-1.5 py-1" aria-label="回覆中">
+                          <span className="flex items-center gap-1.5 py-1" aria-label="回覆中">
                             {[0, 1, 2].map(n => (
                               <span
                                 key={n}
-                                className="w-1.5 h-1.5 bg-green-400 rounded-full animate-bounce"
+                                className="w-1.5 h-1.5 bg-[#191919] animate-bounce"
                                 style={{ animationDelay: `${n * 0.15}s` }}
                               />
                             ))}
                           </span>
                         )
                       ) : (
-                        <div className="[&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold first:[&_p]:mt-0 last:[&_p]:mb-0">
+                        <div className="[&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-bold first:[&_p]:mt-0 last:[&_p]:mb-0">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={markdownComponents}
@@ -1286,30 +1293,28 @@ export default function AssistantWidget() {
             {(photo || photoError) && (
               <div className="shrink-0 bg-white px-3 pt-2">
                 {photo && (
-                  <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-1.5">
+                  <div className="flex items-center gap-2 border border-[#191919] bg-[#fafafa] p-1.5">
                     <img
                       src={photo.thumb}
                       alt="準備傳送的食物照片"
-                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                      className="h-12 w-12 shrink-0 object-cover border border-[#d9d9d9]"
                     />
-                    <p className="min-w-0 flex-1 text-xs text-green-800">
-                      傳送後會辨識食物，並檢查是否適合{activePet ? ` ${activePet.name}` : '寵物'}
+                    <p className="min-w-0 flex-1 text-xs font-mono text-[#191919]">
+                      傳送後將自動進行食材辨識與安全評估{activePet ? ` (${activePet.name})` : ''}
                     </p>
                     <button
                       type="button"
                       onClick={removePhoto}
                       aria-label="移除照片"
-                      className="shrink-0 rounded-lg p-1.5 text-green-700 hover:bg-green-100"
+                      className="shrink-0 p-1.5 text-[#8a8a8a] hover:text-red-600 transition-colors"
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <path d="M6 6l12 12M18 6L6 18" />
-                      </svg>
+                      <X size={14} />
                     </button>
                   </div>
                 )}
                 {photoError && (
-                  <p role="alert" className="mt-1 text-xs text-red-500">
-                    {photoError}
+                  <p role="alert" className="mt-1 text-xs font-mono text-red-500">
+                    [ERROR] {photoError}
                   </p>
                 )}
               </div>
@@ -1318,20 +1323,17 @@ export default function AssistantWidget() {
             {/* 輸入列 */}
             <form
               onSubmit={handleSubmit}
-              className="shrink-0 bg-white px-3 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3"
+              className="shrink-0 bg-white px-3 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3 border-t border-[#f0f0f0]"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={openPicker}
                   disabled={loading}
                   aria-label="選擇食物照片"
-                  className="shrink-0 w-10 h-10 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-green-600 disabled:opacity-40 flex items-center justify-center transition-colors"
+                  className="shrink-0 w-9 h-9 border border-[#d9d9d9] hover:border-[#191919] bg-white text-[#191919] hover:bg-[#fafafa] flex items-center justify-center transition-colors disabled:opacity-40"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                    <circle cx="12" cy="13" r="3" />
-                  </svg>
+                  <Camera size={16} />
                 </button>
                 <input
                   ref={fileInputRef}
@@ -1347,14 +1349,13 @@ export default function AssistantWidget() {
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => {
-                    // 中文輸入法選字時按 Enter 不該送出（Safari 的選字確認 keyCode 是 229）
                     if (e.key === 'Enter' && (e.nativeEvent.isComposing || e.keyCode === 229)) {
                       e.preventDefault()
                     }
                   }}
                   maxLength={MAX_INPUT}
-                  placeholder="輸入問題，或點左邊拍照"
-                  className="flex-1 min-w-0 border border-gray-200 rounded-full px-4 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+                  placeholder="輸入問題，或點左側相機拍照..."
+                  className="flex-1 min-w-0 border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-xs text-[#191919] focus:outline-hidden focus:border-[#191919] focus:bg-white transition-colors placeholder:text-[#8a8a8a]"
                 />
 
                 {loading ? (
@@ -1362,27 +1363,24 @@ export default function AssistantWidget() {
                     type="button"
                     onClick={stop}
                     aria-label="停止回答"
-                    className="shrink-0 w-10 h-10 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center"
+                    className="shrink-0 w-9 h-9 border border-[#191919] bg-[#191919] text-[#fffa00] hover:opacity-90 flex items-center justify-center transition-colors"
                   >
-                    <span className="block w-3 h-3 rounded-sm bg-gray-600" />
+                    <Square size={13} className="fill-current" />
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={!input.trim() && !photo}
                     aria-label="送出"
-                    className="shrink-0 w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:hover:bg-green-500 text-white flex items-center justify-center transition-colors"
+                    className="shrink-0 w-9 h-9 border border-[#191919] bg-[#fffa00] text-[#191919] hover:bg-black hover:text-[#fffa00] flex items-center justify-center transition-colors disabled:opacity-30 disabled:hover:bg-[#fffa00] disabled:hover:text-[#191919]"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 2 11 13" />
-                      <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
-                    </svg>
+                    <Send size={15} />
                   </button>
                 )}
               </div>
 
-              <p className="text-[10px] text-gray-300 text-center mt-2">
-                AI 回答僅供參考，寵物健康問題請諮詢獸醫
+              <p className="text-[10px] font-mono text-[#8a8a8a] text-center mt-2">
+                // AI 回答僅供參考，若遇緊急醫療需求請諮詢專業獸醫師
               </p>
             </form>
           </div>

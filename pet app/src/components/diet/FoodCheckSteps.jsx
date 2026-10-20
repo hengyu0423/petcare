@@ -1,17 +1,9 @@
-// ======================================================
-// 餵食前檢查流程
-//
-//   選擇食物 → 健康歷史與偏好 → 近期飲食 → 營養與安全
-//            → 顯示警訊／建議 → 確認餵食
-//
-// 「自己選擇」與「依照飲食計畫」都會經過同一個流程。
-// 每個警訊由後端標上所屬階段（warning.check）。
-// ======================================================
+import { Check, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react'
 
 const STEPS = [
-  { key: 'health', label: '健康歷史與偏好' },
-  { key: 'recentDiet', label: '近期飲食' },
-  { key: 'nutrition', label: '營養與安全' }
+  { key: 'health',     label: '健康歷史與偏好' },
+  { key: 'recentDiet', label: '近期飲食紀錄' },
+  { key: 'nutrition',  label: '營養安全檢核' }
 ]
 
 export default function FoodCheckSteps({
@@ -31,65 +23,67 @@ export default function FoodCheckSteps({
   const total = warnings.length
 
   return (
-    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
+    <div className="bg-[#fafafa] border border-[#d9d9d9] p-3.5 my-3" data-theme="light">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-mono text-[#8a8a8a] uppercase tracking-wider">
+          餵食安全管線檢測 // SAFETY_PIPELINE
+        </span>
+        {checking && (
+          <span className="text-[10px] font-mono text-[#191919] flex items-center gap-1 animate-pulse">
+            <Loader2 size={11} className="animate-spin" />
+            CHECKING...
+          </span>
+        )}
+      </div>
 
-      <p className="text-xs font-bold text-gray-600 mb-2">
-        餵食前檢查
-      </p>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-
+      <div className="flex flex-wrap items-center gap-2">
         {STEPS.map((step, index) => {
           const count = counts[step.key]
-
-          let style = 'bg-gray-100 text-gray-500'
-          let icon = '…'
+          let badgeStyle = 'bg-white border-[#d9d9d9] text-[#8a8a8a]'
+          let Icon = null
 
           if (!checking) {
             if (count === 0) {
-              style = 'bg-green-50 text-green-600'
-              icon = '✓'
+              badgeStyle = 'bg-white border-[#191919] text-[#191919] font-bold'
+              Icon = Check
             } else {
-              style = 'bg-amber-50 text-amber-700'
-              icon = `⚠️ ${count}`
+              badgeStyle = 'bg-[#fffbeb] border-[#fde68a] text-[#b45309] font-bold'
+              Icon = AlertTriangle
             }
           }
 
           return (
             <div key={step.key} className="flex items-center gap-1.5">
-
               {index > 0 && (
-                <span className="text-gray-300 text-xs">→</span>
+                <ChevronRight size={13} className="text-[#b0b0b0]" />
               )}
-
               <span
-                className={`text-xs font-medium px-2 py-1 rounded-full ${style} ${
+                className={`text-[11px] font-mono px-2.5 py-1 border flex items-center gap-1 transition-colors ${badgeStyle} ${
                   checking ? 'animate-pulse' : ''
                 }`}
               >
-                {icon} {step.label}
+                {Icon && <Icon size={12} />}
+                <span>{step.label}</span>
+                {!checking && count > 0 && <span className="text-[10px]">({count})</span>}
               </span>
-
             </div>
           )
         })}
 
-        <span className="text-gray-300 text-xs">→</span>
+        <ChevronRight size={13} className="text-[#b0b0b0]" />
 
-        <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-500">
-          確認餵食
+        <span className="text-[11px] font-mono px-2.5 py-1 border border-[#e5e5e5] bg-[#f5f5f5] text-[#8a8a8a]">
+          確認給食
         </span>
-
       </div>
 
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-[11px] font-mono text-[#8a8a8a] mt-2.5">
         {checking
-          ? '正在檢查這個食物…'
+          ? '// 正在進行多階段安全分析與過敏比對...'
           : total === 0
-            ? '沒有發現需要注意的地方，可以確認餵食。'
-            : `共有 ${total} 項提醒，看完下方說明後再決定要不要餵。`}
+            ? '// 安全檢測完畢，未發現飲食衝突或過敏禁忌項目。'
+            : `// 檢測發現 ${total} 項注意事項，請詳閱下方警訊提醒。`}
       </p>
-
     </div>
   )
 }

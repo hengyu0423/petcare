@@ -4,6 +4,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceArea, ResponsiveContainer
 } from 'recharts'
+import { Scale, TrendingUp, TrendingDown, Minus, Trash2, Calendar, Plus } from 'lucide-react'
+import { Tag, CornerBrackets } from '@endfield-ui/react'
 import { api } from '../../lib/api'
 import { ageInMonths, formatAge } from '../../lib/petAge'
 import {
@@ -12,9 +14,9 @@ import {
 } from '../../lib/petInsights'
 
 const inputCls =
-  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all'
+  'w-full border border-[#e5e5e5] bg-[#fafafa] px-3 py-2 text-sm text-[#191919] focus:outline-hidden focus:border-[#191919] focus:bg-white transition-colors placeholder:text-[#8a8a8a]'
 
-const BAND_FILL = { young: '#e0f2fe', adult: '#f0fdf4', senior: '#fffbeb' }
+const BAND_FILL = { young: '#f1f5f9', adult: '#f8fafc', senior: '#fffbeb' }
 const HISTORY_PREVIEW = 6
 
 const errorText = err => err?.response?.data?.error || '儲存失敗，請稍後再試'
@@ -25,13 +27,14 @@ function WeightTooltip({ active, payload, birthDate }) {
   const months = birthDate ? ageInMonths(birthDate, p.date) : null
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
-      <p className="font-semibold text-gray-800">{formatKg(p.weight)} kg</p>
-      <p className="text-gray-500">
+    <div className="border border-[#191919] bg-white px-3 py-2 text-xs shadow-md font-mono">
+      <div className="text-[10px] text-[#8a8a8a]">// WEIGHT_LOG</div>
+      <p className="font-bold text-sm text-[#191919] mt-0.5">{formatKg(p.weight)} KG</p>
+      <p className="text-[#555] text-[11px] mt-0.5">
         {p.date}
-        {months !== null && ` ・ ${formatAge(months)}`}
+        {months !== null && ` // ${formatAge(months)}`}
       </p>
-      {p.note && <p className="mt-0.5 text-gray-400">{p.note}</p>}
+      {p.note && <p className="mt-1 text-[#8a8a8a] border-t border-[#f0f0f0] pt-1">{p.note}</p>}
     </div>
   )
 }
@@ -50,13 +53,11 @@ export default function WeightCard({ pet }) {
     queryFn: async () => (await api.get(`/pets/${pet.id}/weights`)).data.data
   })
 
-  // 體重一變，寵物資料（目前體重）、飲食計畫的熱量建議都會跟著變，所以整個重新整理
   const refresh = () => qc.invalidateQueries()
 
   const addWeight = useMutation({
     mutationFn: payload => api.post(`/pets/${pet.id}/weights`, payload),
     onSuccess: () => {
-      // 日期也回到今天：補登過去的體重後，下一筆不會不小心記到舊日期
       setForm({ weight: '', date: todayString(), note: '' })
       refresh()
     }
@@ -69,7 +70,6 @@ export default function WeightCard({ pet }) {
 
   const stage = lifeStage(pet.species, birthDate ? ageInMonths(birthDate) : null)
 
-  // 這個專案開了 React Compiler，會自動記住計算結果，所以不需要再手動 useMemo
   const dateChart = buildChart(records, { mode: 'date' })
   const ageChart = birthDate ? buildChart(records, { mode: 'age', birthDate }) : null
   const canUseAge = !!ageChart && ageChart.points.length > 0
@@ -80,7 +80,6 @@ export default function WeightCard({ pet }) {
   const note = weightNote(trend, stage)
   const latest = records[records.length - 1]
 
-  // 新到舊，並算出和前一筆（較舊）的差
   const history = [...records].reverse().map((r, i, arr) => {
     const prev = arr[i + 1]
     return { ...r, diff: prev ? Math.round((r.weight - prev.weight) * 100) / 100 : null }
@@ -108,43 +107,60 @@ export default function WeightCard({ pet }) {
       }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="體重與成長曲線">
-      <div className="flex items-start justify-between gap-3">
+    <section
+      data-theme="light"
+      className="relative bg-white border border-[#e5e5e5] p-5 shadow-xs"
+      aria-label="體重與成長曲線"
+    >
+      <CornerBrackets size="sm" />
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 border-b border-[#f0f0f0] pb-3">
         <div>
-          <h2 className="text-sm font-bold text-gray-800">體重與成長曲線</h2>
+          <div className="text-[10px] font-mono font-bold tracking-wider text-[#8a8a8a]">
+            // WEIGHT_METRICS & GROWTH
+          </div>
+          <h2 className="text-base font-bold text-[#191919]">體重與成長曲線</h2>
           {latest ? (
-            <p className="mt-1 text-xs text-gray-500">
-              目前 <span className="font-semibold text-gray-800">{formatKg(latest.weight)} kg</span>
+            <div className="mt-1 flex items-center gap-2 font-mono text-xs text-[#555]">
+              <span>最新記錄:</span>
+              <span className="font-bold text-[#191919] bg-[#fffa00] px-1.5 py-0.2 border border-[#191919]">
+                {formatKg(latest.weight)} KG
+              </span>
               {trend && (
-                <>
-                  {' ・ '}近 {trend.spanDays} 天{' '}
+                <span className="flex items-center gap-1 text-[11px] text-[#8a8a8a]">
+                  [近 {trend.spanDays} 天{' '}
                   <span
                     className={
-                      trend.delta > 0 ? 'text-amber-600' : trend.delta < 0 ? 'text-sky-600' : 'text-gray-500'
+                      trend.delta > 0 ? 'text-amber-600 font-bold' : trend.delta < 0 ? 'text-sky-600 font-bold' : 'text-[#8a8a8a]'
                     }
                   >
                     {trend.delta > 0 ? '+' : ''}
-                    {formatKg(trend.delta)} kg（{trend.pct > 0 ? '+' : ''}
-                    {trend.pct.toFixed(1)}%）
+                    {formatKg(trend.delta)} kg ({trend.pct > 0 ? '+' : ''}
+                    {trend.pct.toFixed(1)}%)
                   </span>
-                </>
+                  ]
+                </span>
               )}
-            </p>
+            </div>
           ) : (
-            <p className="mt-1 text-xs text-gray-400">記錄第一筆體重，之後就能看到成長曲線</p>
+            <p className="mt-1 text-xs text-[#8a8a8a]">登記第一筆體重數據後即可生成成長曲線追蹤圖表</p>
           )}
         </div>
 
         {canUseAge && (
-          <div className="inline-flex shrink-0 rounded-lg border border-gray-200 p-0.5 text-xs" role="group" aria-label="橫軸">
+          <div className="inline-flex shrink-0 border border-[#191919] p-0.5 font-mono text-xs" role="group" aria-label="橫軸切換">
             {[['date', '依日期'], ['age', '依年齡']].map(([key, label]) => (
               <button
                 key={key}
                 type="button"
                 aria-pressed={effectiveMode === key}
                 onClick={() => setMode(key)}
-                className={`rounded-md px-2.5 py-1 font-medium transition-colors ${effectiveMode === key ? 'bg-green-500 text-white' : 'text-gray-500 hover:bg-gray-50'
-                  }`}
+                className={`px-2.5 py-1 font-bold transition-colors ${
+                  effectiveMode === key
+                    ? 'bg-[#191919] text-[#fffa00]'
+                    : 'bg-white text-[#555] hover:text-[#191919]'
+                }`}
               >
                 {label}
               </button>
@@ -154,23 +170,28 @@ export default function WeightCard({ pet }) {
       </div>
 
       {note && (
-        <p
+        <div
           role="status"
-          className={`mt-3 rounded-lg px-3 py-2 text-xs ${note.level === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
-            }`}
+          className={`mt-3 px-3 py-2 text-xs border font-mono flex items-center gap-2 ${
+            note.level === 'warning'
+              ? 'border-amber-300 bg-amber-50 text-amber-900'
+              : 'border-[#e5e5e5] bg-[#fafafa] text-[#555]'
+          }`}
         >
-          {note.text}
-        </p>
+          <span className="w-1.5 h-1.5 bg-[#191919]" />
+          <span>{note.text}</span>
+        </div>
       )}
 
+      {/* Chart */}
       {isLoading ? (
-        <div className="mt-4 h-[240px] animate-pulse rounded-xl bg-gray-50" />
+        <div className="mt-4 h-[240px] animate-pulse bg-[#fafafa] border border-[#e5e5e5]" />
       ) : records.length > 0 ? (
         <div className="mt-4">
           <div className="h-[240px] w-full" data-testid="weight-chart">
             <ResponsiveContainer width="100%" height={240} initialDimension={{ width: 560, height: 240 }}>
-              <LineChart data={chart.points} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <LineChart data={chart.points} margin={{ top: 12, right: 12, bottom: 0, left: -8 }}>
+                <CartesianGrid strokeDasharray="2 2" stroke="#e5e5e5" />
                 {effectiveMode === 'age' &&
                   chart.areas.map(a => (
                     <ReferenceArea
@@ -178,9 +199,9 @@ export default function WeightCard({ pet }) {
                       x1={a.from}
                       x2={a.to}
                       fill={BAND_FILL[a.key]}
-                      fillOpacity={1}
+                      fillOpacity={0.8}
                       ifOverflow="hidden"
-                      label={{ value: a.label, position: 'insideTopLeft', fontSize: 10, fill: '#94a3b8' }}
+                      label={{ value: a.label, position: 'insideTopLeft', fontSize: 10, fill: '#8a8a8a', fontFamily: 'monospace' }}
                     />
                   ))}
                 <XAxis
@@ -190,14 +211,14 @@ export default function WeightCard({ pet }) {
                   domain={chart.xDomain}
                   ticks={chart.ticks}
                   tickFormatter={xTick}
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tick={{ fontSize: 11, fill: '#8a8a8a', fontFamily: 'monospace' }}
                   tickLine={false}
-                  axisLine={{ stroke: '#e5e7eb' }}
+                  axisLine={{ stroke: '#d9d9d9' }}
                 />
                 <YAxis
                   domain={chart.yDomain}
                   tickFormatter={formatKg}
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tick={{ fontSize: 11, fill: '#8a8a8a', fontFamily: 'monospace' }}
                   tickLine={false}
                   axisLine={false}
                   width={44}
@@ -207,10 +228,10 @@ export default function WeightCard({ pet }) {
                 <Line
                   type="monotone"
                   dataKey="weight"
-                  stroke="#22c55e"
-                  strokeWidth={2.5}
-                  dot={{ r: 3.5, fill: '#22c55e', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
+                  stroke="#191919"
+                  strokeWidth={2}
+                  dot={{ r: 3.5, fill: '#fffa00', stroke: '#191919', strokeWidth: 1.5 }}
+                  activeDot={{ r: 5, fill: '#fffa00', stroke: '#191919', strokeWidth: 2 }}
                   isAnimationActive={false}
                 />
               </LineChart>
@@ -218,24 +239,28 @@ export default function WeightCard({ pet }) {
           </div>
 
           {effectiveMode === 'age' && (
-            <p className="mt-1 text-[10px] text-gray-400">
-              背景色是一般的生命階段參考（未滿 1 歲為幼年、7 歲起為高齡），與飲食計畫使用同一個標準。
+            <p className="mt-1 font-mono text-[10px] text-[#8a8a8a]">
+              // 生命階段參考：未滿 1 歲為幼年期、7 歲起為高齡期，與每日飲食熱量模型同步。
             </p>
           )}
           {records.length === 1 && (
-            <p className="mt-2 text-xs text-gray-400">再記錄一次體重，就能連成曲線囉。</p>
+            <p className="mt-2 font-mono text-xs text-[#8a8a8a]">
+              * 提示：再增加一筆不同日期的體重紀錄即可繪製成長折線圖。
+            </p>
           )}
         </div>
       ) : (
-        <div className="mt-4 rounded-xl bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
-          <p className="text-3xl mb-2">📈</p>
-          還沒有體重紀錄
+        <div className="mt-4 border border-dashed border-[#d9d9d9] bg-[#fafafa] px-4 py-8 text-center text-xs text-[#8a8a8a]">
+          <Scale size={24} className="mx-auto mb-2 text-[#8a8a8a] stroke-[1.5]" />
+          目前尚無體重測量紀錄。定期追蹤有助於維持毛孩理想體態與及早發現健康警訊。
         </div>
       )}
 
-      {/* 新增體重 */}
-      <form onSubmit={submit} className="mt-4 rounded-xl bg-gray-50 p-3">
-        <p className="mb-2 text-xs font-semibold text-gray-500">記錄體重</p>
+      {/* 新增體重 Form */}
+      <form onSubmit={submit} className="mt-4 border border-[#191919] bg-[#fafafa] p-3">
+        <div className="text-[10px] font-mono font-bold tracking-wider text-[#191919] mb-2 flex items-center gap-1.5">
+          <Plus size={12} /> RECORD_NEW_WEIGHT
+        </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
           <div>
             <label htmlFor={`w-${pet.id}`} className="sr-only">體重（公斤）</label>
@@ -249,7 +274,7 @@ export default function WeightCard({ pet }) {
               required
               value={form.weight}
               onChange={e => setForm(f => ({ ...f, weight: e.target.value }))}
-              placeholder="體重 (kg)"
+              placeholder="體重 (kg) *"
               className={inputCls}
             />
           </div>
@@ -273,41 +298,51 @@ export default function WeightCard({ pet }) {
               value={form.note}
               maxLength={200}
               onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-              placeholder="備註（選填）"
+              placeholder="備註資訊（選填）"
               className={inputCls}
             />
           </div>
           <button
             type="submit"
             disabled={addWeight.isPending || !form.weight}
-            className="col-span-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-600 disabled:opacity-50 sm:col-span-1"
+            className="col-span-2 sm:col-span-1 px-4 py-2 text-xs font-mono font-bold border border-[#191919] bg-[#fffa00] text-[#191919] hover:bg-black hover:text-[#fffa00] transition-colors disabled:opacity-50"
           >
-            {addWeight.isPending ? '儲存中…' : '記錄'}
+            {addWeight.isPending ? '登記中...' : '確認登記'}
           </button>
         </div>
         {addWeight.isError && (
-          <p role="alert" className="mt-2 text-xs text-red-500">{errorText(addWeight.error)}</p>
+          <p role="alert" className="mt-2 font-mono text-xs text-red-500">
+            [ERROR] {errorText(addWeight.error)}
+          </p>
         )}
-        <p className="mt-2 text-[11px] text-gray-400">
-          更新體重後，飲食管理的每日熱量建議也會跟著調整。同一天再記錄一次會取代原本那一筆。
+        <p className="mt-2 font-mono text-[10px] text-[#8a8a8a]">
+          // 更新體重後，飲食管理模組將即時同步重新估算建議每日熱量需求。
         </p>
       </form>
 
       {/* 歷史紀錄 */}
       {history.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-1 text-xs font-semibold text-gray-500">歷史紀錄</p>
-          <ul className="divide-y divide-gray-100">
+        <div className="mt-4 pt-3 border-t border-[#f0f0f0]">
+          <div className="text-[10px] font-mono font-bold tracking-wider text-[#8a8a8a] mb-2">
+            // MEASUREMENT_HISTORY ({history.length})
+          </div>
+          <ul className="divide-y divide-[#f0f0f0]">
             {visibleHistory.map(r => (
-              <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
-                <span className="w-24 shrink-0 text-xs text-gray-400">{r.measured_on}</span>
-                <span className="font-semibold text-gray-700">{formatKg(r.weight)} kg</span>
+              <li key={r.id} className="flex items-center gap-3 py-2 text-xs group">
+                <span className="w-24 shrink-0 font-mono text-[#8a8a8a]">{r.measured_on}</span>
+                <span className="font-mono font-bold text-[#191919]">{formatKg(r.weight)} KG</span>
                 {r.diff !== null && r.diff !== 0 && (
-                  <span className={`text-xs ${r.diff > 0 ? 'text-amber-600' : 'text-sky-600'}`}>
-                    {r.diff > 0 ? '+' : ''}{formatKg(r.diff)}
+                  <span
+                    className={`font-mono font-semibold text-[11px] px-1 py-0.2 border ${
+                      r.diff > 0
+                        ? 'border-amber-300 bg-amber-50 text-amber-800'
+                        : 'border-sky-300 bg-sky-50 text-sky-800'
+                    }`}
+                  >
+                    {r.diff > 0 ? '+' : ''}{formatKg(r.diff)} kg
                   </span>
                 )}
-                {r.note && <span className="min-w-0 flex-1 truncate text-xs text-gray-400">{r.note}</span>}
+                {r.note && <span className="min-w-0 flex-1 truncate text-[#555]">{r.note}</span>}
                 <button
                   type="button"
                   onClick={() => {
@@ -315,9 +350,10 @@ export default function WeightCard({ pet }) {
                   }}
                   disabled={removeWeight.isPending}
                   aria-label={`刪除 ${r.measured_on} 的體重紀錄`}
-                  className="ml-auto shrink-0 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  className="ml-auto shrink-0 text-xs font-mono text-[#8a8a8a] hover:text-red-600 transition-colors opacity-80 group-hover:opacity-100 flex items-center gap-1 disabled:opacity-30"
                 >
-                  刪除
+                  <Trash2 size={12} />
+                  <span>刪除</span>
                 </button>
               </li>
             ))}
@@ -326,13 +362,15 @@ export default function WeightCard({ pet }) {
             <button
               type="button"
               onClick={() => setShowAll(v => !v)}
-              className="mt-1 text-xs font-medium text-green-600 hover:underline"
+              className="mt-2 text-xs font-mono font-semibold text-[#191919] hover:underline flex items-center gap-1"
             >
-              {showAll ? '收合' : `顯示全部 ${history.length} 筆`}
+              {showAll ? '▲ 收合歷史紀錄' : `▼ 展開全部 ${history.length} 筆歷史紀錄`}
             </button>
           )}
           {removeWeight.isError && (
-            <p role="alert" className="mt-1 text-xs text-red-500">刪除失敗，請稍後再試</p>
+            <p role="alert" className="mt-1 font-mono text-xs text-red-500">
+              [ERROR] 刪除失敗，請稍後再試
+            </p>
           )}
         </div>
       )}

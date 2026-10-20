@@ -5,29 +5,53 @@ import {
   XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, CartesianGrid
 } from 'recharts'
+import {
+  BracketTitle,
+  CornerBrackets,
+  Button,
+  Tag
+} from '@endfield-ui/react'
+import {
+  ArrowLeft,
+  Wallet,
+  PawPrint,
+  Award,
+  Folder,
+  Utensils,
+  Stethoscope,
+  Scissors,
+  Gamepad2,
+  Home,
+  Package,
+  TrendingUp,
+  BarChart3
+} from 'lucide-react'
 import { api } from '../lib/api'
 
-const COLORS = ['#f97316','#22c55e','#3b82f6','#a855f7','#ec4899','#eab308']
+// 工業科技風格高辨識度配色
+const COLORS = ['#191919', '#d97706', '#2563eb', '#059669', '#7c3aed', '#dc2626']
 
-const CAT_LABEL = {
-  food:'飼料/零食', medical:'醫療/疫苗', grooming:'美容/洗澡',
-  toy:'玩具/用品', boarding:'寄宿/托育', other:'其他'
-}
-
-const CAT_EMOJI = {
-  food:'🍖', medical:'🏥', grooming:'✂️',
-  toy:'🎾', boarding:'🏠', other:'📦'
+const CAT_CONFIG = {
+  food:     { label: '飼料/零食', icon: Utensils },
+  medical:  { label: '醫療/疫苗', icon: Stethoscope },
+  grooming: { label: '美容/洗澡', icon: Scissors },
+  toy:      { label: '玩具/用品', icon: Gamepad2 },
+  boarding: { label: '寄宿/托育', icon: Home },
+  other:    { label: '其他支出', icon: Package }
 }
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 px-4 py-3 text-sm">
-      {label && <p className="font-bold text-gray-600 mb-1">{label}</p>}
+    <div className="bg-white border border-[#191919] p-3 text-xs shadow-lg font-mono">
+      {label && <p className="font-bold text-[#191919] mb-1.5 border-b border-[#e5e5e5] pb-1">{label}</p>}
       {payload.map((p, i) => (
-        <p key={i} style={{ color: p.color }} className="font-semibold">
-          {p.name}: TWD {Number(p.value).toFixed(2)}
-        </p>
+        <div key={i} className="flex items-center justify-between gap-4 py-0.5">
+          <span style={{ color: p.color }} className="font-medium">{p.name}:</span>
+          <span className="font-bold text-[#191919]">
+            TWD {Number(p.value).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
       ))}
     </div>
   )
@@ -40,8 +64,16 @@ const CustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent })
   const x = cx + r * Math.cos(-midAngle * RADIAN)
   const y = cy + r * Math.sin(-midAngle * RADIAN)
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central"
-      fontSize={13} fontWeight="bold">
+    <text
+      x={x}
+      y={y}
+      fill="#ffffff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={11}
+      fontWeight="700"
+      fontFamily="monospace"
+    >
       {`${(percent * 100).toFixed(0)}%`}
     </text>
   )
@@ -64,8 +96,8 @@ export default function ExpenseReportPage() {
       return acc
     }, {})
   ).map(([cat, total]) => ({
-    name: CAT_LABEL[cat] || cat,
-    emoji: CAT_EMOJI[cat] || '📦',
+    name: CAT_CONFIG[cat]?.label || cat,
+    icon: CAT_CONFIG[cat]?.icon || Package,
     value: total,
     key: cat
   })).sort((a, b) => b.value - a.value)
@@ -94,67 +126,117 @@ export default function ExpenseReportPage() {
   const isLoading = loadingSummary || loadingMonthly
 
   return (
-    <div className="p-8 max-w-6xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link to="/expenses" className="w-9 h-9 flex items-center justify-center rounded-xl border border-green-200 text-green-400 hover:bg-green-50 transition-colors text-lg">
-          ←
-        </Link>
-        <div>
-          <h1 style={{fontFamily:'Nunito,sans-serif'}} className="text-3xl font-black text-gray-800">支出報表</h1>
-          <p className="text-gray-400 text-sm mt-0.5">所有寵物的財務統計總覽</p>
+    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6" data-theme="light">
+      {/* 頂部導航與標題 */}
+      <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-5">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/expenses"
+            className="w-9 h-9 flex items-center justify-center border border-[#d9d9d9] bg-white text-[#191919] hover:bg-[#191919] hover:text-[#fffa00] hover:border-[#191919] transition-colors"
+          >
+            <ArrowLeft size={16} />
+          </Link>
+          <div>
+            <BracketTitle prefix="// FINANCIAL.ANALYTICS">支出報表</BracketTitle>
+            <p className="text-xs font-mono text-[#8a8a8a] mt-1 tracking-wider">
+              寵物生活支出統計與趨勢可視化分析
+            </p>
+          </div>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-32">
-          <div className="text-center">
-            <div className="text-5xl mb-4 animate-bounce">📊</div>
-            <p className="text-gray-400">載入報表中...</p>
-          </div>
+        <div className="border border-[#d9d9d9] bg-white p-16 text-center text-xs font-mono text-[#8a8a8a]">
+          讀取統計數據中... // LOADING_CHART_METRICS
         </div>
       ) : summary.length === 0 ? (
-        <div className="text-center py-32">
-          <div className="text-7xl mb-5">💸</div>
-          <p className="text-gray-400 text-lg mb-2">還沒有支出資料</p>
-          <p className="text-gray-300 text-sm mb-6">先去記錄一些寵物花費吧！</p>
-          <Link to="/expenses"
-            className="inline-block bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-bold transition-colors">
-            前往新增支出
+        <div className="relative border border-[#d9d9d9] bg-white p-16 text-center">
+          <CornerBrackets size="sm" />
+          <div className="w-12 h-12 bg-[#f5f5f5] border border-[#e5e5e5] mx-auto flex items-center justify-center text-[#8a8a8a] mb-3">
+            <BarChart3 size={24} />
+          </div>
+          <p className="font-bold text-sm text-[#191919]">目前尚無支出資料可供統計</p>
+          <p className="text-xs text-[#8a8a8a] mt-1 font-mono mb-5">請先於財務管理頁面記錄毛孩的生活花費</p>
+          <Link to="/expenses">
+            <Button variant="action" className="text-xs py-2 px-4">
+              前往新增支出
+            </Button>
           </Link>
         </div>
       ) : (
         <div className="space-y-6">
-
-          {/* 統計卡片 */}
-          <div className="grid grid-cols-4 gap-4">
-            {[
-              { label: '總支出', value: `TWD ${total.toFixed(2)}`, color: 'text-green-500', bg: 'bg-green-50', icon: '💰' },
-              { label: '寵物數量', value: `${petNames.length} 隻`, color: 'text-blue-500', bg: 'bg-blue-50', icon: '🐾' },
-              { label: '最高花費', value: topPet ? topPet.name : '—', color: 'text-purple-500', bg: 'bg-purple-50', icon: '🏆' },
-              { label: '最多類別', value: topCat ? topCat.emoji + ' ' + topCat.name : '—', color: 'text-green-500', bg: 'bg-green-50', icon: '📂' },
-            ].map(card => (
-              <div key={card.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <div className={`w-10 h-10 ${card.bg} rounded-xl flex items-center justify-center text-xl mb-3`}>
-                  {card.icon}
-                </div>
-                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{card.label}</p>
-                <p style={{fontFamily:'Nunito,sans-serif'}} className={`text-xl font-black mt-1 ${card.color}`}>
-                  {card.value}
-                </p>
+          {/* 四欄 KPI 摘要指標 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* 總支出 */}
+            <div className="relative bg-white border border-[#d9d9d9] p-4">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between text-[#8a8a8a] mb-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider">總支出額 / TOTAL</span>
+                <Wallet size={14} className="text-[#191919]" />
               </div>
-            ))}
+              <div className="text-xl font-mono font-black text-[#191919]">
+                ${total.toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            {/* 記錄寵物數量 */}
+            <div className="relative bg-white border border-[#d9d9d9] p-4">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between text-[#8a8a8a] mb-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider">寵物數量 / PETS</span>
+                <PawPrint size={14} className="text-[#191919]" />
+              </div>
+              <div className="text-xl font-mono font-black text-[#191919]">
+                {petNames.length} <span className="text-xs font-normal text-[#8a8a8a]">隻</span>
+              </div>
+            </div>
+
+            {/* 最高花費寵物 */}
+            <div className="relative bg-white border border-[#d9d9d9] p-4">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between text-[#8a8a8a] mb-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider">最高花費對象 / TOP PET</span>
+                <Award size={14} className="text-[#191919]" />
+              </div>
+              <div className="text-xl font-bold text-[#191919] truncate">
+                {topPet ? topPet.name : '—'}
+              </div>
+            </div>
+
+            {/* 最高支出類別 */}
+            <div className="relative bg-white border border-[#d9d9d9] p-4">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between text-[#8a8a8a] mb-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider">最高支出類別 / TOP CAT</span>
+                <Folder size={14} className="text-[#191919]" />
+              </div>
+              <div className="text-xl font-bold text-[#191919] truncate">
+                {topCat ? topCat.name : '—'}
+              </div>
+            </div>
           </div>
 
           {/* 圓餅圖 + 類別明細 */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">支出類別分布</h2>
-              <ResponsiveContainer width="100%" height={240}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 類別分布圖 */}
+            <div className="relative bg-white border border-[#d9d9d9] p-5">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-3 mb-4">
+                <span className="font-bold text-sm text-[#191919]">支出類別分布</span>
+                <span className="text-[10px] font-mono text-[#8a8a8a]">// PIE_SHARE</span>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
-                  <Pie data={categoryData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={100}
-                    labelLine={false} label={CustomPieLabel}>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={95}
+                    labelLine={false}
+                    label={CustomPieLabel}
+                  >
                     {categoryData.map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
@@ -164,27 +246,39 @@ export default function ExpenseReportPage() {
               </ResponsiveContainer>
             </div>
 
-            {/* 類別明細列表 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">類別明細</h2>
-              <div className="space-y-3">
+            {/* 類別明細進度條列表 */}
+            <div className="relative bg-white border border-[#d9d9d9] p-5">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-3 mb-4">
+                <span className="font-bold text-sm text-[#191919]">類別花費明細</span>
+                <span className="text-[10px] font-mono text-[#8a8a8a]">// BREAKDOWN</span>
+              </div>
+              <div className="space-y-3.5">
                 {categoryData.map((d, i) => {
                   const pct = total > 0 ? (d.value / total) * 100 : 0
+                  const Icon = d.icon
                   return (
                     <div key={d.key}>
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1.5 text-xs">
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{backgroundColor: COLORS[i % COLORS.length]}} />
-                          <span className="text-sm text-gray-600">{d.emoji} {d.name}</span>
+                          <div className="w-2.5 h-2.5" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                          <Icon size={13} className="text-[#191919]" />
+                          <span className="font-medium text-[#191919]">{d.name}</span>
                         </div>
-                        <div className="text-right">
-                          <span className="text-sm font-bold text-gray-800">TWD {d.value.toFixed(2)}</span>
-                          <span className="text-xs text-gray-400 ml-2">{pct.toFixed(1)}%</span>
+                        <div className="font-mono text-right">
+                          <span className="font-bold text-[#191919]">
+                            ${d.value.toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-[10px] text-[#8a8a8a] ml-2">
+                            ({pct.toFixed(1)}%)
+                          </span>
                         </div>
                       </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                      <div className="h-1.5 bg-[#f0f0f0] overflow-hidden">
+                        <div
+                          className="h-full transition-all duration-300"
+                          style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                        />
                       </div>
                     </div>
                   )
@@ -193,18 +287,22 @@ export default function ExpenseReportPage() {
             </div>
           </div>
 
-          {/* 每隻寵物花費 */}
+          {/* 每隻寵物花費比較 */}
           {petTotals.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">每隻寵物花費比較</h2>
-              <div className="grid grid-cols-2 gap-6 items-center">
+            <div className="relative bg-white border border-[#d9d9d9] p-5">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-3 mb-4">
+                <span className="font-bold text-sm text-[#191919]">每隻寵物花費比較</span>
+                <span className="text-[10px] font-mono text-[#8a8a8a]">// PET_COMPARISON</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={petTotals} margin={{top:5, right:10, left:0, bottom:5}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis dataKey="name" tick={{fontSize:12, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
+                  <BarChart data={petTotals} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="2 2" stroke="#e5e5e5" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#191919' }} axisLine={{ stroke: '#d9d9d9' }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#8a8a8a', fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="total" name="總花費" radius={[8,8,0,0]}>
+                    <Bar dataKey="total" name="總花費">
                       {petTotals.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
@@ -217,18 +315,24 @@ export default function ExpenseReportPage() {
                     const pct = total > 0 ? (p.total / total) * 100 : 0
                     return (
                       <div key={p.name} className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-                          style={{backgroundColor: COLORS[i % COLORS.length]}}>
+                        <div
+                          className="w-7 h-7 flex items-center justify-center text-white text-xs font-mono font-bold shrink-0"
+                          style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                        >
                           {p.name[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex justify-between mb-1">
-                            <span className="text-sm font-semibold text-gray-700 truncate">{p.name}</span>
-                            <span className="text-sm font-bold text-gray-800 ml-2 shrink-0">TWD {Number(p.total).toFixed(2)}</span>
+                          <div className="flex justify-between mb-1 text-xs">
+                            <span className="font-bold text-[#191919] truncate">{p.name}</span>
+                            <span className="font-mono font-bold text-[#191919]">
+                              ${Number(p.total).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
                           </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full"
-                              style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+                          <div className="h-1.5 bg-[#f0f0f0] overflow-hidden">
+                            <div
+                              className="h-full"
+                              style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                            />
                           </div>
                         </div>
                       </div>
@@ -239,28 +343,36 @@ export default function ExpenseReportPage() {
             </div>
           )}
 
-          {/* 月度趨勢 */}
+          {/* 月度支出趨勢 */}
           {monthlyGrouped.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">月度支出趨勢</h2>
+            <div className="relative bg-white border border-[#d9d9d9] p-5">
+              <CornerBrackets size="sm" />
+              <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-3 mb-4">
+                <span className="font-bold text-sm text-[#191919]">月度支出趨勢</span>
+                <span className="text-[10px] font-mono text-[#8a8a8a]">// MONTHLY_TREND</span>
+              </div>
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={monthlyGrouped} margin={{top:5, right:20, left:0, bottom:5}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis dataKey="month" tick={{fontSize:12, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
-                  <YAxis tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
+                <LineChart data={monthlyGrouped} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="2 2" stroke="#e5e5e5" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#191919', fontFamily: 'monospace' }} axisLine={{ stroke: '#d9d9d9' }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#8a8a8a', fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', paddingTop: '10px' }} />
                   {petNames.map((name, i) => (
-                    <Line key={name} type="monotone" dataKey={name}
-                      stroke={COLORS[i % COLORS.length]} strokeWidth={2.5}
-                      dot={{ fill: COLORS[i % COLORS.length], r: 4, strokeWidth: 0 }}
-                      activeDot={{ r: 6, strokeWidth: 0 }} />
+                    <Line
+                      key={name}
+                      type="monotone"
+                      dataKey={name}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ fill: COLORS[i % COLORS.length], r: 3, strokeWidth: 0 }}
+                      activeDot={{ r: 5, strokeWidth: 0 }}
+                    />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
           )}
-
         </div>
       )}
     </div>
