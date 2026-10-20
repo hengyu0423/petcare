@@ -8,6 +8,7 @@ import {
 import { api } from '../lib/api'
 import { petAgeText } from '../lib/petAge'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
+import PetEmotionPage from './PetEmotion'
 
 
 // =====================================================
@@ -125,7 +126,8 @@ export default function HealthConsultPage() {
 
   const [selectedPet, setSelectedPet] =
     useState(null)
-  const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
+  const [petOpen, setPetOpen] = useState(false) 
+  const [showEmotion, setShowEmotion] = useState(false)// 手機寵物抽屜
 
   const [input, setInput] =
     useState('')
@@ -609,10 +611,60 @@ export default function HealthConsultPage() {
             ))
 
           )}
+          
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowEmotion(true)}
+                className="w-full flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-left hover:bg-green-100 transition-all"
+              >
+                <span className="text-xl">📷</span>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-green-700">
+                    AI 心情辨識
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    拍照分析毛孩情緒
+                  </p>
+                </div>
+
+                <span className="text-green-600">›</span>
+              </button>
+</div>
+
 
         </div>
 
       </PetDrawer>
+            
+{showEmotion && (
+  <div
+    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+    onClick={() => setShowEmotion(false)}
+  >
+    <div
+      className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
+        <h2 className="text-lg font-bold text-gray-800">
+          🐾 AI 寵物心情辨識
+        </h2>
+
+        <button
+          type="button"
+          onClick={() => setShowEmotion(false)}
+          className="rounded-full bg-gray-100 px-3 py-2 text-gray-600 hover:bg-gray-200"
+        >
+          ✕
+        </button>
+      </div>
+
+      <PetEmotionPage />
+    </div>
+  </div>
+)}
 
 
       {/* ===============================================
