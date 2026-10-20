@@ -1,7 +1,7 @@
 task: detect
 mode: train
-model: d:\homework\project2\petcare\pet_cam\yolov8n.pt
-data: d:\homework\project2\petcare\pet_cam\data.yaml
+model: d:\homework\camtest\petcare\pet_cam\yolov8n.pt
+data: d:\homework\camtest\petcare\pet_cam\data.yaml
 epochs: 100
 time: null
 patience: 20
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: ''
 workers: 8
-project: d:\homework\project2\petcare\pet_cam\runs
+project: d:\homework\camtest\petcare\pet_cam\runs
 name: petv1
 exist_ok: true
 pretrained: true
@@ -113,4 +113,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: D:\homework\project2\petcare\pet_cam\runs\petv1
+save_dir: D:\homework\camtest\petcare\pet_cam\runs\petv1
