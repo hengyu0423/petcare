@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   PawPrint,
@@ -11,40 +11,55 @@ import {
   LogOut,
   User as UserIcon,
   Menu as MenuIcon,
-  X as XIcon
+  X as XIcon,
+  Sun,
+  Moon,
+  ChevronRight
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import NotificationBell from '../notifications/NotificationBell'
 import AssistantWidget from '../assistant/AssistantWidget'
 
+const THEME_KEY = 'pawcare-home-theme'
+
 const NAV_ITEMS = [
-  { to: '/dashboard',      icon: LayoutDashboard, label: '主頁總覽', code: '01' },
-  { to: '/pets',           icon: PawPrint,        label: '我的寵物', code: '02' },
-  { to: '/diet',           icon: Utensils,        label: '飲食管理', code: '03' },
-  { to: '/health-consult', icon: HeartPulse,      label: '健康諮詢', code: '04' },
-  { to: '/weekly-report',  icon: ClipboardCheck,  label: '健康週報', code: '05' },
-  { to: '/pet-cam',        icon: Video,           label: '即時監控', code: '06' },
-  { to: '/expenses',       icon: Wallet,          label: '財務管理', code: '07' },
+  { to: '/dashboard',      icon: LayoutDashboard, label: '主頁總覽', code: '01', latin: 'OVERVIEW' },
+  { to: '/pets',           icon: PawPrint,        label: '我的寵物', code: '02', latin: 'ROSTER' },
+  { to: '/diet',           icon: Utensils,        label: '飲食管理', code: '03', latin: 'DIET' },
+  { to: '/health-consult', icon: HeartPulse,      label: '健康諮詢', code: '04', latin: 'HEALTH' },
+  { to: '/weekly-report',  icon: ClipboardCheck,  label: '健康週報', code: '05', latin: 'REPORT' },
+  { to: '/pet-cam',        icon: Video,           label: '即時監控', code: '06', latin: 'CAMERA' },
+  { to: '/expenses',       icon: Wallet,          label: '財務管理', code: '07', latin: 'SPEND' },
 ]
 
-function Logo({ onClick }) {
+function BrandLogo({ onClick }) {
   return (
     <NavLink
       to="/dashboard"
       onClick={onClick}
-      className="flex items-center gap-2.5 group"
+      className="flex items-center gap-3 group focus:outline-none"
     >
-      {/* Endfield 工業風識別圖示 */}
-      <div className="w-8 h-8 bg-[#191919] border border-[#191919] flex items-center justify-center text-[#fffa00] relative overflow-hidden shrink-0 shadow-xs">
-        <PawPrint size={18} strokeWidth={2.2} />
-        <div className="absolute top-0 right-0 w-2 h-2 bg-[#fffa00]" />
+      {/* Endfield 墨底方塊 + 唯一螢光亮角 */}
+      <div
+        className="w-8 h-8 bg-[var(--ef-ink)] border border-[var(--ef-ink)] flex items-center justify-center text-[var(--ef-panel)] relative shrink-0 transition-transform duration-100 group-hover:scale-105"
+        style={{
+          clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)'
+        }}
+      >
+        <span className="font-mono font-black text-sm tracking-tighter text-[var(--ef-signal)]">P</span>
+        <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-[var(--ef-signal)]" />
       </div>
       <div className="flex flex-col">
-        <span className="font-extrabold text-base tracking-wider text-[#191919] leading-none font-sans">
-          PAWCARE
-        </span>
-        <span className="text-[10px] text-[#8a8a8a] font-mono tracking-widest mt-0.5 leading-none">
-          // SMART CARE
+        <div className="flex items-center gap-1.5 leading-none">
+          <span className="font-mono font-black text-sm tracking-wider text-[var(--ef-ink)] uppercase">
+            PAWCARE
+          </span>
+          <span className="text-[9px] font-mono font-bold px-1 py-0.2 bg-[var(--ef-chip)] text-[var(--ef-ink-2)]">
+            v2.4
+          </span>
+        </div>
+        <span className="text-[9px] text-[var(--ef-ink-2)] font-mono tracking-widest mt-1 leading-none uppercase">
+          // SMART PET SYSTEM
         </span>
       </div>
     </NavLink>
@@ -54,7 +69,30 @@ function Logo({ onClick }) {
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false) // 手機側邊欄開關（電腦版無作用）
+  const location = useLocation()
+  const [open, setOpen] = useState(false)
+
+  // 全域主題狀態同步
+  const [dark, setDark] = useState(() => {
+    try {
+      const saved = localStorage.getItem(THEME_KEY)
+      if (saved) return saved === 'dark'
+    } catch { /* 忽略 */ }
+    return typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-theme', dark ? 'dark' : 'light')
+  }, [dark])
+
+  const toggleTheme = () => {
+    setDark(d => {
+      const next = !d
+      try { localStorage.setItem(THEME_KEY, next ? 'dark' : 'light') } catch { /* 忽略 */ }
+      return next
+    })
+  }
 
   const close = () => setOpen(false)
 
@@ -64,7 +102,7 @@ export default function Layout() {
     navigate('/login')
   }
 
-  // 按 Esc 關閉、開啟時鎖住背景捲動
+  // 按 Esc 關閉抽屜
   useEffect(() => {
     if (!open) return
     const onKey = e => e.key === 'Escape' && setOpen(false)
@@ -77,151 +115,240 @@ export default function Layout() {
     }
   }, [open])
 
-  const linkCls = ({ isActive }) =>
-    `group relative flex items-center justify-between px-3.5 py-2.5 text-xs font-mono transition-all duration-150 ${
-      isActive
-        ? 'bg-[#f0f0f0] text-[#191919] font-bold before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-[#fffa00]'
-        : 'text-[#626262] hover:bg-[#f8f9fa] hover:text-[#191919]'
-    }`
+  // 當路徑改變時關閉手機抽屜
+  useEffect(() => {
+    setOpen(false)
+  }, [location.pathname])
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-[#fafafa]">
+    <div className="ef flex flex-col h-dvh overflow-hidden bg-[var(--ef-paper)] text-[var(--ef-ink)]">
+      {/* 終末地標誌性三色條：品紅 / 螢光黃 / 薄荷綠 */}
+      <div className="ef-tri shrink-0" aria-hidden="true"><i></i><i></i><i></i></div>
 
-      {/* 手機：半透明遮罩，點一下關閉 */}
-      <div
-        onClick={close}
-        aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 md:hidden ${
-          open ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      />
+      <div className="flex-1 flex overflow-hidden relative">
 
-      {/* Sidebar：手機為抽屜（預設收起），電腦為固定側邊欄 */}
-      <aside
-        id="app-sidebar"
-        className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#e5e5e5] flex flex-col
-          transition-transform duration-200 ease-out
-          pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
-          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
-          md:relative md:z-40 md:w-60 md:translate-none md:transform-none md:shadow-none md:pt-0 md:pb-0 md:shrink-0
-        `}
-      >
-        {/* Logo 列：通知鈴鐺 + 手機上另有關閉鈕 */}
-        <div className="px-4 py-4 md:py-4.5 border-b border-[#e5e5e5] flex items-center justify-between">
-          <Logo onClick={close} />
-          <div className="flex items-center gap-1">
-            <div className="hidden md:block">
+        {/* 手機遮罩 */}
+        <div
+          onClick={close}
+          aria-hidden="true"
+          className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-xs transition-opacity duration-200 md:hidden ${
+            open ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        />
+
+        {/* 側邊導航欄 (Endfield UI 工業操作台樣式) */}
+        <aside
+          id="app-sidebar"
+          className={`
+            fixed inset-y-0 left-0 z-50 w-64 bg-[var(--ef-panel)] border-r border-[var(--ef-rule)] flex flex-col
+            transition-transform duration-200 ease-out select-none
+            pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
+            ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+            md:relative md:z-30 md:w-60 md:translate-none md:shadow-none md:pt-0 md:pb-0 md:shrink-0
+          `}
+        >
+          {/* Logo 頂欄 */}
+          <div className="px-4 py-3.5 border-b border-[var(--ef-rule)] flex items-center justify-between bg-[var(--ef-panel)] shrink-0">
+            <BrandLogo onClick={close} />
+            <div className="flex items-center gap-1.5 md:hidden">
+              <button
+                type="button"
+                onClick={close}
+                aria-label="關閉選單"
+                className="w-7 h-7 flex items-center justify-center border border-[var(--ef-rule)] hover:border-[var(--ef-ink)] text-[var(--ef-ink-2)] hover:text-[var(--ef-ink)] transition-colors"
+                style={{
+                  clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%)'
+                }}
+              >
+                <XIcon size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+
+          {/* 照護者身分識別牌 (Industrial Operator Badge) */}
+          <div className="p-3 border-b border-[var(--ef-rule)] bg-[var(--ef-paper)]/50 shrink-0">
+            <div className="flex items-center justify-between text-[9px] font-mono text-[var(--ef-ink-2)] uppercase tracking-wider mb-1.5">
+              <span>// OPERATOR</span>
+              <span className="flex items-center gap-1 text-[10px] text-[var(--ef-ink)] font-bold">
+                <span className="w-1.5 h-1.5 bg-[var(--ef-signal)] border border-[var(--ef-ink)] inline-block" />
+                ACTIVE
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5 p-2 bg-[var(--ef-panel)] border border-[var(--ef-rule)] relative overflow-hidden">
+              <div
+                className="w-8 h-8 bg-[var(--ef-ink)] text-[var(--ef-panel)] font-mono font-bold text-xs flex items-center justify-center shrink-0"
+                style={{
+                  clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)'
+                }}
+              >
+                {user?.name ? user.name.slice(0, 1).toUpperCase() : <UserIcon size={14} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-[var(--ef-ink)] truncate font-sans">
+                  {user?.name || '毛孩家長'}
+                </p>
+                <p className="text-[10px] text-[var(--ef-ink-2)] font-mono truncate">
+                  {user?.email || 'pawcare.user'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 主導航項目列表 */}
+          <nav className="flex-1 px-2.5 py-3 space-y-1.5 overflow-y-auto" aria-label="系統導航選單">
+            <div className="px-2 pb-1.5 flex items-center justify-between text-[10px] font-mono text-[var(--ef-ink-2)] uppercase tracking-widest border-b border-[var(--ef-rule)]/60 mb-2">
+              <span>// NAVIGATION</span>
+              <span>INDEX</span>
+            </div>
+
+            {NAV_ITEMS.map(item => {
+              const Icon = item.icon
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={close}
+                  className={({ isActive }) =>
+                    `group relative flex items-center justify-between px-3 py-2 text-xs transition-all duration-100 ${
+                      isActive
+                        ? 'bg-[var(--ef-signal)] text-[var(--ef-on-signal)] font-bold shadow-xs'
+                        : 'text-[var(--ef-ink-2)] hover:bg-[var(--ef-chip)] hover:text-[var(--ef-ink)]'
+                    }`
+                  }
+                  style={({ isActive }) => ({
+                    clipPath: isActive
+                      ? 'polygon(0 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%)'
+                      : 'none'
+                  })}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon
+                          size={16}
+                          strokeWidth={isActive ? 2.4 : 1.8}
+                          className={`shrink-0 transition-colors ${
+                            isActive ? 'text-[var(--ef-on-signal)]' : 'text-[var(--ef-ink-2)] group-hover:text-[var(--ef-ink)]'
+                          }`}
+                        />
+                        <div className="flex flex-col leading-tight min-w-0">
+                          <span className={`text-[9px] font-mono uppercase tracking-widest leading-none ${
+                            isActive ? 'text-[var(--ef-on-signal)]/80' : 'text-[var(--ef-ink-2)]/70'
+                          }`}>
+                            // {item.latin}
+                          </span>
+                          <span className="font-bold text-xs truncate mt-0.5">
+                            {item.label}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
+                        <span
+                          className={`px-1 py-0.2 ${
+                            isActive
+                              ? 'bg-[var(--ef-on-signal)] text-[var(--ef-signal)] font-bold'
+                              : 'text-[var(--ef-ink-2)] group-hover:text-[var(--ef-ink)] opacity-70 group-hover:opacity-100'
+                          }`}
+                        >
+                          {item.code}
+                        </span>
+                        {isActive && <ChevronRight size={12} strokeWidth={2.5} className="text-[var(--ef-on-signal)]" />}
+                      </div>
+                    </>
+                  )}
+                </NavLink>
+              )
+            })}
+          </nav>
+
+          {/* 側邊欄底部控制區 */}
+          <div className="p-3 border-t border-[var(--ef-rule)] bg-[var(--ef-panel)] space-y-2 shrink-0">
+            {/* 深淺主題切換與系統通知 */}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex-1 ef-btn small flex items-center justify-center gap-1.5 text-xs font-mono"
+                aria-label="切換主題"
+              >
+                {dark ? <Sun size={13} strokeWidth={2} /> : <Moon size={13} strokeWidth={2} />}
+                <span>{dark ? 'LIGHT // 淺色' : 'DARK // 深色'}</span>
+              </button>
+
+              <div className="shrink-0">
+                <NotificationBell />
+              </div>
+            </div>
+
+            {/* 登出系統（紅色危險操作） */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full ef-btn small danger flex items-center justify-between text-xs font-mono group"
+            >
+              <div className="flex items-center gap-2">
+                <LogOut size={13} strokeWidth={2} className="text-[var(--ef-danger)]" />
+                <span>EXIT // 登出系統</span>
+              </div>
+              <span className="text-[9px] opacity-70 group-hover:opacity-100 font-mono">SYS.QUIT</span>
+            </button>
+
+            <div className="pt-1 text-center">
+              <span className="text-[9px] font-mono text-[var(--ef-ink-2)]/60 uppercase tracking-widest">
+                PAWCARE PROTOCOL · 2026
+              </span>
+            </div>
+          </div>
+        </aside>
+
+        {/* 主內容區塊 */}
+        <div className="flex-1 min-w-0 flex flex-col bg-[var(--ef-paper)] overflow-hidden">
+          
+          {/* 手機頂部列 (Mobile Command Bar) */}
+          <header className="md:hidden shrink-0 flex items-center justify-between h-13 px-3 bg-[var(--ef-panel)] border-b border-[var(--ef-rule)]">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                aria-label="開啟功能選單"
+                aria-expanded={open}
+                className="w-8 h-8 flex items-center justify-center border border-[var(--ef-rule)] hover:border-[var(--ef-ink)] bg-[var(--ef-paper)] text-[var(--ef-ink)] transition-colors"
+                style={{
+                  clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)'
+                }}
+              >
+                <MenuIcon size={18} strokeWidth={2} />
+              </button>
+              <BrandLogo />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label="切換主題"
+                className="w-8 h-8 flex items-center justify-center border border-[var(--ef-rule)] hover:border-[var(--ef-ink)] bg-[var(--ef-paper)] text-[var(--ef-ink)] transition-colors"
+                style={{
+                  clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)'
+                }}
+              >
+                {dark ? <Sun size={15} strokeWidth={2} /> : <Moon size={15} strokeWidth={2} />}
+              </button>
               <NotificationBell />
             </div>
-            <button
-              onClick={close}
-              aria-label="關閉選單"
-              className="md:hidden p-1.5 rounded text-[#626262] hover:bg-[#f0f0f0] transition-colors"
-            >
-              <XIcon size={18} strokeWidth={2} />
-            </button>
-          </div>
+          </header>
+
+          {/* 視窗主內容滾動區 */}
+          <main className="flex-1 overflow-y-auto">
+            <Outlet />
+          </main>
         </div>
 
-        {/* User card (工業風身分識別卡) */}
-        <div className="mx-3 mt-3 bg-[#f8f9fa] border border-[#e5e5e5] p-2.5 relative">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-white border border-[#d9d9d9] flex items-center justify-center text-[#191919] font-mono font-bold text-xs shrink-0 shadow-2xs">
-              {user?.name ? user.name.slice(0, 1).toUpperCase() : <UserIcon size={14} />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-bold text-[#191919] truncate">{user?.name || '毛孩家長'}</p>
-                <span className="w-1.5 h-1.5 bg-[#007f43] rounded-full inline-block shrink-0" title="在線中" />
-              </div>
-              <p className="text-[10px] text-[#8a8a8a] font-mono truncate">{user?.email || 'pawcare.user'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 導航功能列表 */}
-        <nav className="flex-1 px-2.5 mt-4 space-y-1 overflow-y-auto">
-          <div className="px-2 mb-2 flex items-center justify-between text-[10px] font-mono text-[#8a8a8a] uppercase tracking-wider">
-            <span>// NAVIGATION</span>
-            <span>MENU</span>
-          </div>
-
-          {NAV_ITEMS.map(item => (
-            <NavLink key={item.to} to={item.to} onClick={close} className={linkCls}>
-              {({ isActive }) => {
-                const Icon = item.icon
-                return (
-                  <>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon
-                        size={16}
-                        strokeWidth={isActive ? 2.2 : 1.8}
-                        className={`shrink-0 transition-colors ${
-                          isActive ? 'text-[#191919]' : 'text-[#8a8a8a] group-hover:text-[#191919]'
-                        }`}
-                      />
-                      <span className="font-sans text-xs truncate">{item.label}</span>
-                    </div>
-                    <span
-                      className={`text-[10px] font-mono shrink-0 transition-opacity ${
-                        isActive
-                          ? 'text-[#191919] opacity-100 font-bold'
-                          : 'text-[#b3b3b3] opacity-60 group-hover:opacity-100'
-                      }`}
-                    >
-                      {item.code}
-                    </span>
-                  </>
-                )
-              }}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Footer 登出區域 */}
-        <div className="border-t border-[#e5e5e5] p-3">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-mono text-[#626262] hover:bg-[#fee2e2]/60 hover:text-[#de0909] transition-colors group"
-          >
-            <div className="flex items-center gap-2">
-              <LogOut size={15} strokeWidth={1.8} className="text-[#8a8a8a] group-hover:text-[#de0909] transition-colors" />
-              <span>登出系統</span>
-            </div>
-            <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">EXIT →</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main 主視窗 */}
-      <div className="flex-1 min-w-0 flex flex-col bg-[#fafafa]">
-
-        {/* 手機頂部列：漢堡鈕 + Logo + 通知鈴鐺（電腦版隱藏） */}
-        <header className="md:hidden relative z-40 shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-[#e5e5e5] pt-[env(safe-area-inset-top)] box-content">
-          <button
-            onClick={() => setOpen(true)}
-            aria-label="開啟選單"
-            aria-expanded={open}
-            aria-controls="app-sidebar"
-            className="p-2 rounded text-[#191919] hover:bg-[#f0f0f0] active:bg-[#e5e5e5] transition-colors"
-          >
-            <MenuIcon size={20} strokeWidth={2} />
-          </button>
-          <div className="flex-1">
-            <Logo />
-          </div>
-          <NotificationBell />
-        </header>
-
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
       </div>
 
-      {/* 右下角 AI 小助理（健康諮詢頁除外） */}
+      {/* AI 智慧小助理懸浮組件 */}
       <AssistantWidget />
-
     </div>
   )
 }

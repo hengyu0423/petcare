@@ -2,12 +2,6 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  BracketTitle,
-  Button,
-  Tag,
-  CornerBrackets
-} from '@endfield-ui/react'
-import {
   Dog,
   Cat,
   Bird,
@@ -20,7 +14,9 @@ import {
   Scale,
   Bell,
   Heart,
-  DollarSign
+  Cake,
+  Check,
+  ChevronRight
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { petAgeText, ageInMonths } from '../lib/petAge'
@@ -40,8 +36,8 @@ const SPECIES_ICONS = {
   other: PawPrint
 }
 
-const SPECIES = [['dog', '狗'], ['cat', '貓'], ['bird', '鳥'], ['rabbit', '兔子'], ['fish', '魚'], ['other', '其他']]
-const GENDER = [['male', '男'], ['female', '女'], ['unknown', '不明']]
+const SPECIES = [['dog', '狗狗'], ['cat', '貓咪'], ['bird', '鳥類'], ['rabbit', '兔子'], ['fish', '魚類'], ['other', '其他']]
+const GENDER = [['male', '公 (男)'], ['female', '母 (女)'], ['unknown', '不明']]
 const SPECIES_MAP = Object.fromEntries(SPECIES)
 const GENDER_MAP = Object.fromEntries(GENDER)
 
@@ -50,78 +46,7 @@ function getSpeciesIcon(species, props = {}) {
   return <Icon {...props} />
 }
 
-const inputCls = "w-full border border-[#d9d9d9] bg-[#f8f9fa] focus:bg-white focus:border-[#191919] px-3 py-2.5 text-xs text-[#191919] font-sans focus:outline-none transition-colors"
-
-function InfoRow({ label, value }) {
-  if (!value) return null
-  return (
-    <div className="flex items-center justify-between py-2.5 border-b border-[#f0f0f0] last:border-0 text-xs">
-      <span className="text-[#8a8a8a] font-mono">{label}</span>
-      <span className="font-bold text-[#191919]">{value}</span>
-    </div>
-  )
-}
-
-const SPECIES_THEME = {
-  dog: {
-    badge: 'border-sky-300 bg-sky-50 text-sky-800 font-bold',
-    avatarBg: 'bg-sky-50 border-sky-300 text-sky-700 shadow-sky-100',
-    topBar: 'from-sky-400 via-blue-500 to-indigo-500'
-  },
-  cat: {
-    badge: 'border-amber-300 bg-amber-50 text-amber-900 font-bold',
-    avatarBg: 'bg-amber-50 border-amber-300 text-amber-700 shadow-amber-100',
-    topBar: 'from-amber-400 via-orange-400 to-rose-400'
-  },
-  bird: {
-    badge: 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold',
-    avatarBg: 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-emerald-100',
-    topBar: 'from-emerald-400 via-teal-500 to-cyan-500'
-  },
-  rabbit: {
-    badge: 'border-rose-300 bg-rose-50 text-rose-900 font-bold',
-    avatarBg: 'bg-rose-50 border-rose-300 text-rose-700 shadow-rose-100',
-    topBar: 'from-rose-400 via-pink-400 to-purple-400'
-  },
-  fish: {
-    badge: 'border-cyan-300 bg-cyan-50 text-cyan-900 font-bold',
-    avatarBg: 'bg-cyan-50 border-cyan-300 text-cyan-700 shadow-cyan-100',
-    topBar: 'from-cyan-400 via-blue-500 to-sky-500'
-  },
-  other: {
-    badge: 'border-[#191919] bg-[#fffa00] text-[#191919] font-bold',
-    avatarBg: 'bg-yellow-50 border-yellow-300 text-yellow-800 shadow-yellow-100',
-    topBar: 'from-[#fffa00] via-amber-400 to-orange-400'
-  }
-}
-
-function StatTile({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  tone = 'text-[#191919]',
-  accent = 'border-t-sky-500',
-  iconColor = 'text-sky-600 bg-sky-50 border-sky-200'
-}) {
-  return (
-    <div className={`relative bg-white border border-[#d9d9d9] border-t-2 ${accent} p-4 shadow-xs group hover:border-[#191919] transition-all`}>
-      <CornerBrackets size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-mono font-bold text-[#8a8a8a] uppercase tracking-wider">
-          // {label}
-        </span>
-        {Icon && (
-          <div className={`w-6 h-6 rounded flex items-center justify-center border text-xs shrink-0 ${iconColor}`}>
-            <Icon size={13} strokeWidth={2} />
-          </div>
-        )}
-      </div>
-      <p className={`text-base sm:text-lg font-bold font-mono leading-tight ${tone}`}>{value}</p>
-      {sub && <p className="mt-1.5 text-[11px] text-[#626262] leading-tight">{sub}</p>}
-    </div>
-  )
-}
+const inputCls = "w-full border border-[var(--ef-rule)] bg-[var(--ef-panel)] focus:border-[var(--ef-ink)] px-3 py-2 text-xs text-[var(--ef-ink)] font-mono focus:outline-none transition-colors"
 
 const twd = n => `TWD ${Math.round(n).toLocaleString()}`
 
@@ -196,9 +121,9 @@ export default function PetDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-16 text-center font-mono space-y-2">
-        <div className="inline-block w-5 h-5 border-2 border-[#191919] border-t-transparent animate-spin rounded-full" />
-        <p className="text-xs text-[#8a8a8a]">載入個體詳細檔案中...</p>
+      <div className="ef-progress is-unknown max-w-xl mx-auto my-16" role="progressbar" aria-label="載入個體詳細檔案中">
+        <span className="ef-eyebrow">Loading / 載入個體詳細檔案</span>
+        <i></i>
       </div>
     )
   }
@@ -206,11 +131,13 @@ export default function PetDetailPage() {
   if (!pet) {
     return (
       <div className="p-12 text-center max-w-md mx-auto space-y-4">
-        <div className="w-12 h-12 mx-auto bg-[#f8f9fa] border border-[#d9d9d9] flex items-center justify-center text-[#8a8a8a]">
-          <PawPrint size={24} strokeWidth={1.5} />
+        <div className="w-12 h-12 mx-auto bg-[var(--ef-ink)] text-[var(--ef-signal)] flex items-center justify-center"
+          style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%)' }}
+        >
+          <PawPrint size={24} strokeWidth={2} />
         </div>
-        <p className="text-sm font-bold text-[#191919]">查無此寵物檔案</p>
-        <Link to="/pets" className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-[#191919] hover:underline">
+        <p className="text-sm font-bold text-[var(--ef-ink)]">查無此寵物檔案</p>
+        <Link to="/pets" className="ef-btn small">
           <ArrowLeft size={14} /> 返回寵物列表
         </Link>
       </div>
@@ -220,126 +147,135 @@ export default function PetDetailPage() {
   const age = petAgeText(pet.birth_date)
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6 font-sans">
-      
-      {/* 頂部導航 */}
-      <div>
+    <div className="ef pc-home min-h-full p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
+
+      {/* 頂部導航指示 */}
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--ef-rule)]">
         <Link
           to="/pets"
-          className="inline-flex items-center gap-1.5 text-xs font-mono font-semibold text-[#626262] hover:text-[#191919] transition-colors"
+          className="ef-btn small flex items-center gap-1.5"
         >
-          <ArrowLeft size={14} /> // 返回寵物列表
+          <ArrowLeft size={13} strokeWidth={2.5} />
+          <span>返回寵物名冊</span>
         </Link>
+
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/dashboard?pet=${pet.id}`}
+            className="ef-btn small go"
+          >
+            設為首頁關注
+          </Link>
+        </div>
       </div>
 
-      <div className="space-y-5">
-        
-        {/* 頂部檔案主卡片 */}
-        {(() => {
-          const theme = SPECIES_THEME[pet.species?.toLowerCase()] || SPECIES_THEME.other
-          return (
-            <header className="relative bg-white border border-[#d9d9d9] p-6 text-center shadow-xs overflow-hidden">
-              {/* 頂部物種色彩光條 */}
-              <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${theme.topBar}`} />
-              <CornerBrackets size="sm" />
-              
-              <div className={`w-16 h-16 mx-auto mb-3 border-2 flex items-center justify-center transition-transform hover:scale-105 ${theme.avatarBg}`}>
-                {getSpeciesIcon(pet.species, { size: 32, strokeWidth: 2 })}
-              </div>
+      <div className="space-y-6">
 
-              <BracketTitle level={1} className="text-2xl font-bold text-[#191919]">
-                {pet.name}
-              </BracketTitle>
+        {/* 頂部檔案主看板 (Endfield Panel) */}
+        <section className="ef-panel cut-br p-6 border border-[var(--ef-rule)] bg-[var(--ef-panel)] relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            {/* 墨底切角頭像 */}
+            <div
+              className="w-18 h-18 bg-[var(--ef-ink)] text-[var(--ef-panel)] flex items-center justify-center shrink-0 shadow-sm"
+              style={{
+                clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)'
+              }}
+            >
+              {getSpeciesIcon(pet.species, { size: 36, strokeWidth: 2, className: 'text-[var(--ef-signal)]' })}
+            </div>
 
-              {pet.breed && (
-                <p className="text-xs text-[#8a8a8a] font-mono mt-1">
-                  // {pet.breed}
-                </p>
-              )}
-
-              <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
-                <span className={`px-2.5 py-0.5 text-xs font-mono font-bold border ${theme.badge}`}>
+            <div className="flex-1 text-center sm:text-left min-w-0">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-black text-[var(--ef-ink)] tracking-tight">
+                  {pet.name}
+                </h1>
+                <span className="ef-tag text-xs font-mono font-bold">
                   {SPECIES_MAP[pet.species]}
                   {pet.gender && pet.gender !== 'unknown' ? ` · ${GENDER_MAP[pet.gender]}` : ''}
                 </span>
-
                 {stage && (
-                  <span className={`px-2.5 py-0.5 text-xs font-mono font-bold border ${
-                    stage.key === 'young'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                      : stage.key === 'senior'
-                      ? 'bg-amber-50 text-amber-900 border-amber-300'
-                      : 'bg-sky-50 text-sky-800 border-sky-300'
-                  }`}>
-                    {stage.key === 'young' ? '🌱 ' : stage.key === 'senior' ? '✨ ' : '⚡ '}
+                  <span className="ef-state text-xs font-mono font-bold">
                     {stage.label}
                   </span>
                 )}
-
-                {birthday?.isToday && (
-                  <span className="px-2.5 py-0.5 text-xs font-mono font-bold border border-rose-300 bg-gradient-to-r from-rose-100 to-amber-100 text-rose-900 shadow-xs animate-pulse">
-                    🎂 今天生日！
-                  </span>
-                )}
               </div>
-            </header>
-          )
-        })()}
 
-        {/* 4 個關鍵指標方塊 */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="重點數據">
-          <StatTile
-            label="年齡"
-            icon={Calendar}
-            accent="border-t-sky-500"
-            iconColor="text-sky-600 bg-sky-50 border-sky-200"
-            tone="text-sky-950 font-extrabold"
-            value={age || '未設定'}
-            sub={human !== null ? `約人類 ${human} 歲` : !birthDate ? '編輯資料設定生日' : null}
-          />
-          <StatTile
-            label="目前體重"
-            icon={Scale}
-            accent="border-t-emerald-500"
-            iconColor="text-emerald-600 bg-emerald-50 border-emerald-200"
-            value={pet.weight ? `${formatKg(pet.weight)} kg` : '未記錄'}
-            sub={
-              trend
-                ? `近 ${trend.spanDays} 天 ${trend.delta > 0 ? '+' : ''}${formatKg(trend.delta)} kg`
-                : pet.weight ? '持續記錄檢視趨勢' : '下方可新增紀錄'
-            }
-            tone={
-              trend && Math.abs(trend.pct) >= 10 && stage?.key !== 'young'
-                ? 'text-amber-600 font-extrabold'
-                : 'text-emerald-950 font-extrabold'
-            }
-          />
-          <StatTile
-            label="下次生日"
-            icon={Heart}
-            accent="border-t-amber-500"
-            iconColor="text-amber-600 bg-amber-50 border-amber-200"
-            tone={birthday?.isToday ? 'text-rose-600 font-extrabold' : 'text-amber-950 font-extrabold'}
-            value={
-              birthday
-                ? birthday.isToday ? '今天生日 🎉' : `${birthday.daysUntil} 天後`
-                : '—'
-            }
-            sub={birthday ? `${birthday.date.slice(5).replace('-', '/')} (滿 ${birthday.turning} 歲)` : '設定生日後顯示'}
-          />
-          <StatTile
-            label="預定提醒"
-            icon={Bell}
-            accent={reminder && reminder.daysLeft <= 7 ? 'border-t-rose-500' : 'border-t-purple-500'}
-            iconColor={
-              reminder && reminder.daysLeft <= 7
-                ? 'text-rose-600 bg-rose-50 border-rose-200'
-                : 'text-purple-600 bg-purple-50 border-purple-200'
-            }
-            value={reminder ? (reminder.daysLeft === 0 ? '今日到期' : `${reminder.daysLeft} 天後`) : '無待辦'}
-            sub={reminder ? reminder.title : '疫苗與回診提醒'}
-            tone={reminder && reminder.daysLeft <= 7 ? 'text-rose-600 font-extrabold' : 'text-purple-950 font-extrabold'}
-          />
+              {pet.breed && (
+                <p className="text-xs text-[var(--ef-ink-2)] font-mono mt-1">
+                  // BREED: {pet.breed}
+                </p>
+              )}
+
+              {birthday?.isToday && (
+                <div className="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 bg-[var(--ef-signal)] text-[var(--ef-on-signal)] text-xs font-mono font-bold">
+                  <Cake size={13} strokeWidth={2.5} />
+                  <span>今天生日！HAPPY BIRTHDAY</span>
+                </div>
+              )}
+            </div>
+
+            {!editing && (
+              <button
+                type="button"
+                onClick={startEdit}
+                className="ef-btn small flex items-center gap-1.5 shrink-0"
+              >
+                <Edit3 size={13} strokeWidth={2} />
+                <span>編輯資料</span>
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* 4 個關鍵指標讀數看板 (Endfield Figures) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label="重點數據">
+          {/* 年齡 */}
+          <div className="ef-panel p-3.5 border border-[var(--ef-rule)] bg-[var(--ef-panel)]">
+            <p className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase">// AGE / 年齡</p>
+            <p className="mt-1 text-base sm:text-lg font-black font-mono text-[var(--ef-ink)]">
+              {age || '未設定'}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--ef-ink-2)] font-mono truncate">
+              {human !== null ? `相當人類 ${human} 歲` : '尚未填寫生日'}
+            </p>
+          </div>
+
+          {/* 體重 */}
+          <div className="ef-panel p-3.5 border border-[var(--ef-rule)] bg-[var(--ef-panel)]">
+            <p className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase">// WEIGHT / 體重</p>
+            <p className="mt-1 text-base sm:text-lg font-black font-mono text-[var(--ef-ink)]">
+              {pet.weight ? `${formatKg(pet.weight)} kg` : '未記錄'}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--ef-ink-2)] font-mono truncate">
+              {trend
+                ? `${trend.delta > 0 ? '+' : ''}${formatKg(trend.delta)} kg (近 ${trend.spanDays} 天)`
+                : '下方可記錄趨勢'}
+            </p>
+          </div>
+
+          {/* 下次生日 */}
+          <div className="ef-panel p-3.5 border border-[var(--ef-rule)] bg-[var(--ef-panel)]">
+            <p className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase">// BIRTHDAY / 生日</p>
+            <p className={`mt-1 text-base sm:text-lg font-black font-mono ${birthday?.isToday ? 'text-[var(--ef-signal)] bg-[var(--ef-ink)] px-1 inline-block' : 'text-[var(--ef-ink)]'}`}>
+              {birthday
+                ? birthday.isToday ? '今天生日' : `${birthday.daysUntil} 天後`
+                : '—'}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--ef-ink-2)] font-mono truncate">
+              {birthday ? `${birthday.date.slice(5).replace('-', '.')} (滿 ${birthday.turning} 歲)` : '設定生日後計算'}
+            </p>
+          </div>
+
+          {/* 預定提醒 */}
+          <div className="ef-panel p-3.5 border border-[var(--ef-rule)] bg-[var(--ef-panel)]">
+            <p className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase">// ALERT / 預定提醒</p>
+            <p className={`mt-1 text-base sm:text-lg font-black font-mono ${reminder && reminder.daysLeft <= 7 ? 'text-[var(--ef-signal)] bg-[var(--ef-ink)] px-1 inline-block' : 'text-[var(--ef-ink)]'}`}>
+              {reminder ? (reminder.daysLeft === 0 ? '今日到期' : `${reminder.daysLeft} 天後`) : '無待辦'}
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--ef-ink-2)] font-mono truncate">
+              {reminder ? reminder.title : '健康行程正常'}
+            </p>
+          </div>
         </div>
 
         {/* 體重與健康卡片 */}
@@ -348,84 +284,75 @@ export default function PetDetailPage() {
           <HealthCard petId={pet.id} />
         </div>
 
-        {/* 花費摘要 */}
-        <section className="bg-white border border-[#d9d9d9] p-5 shadow-xs" aria-label="花費摘要">
-          <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-3 mb-3">
+        {/* 財務摘要看板 */}
+        <section className="ef-panel p-5 border border-[var(--ef-rule)] bg-[var(--ef-panel)]" aria-label="花費摘要">
+          <div className="flex items-center justify-between border-b border-[var(--ef-rule)] pb-3 mb-3">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#fffa00] border border-[#191919]" />
-              <h2 className="text-xs font-mono font-bold tracking-wider text-[#191919] uppercase">
-                // EXPENSE SUMMARY // 相關支出摘要
+              <span className="w-1.5 h-1.5 bg-[var(--ef-signal)] border border-[var(--ef-ink)]" />
+              <h2 className="text-xs font-mono font-bold tracking-wider text-[var(--ef-ink)] uppercase">
+                // EXPENSE // 財務支出摘要
               </h2>
             </div>
-            <Link to="/expenses" className="text-xs font-mono font-semibold text-[#191919] hover:underline">
-              進入財務管理 →
+            <Link to="/expenses" className="text-xs font-mono font-bold text-[var(--ef-ink)] hover:underline flex items-center gap-1">
+              <span>前往財務管理</span>
+              <ChevronRight size={13} />
             </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#f8f9fa] border border-[#e5e5e5] p-3.5">
-              <p className="text-[10px] font-mono text-[#8a8a8a] uppercase">// 本月累積</p>
-              <p className="mt-1 text-base font-bold font-mono text-[#191919]">{twd(spend.month)}</p>
+            <div className="bg-[var(--ef-paper)] border border-[var(--ef-rule)] p-3.5">
+              <p className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase">// 本月累積花費</p>
+              <p className="mt-1 text-base font-bold font-mono text-[var(--ef-ink)]">{twd(spend.month)}</p>
             </div>
-            <div className="bg-[#f8f9fa] border border-[#e5e5e5] p-3.5">
-              <p className="text-[10px] font-mono text-[#8a8a8a] uppercase">// 年度總計</p>
-              <p className="mt-1 text-base font-bold font-mono text-[#191919]">{twd(spend.year)}</p>
+            <div className="bg-[var(--ef-paper)] border border-[var(--ef-rule)] p-3.5">
+              <p className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase">// 年度累積總計</p>
+              <p className="mt-1 text-base font-bold font-mono text-[var(--ef-ink)]">{twd(spend.year)}</p>
             </div>
           </div>
         </section>
 
-        {/* 基本資料區塊 */}
-        <section className="bg-white border border-[#d9d9d9] p-5 shadow-xs" aria-label="基本資料">
-          <div className="flex items-center justify-between border-b border-[#f0f0f0] pb-3 mb-3">
+        {/* 基本資料與編輯區塊 */}
+        <section className="ef-panel p-5 border border-[var(--ef-rule)] bg-[var(--ef-panel)]" aria-label="基本資料">
+          <div className="flex items-center justify-between border-b border-[var(--ef-rule)] pb-3 mb-3">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#fffa00] border border-[#191919]" />
-              <p className="text-xs font-mono font-bold tracking-wider text-[#191919] uppercase">
-                // PROFILE // {editing ? '編輯毛孩檔案' : '毛孩基本資料'}
-              </p>
+              <span className="w-1.5 h-1.5 bg-[var(--ef-signal)] border border-[var(--ef-ink)]" />
+              <h2 className="text-xs font-mono font-bold tracking-wider text-[var(--ef-ink)] uppercase">
+                // PROFILE // {editing ? '編輯毛孩檔案' : '個體完整檔案'}
+              </h2>
             </div>
-
-            {!editing && (
-              <Button
-                variant="light"
-                size="sm"
-                iconStart={<Edit3 size={13} />}
-                onClick={startEdit}
-              >
-                編輯資料
-              </Button>
-            )}
           </div>
 
           {!editing ? (
-            <div className="space-y-0.5">
-              <InfoRow label="物種" value={SPECIES_MAP[pet.species]} />
-              <InfoRow label="性別" value={GENDER_MAP[pet.gender]} />
-              <InfoRow label="計算年齡" value={age} />
-              <InfoRow label="出生日期" value={birthDate} />
-              <InfoRow label="登錄體重" value={pet.weight ? `${formatKg(pet.weight)} kg` : null} />
+            <ul className="ef-ledger text-xs space-y-1">
+              <li><span>物種標記</span><span className="ef-field">{SPECIES_MAP[pet.species]}</span></li>
+              <li><span>性別</span><span className="ef-field">{GENDER_MAP[pet.gender]}</span></li>
+              <li><span>品種</span><span className="ef-field">{pet.breed || '未設定'}</span></li>
+              <li><span>計算年齡</span><span className="ef-field">{age || '未設定'}</span></li>
+              <li><span>出生日期</span><span className="ef-field">{birthDate || '未設定'}</span></li>
+              <li><span>登錄體重</span><span className="ef-field font-bold">{pet.weight ? `${formatKg(pet.weight)} kg` : '未記錄'}</span></li>
               {pet.notes && (
-                <div className="mt-4 bg-[#f8f9fa] border border-[#e5e5e5] p-3.5">
-                  <p className="text-[10px] font-mono font-bold text-[#8a8a8a] mb-1 uppercase">// 備忘備註</p>
-                  <p className="text-xs text-[#626262] leading-relaxed">{pet.notes}</p>
-                </div>
+                <li className="items-start">
+                  <span>備忘備註</span>
+                  <span className="ef-field text-[11px] leading-relaxed max-w-sm">{pet.notes}</span>
+                </li>
               )}
-            </div>
+            </ul>
           ) : (
             <form onSubmit={handleSave} className="space-y-3.5 pt-1">
               <div>
-                <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">名字</label>
+                <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">名字 *</label>
                 <input required value={form.name} onChange={e => set('name', e.target.value)} className={inputCls} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">物種</label>
+                  <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">物種</label>
                   <select value={form.species} onChange={e => set('species', e.target.value)} className={inputCls}>
                     {SPECIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">性別</label>
+                  <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">性別</label>
                   <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls}>
                     {GENDER.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
@@ -433,39 +360,39 @@ export default function PetDetailPage() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">品種</label>
+                <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">品種</label>
                 <input value={form.breed} onChange={e => set('breed', e.target.value)} placeholder="選填" className={inputCls} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">出生日期</label>
+                  <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">出生日期</label>
                   <input type="date" max={today} value={form.birthDate} onChange={e => set('birthDate', e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">體重 (kg)</label>
+                  <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">體重 (kg)</label>
                   <input type="number" step="0.01" min="0.01" max="200" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="選填" className={inputCls} />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-mono font-bold text-[#626262] mb-1 uppercase tracking-wider">備忘備註</label>
+                <label className="block text-[10px] font-mono font-bold text-[var(--ef-ink-2)] mb-1 uppercase tracking-wider">備註記事</label>
                 <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="選填" className={`${inputCls} resize-none`} />
               </div>
 
               {updatePet.isError && (
-                <p role="alert" className="text-xs font-mono text-[#de0909]">
+                <p role="alert" className="text-xs font-mono text-[var(--ef-danger)]">
                   ※ {updatePet.error?.response?.data?.error || '儲存失敗，請稍後再試'}
                 </p>
               )}
 
-              <div className="flex gap-3 pt-2 border-t border-[#f0f0f0]">
-                <Button type="button" variant="light" size="sm" onClick={() => setEditing(false)} className="flex-1">
+              <div className="flex gap-2.5 pt-2 border-t border-[var(--ef-rule)]">
+                <button type="button" onClick={() => setEditing(false)} className="flex-1 ef-btn small">
                   取消
-                </Button>
-                <Button type="submit" variant="action" size="sm" disabled={updatePet.isPending} className="flex-1">
+                </button>
+                <button type="submit" disabled={updatePet.isPending} className="flex-1 ef-btn small go">
                   {updatePet.isPending ? '儲存中...' : '確認更新'}
-                </Button>
+                </button>
               </div>
             </form>
           )}

@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  CornerBrackets,
-  Button,
-  Tag
-} from '@endfield-ui/react'
-import {
   Sunrise,
   Sun,
   Moon,
@@ -23,34 +18,14 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 
-const MEAL_THEMES = {
-  breakfast: {
-    icon: Sunrise,
-    borderL: 'border-l-4 border-l-amber-400',
-    iconCls: 'text-amber-700 bg-amber-50 border border-amber-300'
-  },
-  lunch: {
-    icon: Sun,
-    borderL: 'border-l-4 border-l-orange-400',
-    iconCls: 'text-orange-700 bg-orange-50 border border-orange-300'
-  },
-  dinner: {
-    icon: Moon,
-    borderL: 'border-l-4 border-l-indigo-400',
-    iconCls: 'text-indigo-700 bg-indigo-50 border border-indigo-300'
-  },
-  late: {
-    icon: Stars,
-    borderL: 'border-l-4 border-l-purple-400',
-    iconCls: 'text-purple-700 bg-purple-50 border border-purple-300'
-  }
+const MEAL_ICONS = {
+  breakfast: Sunrise,
+  lunch: Sun,
+  dinner: Moon,
+  late: Stars
 }
 
-const MEAL_ICONS = Object.fromEntries(
-  Object.entries(MEAL_THEMES).map(([k, v]) => [k, v.icon])
-)
-
-const SPECIES_TEXT = { cat: '貓', dog: '狗' }
+const SPECIES_TEXT = { cat: '貓咪', dog: '狗狗' }
 const STAGE_TEXT = { young: '幼年', adult: '成年', senior: '高齡' }
 
 export default function MealPlanSection({
@@ -84,15 +59,13 @@ export default function MealPlanSection({
       : null
 
   return (
-    <div className="relative bg-white border border-[#d9d9d9] p-5 mb-6 shadow-xs" data-theme="light">
-      <CornerBrackets size="sm" />
-
+    <div className="ef-panel cut-br p-5 mb-6 border border-[var(--ef-rule)] bg-[var(--ef-panel)] relative">
       {/* 標題與模式切換 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e5e5e5] pb-3.5 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--ef-rule)] pb-3.5 mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-4 bg-[#fffa00]" />
-          <span className="font-bold text-sm text-[#191919]">今日飲食指引</span>
-          <span className="text-[10px] font-mono text-[#8a8a8a]">// DIET_PLANNER</span>
+          <div className="w-1.5 h-3.5 bg-[var(--ef-signal)] border border-[var(--ef-ink)]" />
+          <span className="font-bold text-sm text-[var(--ef-ink)]">今日飲食指引</span>
+          <span className="text-[10px] font-mono text-[var(--ef-ink-2)]">// DIET_PLANNER</span>
         </div>
 
         <div className="flex gap-1.5">
@@ -101,9 +74,12 @@ export default function MealPlanSection({
             onClick={() => setMode('plan')}
             className={`px-3 py-1 text-xs font-mono transition-colors flex items-center gap-1.5 ${
               mode === 'plan'
-                ? 'bg-[#191919] text-[#fffa00] font-bold'
-                : 'bg-[#fafafa] border border-[#d9d9d9] text-[#555] hover:border-[#191919]'
+                ? 'bg-[var(--ef-signal)] text-[var(--ef-on-signal)] font-bold'
+                : 'bg-[var(--ef-paper)] border border-[var(--ef-rule)] text-[var(--ef-ink-2)] hover:border-[var(--ef-ink)] hover:text-[var(--ef-ink)]'
             }`}
+            style={{
+              clipPath: mode === 'plan' ? 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' : 'none'
+            }}
           >
             <Calendar size={13} />
             <span>智能飲食計畫</span>
@@ -114,9 +90,12 @@ export default function MealPlanSection({
             onClick={() => setMode('manual')}
             className={`px-3 py-1 text-xs font-mono transition-colors flex items-center gap-1.5 ${
               mode === 'manual'
-                ? 'bg-[#191919] text-[#fffa00] font-bold'
-                : 'bg-[#fafafa] border border-[#d9d9d9] text-[#555] hover:border-[#191919]'
+                ? 'bg-[var(--ef-signal)] text-[var(--ef-on-signal)] font-bold'
+                : 'bg-[var(--ef-paper)] border border-[var(--ef-rule)] text-[var(--ef-ink-2)] hover:border-[var(--ef-ink)] hover:text-[var(--ef-ink)]'
             }`}
+            style={{
+              clipPath: mode === 'manual' ? 'polygon(0 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%)' : 'none'
+            }}
           >
             <Search size={13} />
             <span>自選食物清單</span>
@@ -127,21 +106,22 @@ export default function MealPlanSection({
       {/* 自選模式 */}
       {mode === 'manual' && (
         <div className="text-center py-8">
-          <Utensils size={32} className="text-[#8a8a8a] mx-auto mb-2" />
-          <p className="text-xs font-bold text-[#191919]">
+          <div className="w-10 h-10 mx-auto mb-2 bg-[var(--ef-paper)] border border-[var(--ef-rule)] flex items-center justify-center text-[var(--ef-ink-2)]">
+            <Utensils size={20} />
+          </div>
+          <p className="text-xs font-bold text-[var(--ef-ink)]">
             自選食物資料庫餵食
           </p>
-          <p className="text-[11px] font-mono text-[#8a8a8a] mt-1 max-w-sm mx-auto">
+          <p className="text-[11px] font-mono text-[var(--ef-ink-2)] mt-1 max-w-sm mx-auto">
             挑選食物後，系統將自動比對健康歷史、近期飲食與安全禁忌，再進行確認
           </p>
-          <Button
+          <button
             type="button"
-            variant="action"
             onClick={onOpenManual}
-            className="mt-4 text-xs py-2 px-4"
+            className="ef-btn small go mt-4 px-4"
           >
             開啟食物資料庫
-          </Button>
+          </button>
         </div>
       )}
 
@@ -149,30 +129,28 @@ export default function MealPlanSection({
       {mode === 'plan' && (
         <div>
           {isLoading && (
-            <div className="space-y-3 py-4">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="h-16 bg-[#fafafa] border border-[#e5e5e5] animate-pulse" />
-              ))}
+            <div className="ef-progress is-unknown py-4" role="progressbar" aria-label="載入飲食計畫">
+              <span className="ef-eyebrow">Generating / 飲食計畫計算中</span><i></i>
             </div>
           )}
 
           {isError && (
             <div className="text-center py-6">
-              <p className="text-xs font-mono text-[#ef4444]">
-                暫時無法產生飲食計畫。
+              <p className="text-xs font-mono text-[var(--ef-danger)]">
+                ※ 暫時無法產生飲食計畫。
               </p>
               <div className="flex justify-center gap-3 mt-3">
                 <button
                   type="button"
                   onClick={() => refetch()}
-                  className="text-xs font-mono text-[#191919] underline"
+                  className="ef-btn small"
                 >
                   重新嘗試
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('manual')}
-                  className="text-xs font-mono text-[#8a8a8a] underline"
+                  className="ef-btn small"
                 >
                   改為自選食物
                 </button>
@@ -183,8 +161,8 @@ export default function MealPlanSection({
           {plan && (
             <div className="space-y-4">
               {/* 寵物特徵摘要列 */}
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-[#fafafa] border border-[#e5e5e5] px-3 py-2">
-                <span className="text-[11px] font-mono text-[#555]">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--ef-paper)] border border-[var(--ef-rule)] px-3 py-2">
+                <span className="text-[11px] font-mono text-[var(--ef-ink)]">
                   {[
                     plan.pet.name,
                     SPECIES_TEXT[plan.pet.species],
@@ -199,34 +177,28 @@ export default function MealPlanSection({
                 <button
                   type="button"
                   onClick={onEditPreferences}
-                  className="text-xs font-mono text-[#191919] hover:underline flex items-center gap-1 font-bold"
+                  className="text-xs font-mono text-[var(--ef-ink)] hover:underline flex items-center gap-1 font-bold"
                 >
                   <Settings size={12} />
                   <span>飲食偏好設定</span>
                 </button>
               </div>
 
-              {/* 今日熱量進度 */}
+              {/* 今日熱量進度 (Endfield 工業進度條) */}
               {plan.target.kcal && (
-                <div className="bg-[#fafafa] border border-[#e5e5e5] p-3">
+                <div className="bg-[var(--ef-paper)] border border-[var(--ef-rule)] p-3">
                   <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-                    <span className="text-[#8a8a8a]">
-                      目標每日熱量: <strong className="text-[#191919]">{plan.target.kcal}</strong> kcal
+                    <span className="text-[var(--ef-ink-2)]">
+                      目標每日熱量: <strong className="text-[var(--ef-ink)]">{plan.target.kcal}</strong> kcal
                     </span>
-                    <span className="text-[#191919] font-bold">
+                    <span className="text-[var(--ef-ink)] font-bold">
                       今日已攝取: {plan.today.loggedKcal} kcal
                     </span>
                   </div>
 
-                  <div className="h-2.5 bg-[#e5e5e5] rounded-full overflow-hidden border border-[#d9d9d9]">
+                  <div className="h-2 bg-[var(--ef-chip)] border border-[var(--ef-rule)] overflow-hidden">
                     <div
-                      className={`h-full transition-all duration-300 ${
-                        progress > 1
-                          ? 'bg-gradient-to-r from-amber-500 to-rose-500'
-                          : progress >= 0.7
-                          ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-[#fffa00]'
-                          : 'bg-gradient-to-r from-sky-400 to-emerald-500'
-                      }`}
+                      className="h-full bg-[var(--ef-signal)] transition-all duration-300"
                       style={{
                         width: `${Math.min(progress * 100, 100)}%`
                       }}
@@ -235,25 +207,17 @@ export default function MealPlanSection({
                 </div>
               )}
 
-              {/* 提醒事項 */}
+              {/* 提醒事項 (Endfield .ef-notice) */}
               {plan.notices.length > 0 && (
                 <div className="space-y-1.5">
                   {plan.notices.map((notice, index) => (
-                    <div
+                    <p
                       key={index}
-                      className={`text-xs p-2.5 border flex items-start gap-2 ${
-                        notice.level === 'warning'
-                          ? 'bg-[#fffbeb] border-amber-300 text-amber-900 shadow-2xs font-medium'
-                          : 'bg-sky-50/70 border-sky-200 text-sky-900 shadow-2xs'
-                      }`}
+                      className="ef-notice text-xs"
+                      data-flag={notice.level === 'warning' ? '注意' : '提醒'}
                     >
-                      {notice.level === 'warning' ? (
-                        <AlertTriangle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-                      ) : (
-                        <Lightbulb size={14} className="shrink-0 mt-0.5 text-sky-600" />
-                      )}
-                      <span className="leading-relaxed">{notice.text}</span>
-                    </div>
+                      {notice.text}
+                    </p>
                   ))}
                 </div>
               )}
@@ -263,52 +227,49 @@ export default function MealPlanSection({
                 {plan.meals.map(meal => {
                   const index = choice[meal.key] ?? 0
                   const option = meal.options[index]
-                  const theme = MEAL_THEMES[meal.key] || {
-                    icon: Utensils,
-                    borderL: 'border-l-4 border-l-[#191919]',
-                    iconCls: 'text-[#191919] bg-[#fafafa] border border-[#e5e5e5]'
-                  }
-                  const Icon = theme.icon
+                  const Icon = MEAL_ICONS[meal.key] || Utensils
 
                   return (
                     <div
                       key={meal.key}
-                      className={`border ${theme.borderL} p-3.5 transition-colors shadow-2xs ${
+                      className={`p-3.5 border transition-colors ${
                         meal.logged
-                          ? 'border-[#191919] bg-[#fafafa]'
-                          : 'border-[#d9d9d9] bg-white'
+                          ? 'border-[var(--ef-rule)] bg-[var(--ef-paper)]'
+                          : 'border-[var(--ef-rule)] bg-[var(--ef-panel)] hover:border-[var(--ef-ink)]'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <div className={`w-7 h-7 flex items-center justify-center shrink-0 rounded-xs ${theme.iconCls}`}>
-                            <Icon size={14} />
+                          <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-[var(--ef-ink)] text-[var(--ef-panel)]"
+                            style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%)' }}
+                          >
+                            <Icon size={14} className="text-[var(--ef-signal)]" />
                           </div>
-                          <span className="font-bold text-xs text-[#191919]">{meal.label}</span>
-                          <span className="text-[10px] font-mono text-[#8a8a8a]">
+                          <span className="font-bold text-xs text-[var(--ef-ink)]">{meal.label}</span>
+                          <span className="text-[10px] font-mono text-[var(--ef-ink-2)]">
                             預定時間: {meal.time}
                           </span>
                         </div>
 
                         {meal.logged && (
-                          <Tag size="sm" variant="default" className="bg-[#191919] text-[#fffa00] border-[#191919] font-mono text-[9px] font-bold">
-                            <Check size={11} className="mr-0.5" />
+                          <span className="ef-tag text-[9px] font-mono font-bold flex items-center gap-1">
+                            <Check size={11} />
                             RECORDED ({meal.loggedKcal} kcal)
-                          </Tag>
+                          </span>
                         )}
                       </div>
 
                       {!option ? (
-                        <p className="text-xs font-mono text-[#8a8a8a]">
-                          目前食物庫暫無合適推薦品項
+                        <p className="text-xs font-mono text-[var(--ef-ink-2)]">
+                          // 目前食物庫暫無合適推薦品項
                         </p>
                       ) : (
                         <div>
                           <div className="flex items-baseline justify-between">
-                            <span className="font-bold text-sm text-[#191919]">
+                            <span className="font-bold text-sm text-[var(--ef-ink)]">
                               {option.name}
                             </span>
-                            <span className="font-mono text-xs text-[#191919]">
+                            <span className="font-mono text-xs text-[var(--ef-ink)]">
                               {option.amountG ? `${option.amountG} g · 約 ${option.kcal} kcal` : '依外包裝標示'}
                             </span>
                           </div>
@@ -318,7 +279,7 @@ export default function MealPlanSection({
                               {option.reasons.map(reason => (
                                 <span
                                   key={reason}
-                                  className="text-[10px] font-mono bg-[#f5f5f5] text-[#555] border border-[#e5e5e5] px-1.5 py-0.2"
+                                  className="text-[10px] font-mono bg-[var(--ef-paper)] text-[var(--ef-ink-2)] border border-[var(--ef-rule)] px-1.5 py-0.2"
                                 >
                                   {reason}
                                 </span>
@@ -329,7 +290,7 @@ export default function MealPlanSection({
                           {option.warnings.length > 0 && (
                             <div className="mt-1.5 space-y-0.5">
                               {option.warnings.map(w => (
-                                <p key={w.title} className="text-xs text-[#dc2626] flex items-center gap-1 font-mono">
+                                <p key={w.title} className="text-xs text-[var(--ef-danger)] flex items-center gap-1 font-mono">
                                   <AlertTriangle size={12} />
                                   <span>{w.title}</span>
                                 </p>
@@ -337,21 +298,20 @@ export default function MealPlanSection({
                             </div>
                           )}
 
-                          <div className="flex gap-2 mt-3 pt-2.5 border-t border-[#f0f0f0]">
-                            <Button
+                          <div className="flex gap-2 mt-3 pt-2.5 border-t border-[var(--ef-rule)]">
+                            <button
                               type="button"
-                              variant="action"
                               onClick={() => onUseMeal(meal, option)}
-                              className="flex-1 py-1.5 text-xs"
+                              className="ef-btn small go flex-1 py-1.5 text-xs text-center"
                             >
                               依建議餵食確認
-                            </Button>
+                            </button>
 
                             {meal.options.length > 1 && (
                               <button
                                 type="button"
                                 onClick={() => cycle(meal)}
-                                className="px-3 py-1.5 text-xs font-mono border border-[#d9d9d9] bg-white hover:border-[#191919] text-[#555] transition-colors"
+                                className="ef-btn small px-3 py-1.5 text-xs font-mono"
                               >
                                 切換選項 ({index + 1}/{meal.options.length})
                               </button>
@@ -370,14 +330,14 @@ export default function MealPlanSection({
                   <button
                     type="button"
                     onClick={() => setShowExcluded(v => !v)}
-                    className="text-xs font-mono text-[#8a8a8a] hover:text-[#191919] flex items-center gap-1"
+                    className="text-xs font-mono text-[var(--ef-ink-2)] hover:text-[var(--ef-ink)] flex items-center gap-1"
                   >
                     {showExcluded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>已依過敏與偏好排除 {plan.excluded.length} 項食物</span>
                   </button>
 
                   {showExcluded && (
-                    <ul className="mt-2 space-y-1 pl-4 text-xs font-mono text-[#8a8a8a]">
+                    <ul className="mt-2 space-y-1 pl-4 text-xs font-mono text-[var(--ef-ink-2)]">
                       {plan.excluded.map(item => (
                         <li key={item.name}>
                           // {item.name}: {item.reason}
@@ -388,7 +348,7 @@ export default function MealPlanSection({
                 </div>
               )}
 
-              <p className="text-[10px] font-mono text-[#8a8a8a] leading-relaxed">
+              <p className="text-[10px] font-mono text-[var(--ef-ink-2)] leading-relaxed">
                 // NOTICE: 飲食指引係依寵物生理數據與偏好產出之餵食規劃，點選餵食前仍將執行多重過敏與營養驗算。
               </p>
             </div>

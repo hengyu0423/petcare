@@ -1,0 +1,234 @@
+/* 首頁（總覽）的版面。只寫排版；顏色、字體、切角、按鈕等都來自 styles/endfield/endfield.css。
+   所有類名都以 pc- 開頭，不會影響其他頁面。 */
+
+.pc-home {
+    /* 放在應用的內容區裡（不是整個 body），所以不要撐成整個視窗高 */
+    min-height: 100%;
+    position: relative;
+    isolation: isolate;
+}
+
+/* 等高線底紋：原本是固定在整個視窗，放進內容區改成貼著這個區塊 */
+.pc-home.ef-contours::before {
+    position: absolute;
+}
+
+/* 專案的全域樣式（index.css 的 @layer base）把 h1～h6 指定成 Nunito，
+   會蓋掉 Endfield 的字體（Saira + Noto Sans SC）。在首頁裡讓標題改回繼承 .ef 的字體。 */
+.pc-home :is(h1, h2, h3, h4, h5, h6) {
+    font-family: inherit;
+}
+
+.pc-main {
+    max-width: 88rem;
+    margin-inline: auto;
+    padding: clamp(1.25rem, 3vw, 2.25rem) var(--ef-pad) 4rem;
+}
+
+/* ---- 頁首 ---- */
+.pc-head {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: clamp(1.25rem, 3vw, 2rem);
+}
+
+.pc-head h1 .ef-marker {
+    margin-left: 0.5em;
+}
+
+.pc-head h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 3.6vw, 2.6rem);
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+/* ---- 看板 + 圓盤 ---- */
+.pc-board {
+    container: pcboard / inline-size;
+}
+
+.pc-orbit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: 1.25rem;
+}
+
+.pc-hub {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(100%, 34rem);
+    margin: 0;
+}
+
+/* 疊在一起時，引線指向空處、還會凸出邊緣，所以拿掉 */
+@container pcboard (max-width: 61.99rem) {
+    .pc-orbit .ef-panel::after {
+        display: none;
+    }
+}
+
+/* 三格讀數是等寬三欄；數字越長字號越小，才不會擠在一起（依最長那個數字的字數選） */
+.ef-figs.pc-fig-sm b {
+    font-size: 1.85rem;
+}
+
+.ef-figs.pc-fig-xs b {
+    font-size: 1.4rem;
+}
+
+/* 六位數以上（例如 123,456）三欄放不下：改成一行一項，數字靠左、標籤靠右 */
+.ef-figs.pc-fig-stack {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+}
+
+.ef-figs.pc-fig-stack a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.ef-figs.pc-fig-stack b {
+    font-size: 1.55rem;
+}
+
+.ef-figs.pc-fig-stack span {
+    text-align: right;
+}
+
+.pc-l3 .ef-figs,
+.pc-r3 .ef-figs {
+    border-top: 0;
+}
+
+@container pcboard (min-width: 62rem) {
+    .pc-orbit {
+        --gap: clamp(1.25rem, 3cqi, 2.5rem);
+        grid-template-columns: minmax(0, 1fr) clamp(27rem, 44cqi, 36rem) minmax(0, 1fr);
+        grid-template-rows: repeat(3, auto);
+        align-items: stretch;
+        gap: 1.25rem var(--gap);
+    }
+
+    .pc-hub {
+        grid-column: 2;
+        grid-row: 1 / 4;
+        align-self: center;
+        width: 100%;
+    }
+
+    .pc-l1,
+    .pc-l2,
+    .pc-l3 {
+        grid-column: 1;
+    }
+
+    .pc-r1,
+    .pc-r2,
+    .pc-r3 {
+        grid-column: 3;
+    }
+
+    .pc-l1,
+    .pc-r1 {
+        grid-row: 1;
+    }
+
+    .pc-l2,
+    .pc-r2 {
+        grid-row: 2;
+    }
+
+    .pc-l3,
+    .pc-r3 {
+        grid-row: 3;
+    }
+
+    /* 上下兩塊往圓盤的肩上靠 */
+    .pc-l1,
+    .pc-l3 {
+        margin-right: -1rem;
+    }
+
+    .pc-r1,
+    .pc-r3 {
+        margin-left: -1rem;
+    }
+
+    /* 中間一對退後，用引線連到圓盤邊 */
+    .pc-l2 {
+        margin: 0 1.75rem 0 -0.75rem;
+        --lead: calc(1.75rem + var(--gap) + 0.4rem);
+    }
+
+    .pc-r2 {
+        margin: 0 -0.75rem 0 1.75rem;
+        --lead: calc(1.75rem + var(--gap) + 0.4rem);
+    }
+}
+
+/* 狀態是文字（例如「平靜」）時，比數字小一點，才放得進去 */
+.ef-figs b.pc-word {
+    font-size: 1.75rem;
+    line-height: 1.6;
+}
+
+/* ---- 下方的工作看板 ---- */
+.pc-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+    gap: 1.25rem;
+    margin-top: clamp(1.75rem, 4vw, 2.75rem);
+}
+
+@media (max-width: 52rem) {
+    .pc-cols {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* 命令列裡放寵物頁籤：名字長時不要折行 */
+.pc-home .ef-cmdbar nav a {
+    white-space: nowrap;
+}
+
+/* 窄螢幕上，外框頂端已經有 PAWCARE 品牌了，這裡的就省掉 */
+@media (max-width: 52rem) {
+    .pc-home .ef-cmdbar .brand {
+        display: none;
+    }
+}
+
+.pc-skel {
+    display: grid;
+    gap: 0.6rem;
+}
+
+/* 只給讀屏軟體的文字（畫面上看不到） */
+.pc-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* 觸控螢幕：按鈕與面板標題的連結至少 44px 高，手指好點 */
+@media (pointer: coarse) {
+    .pc-home .ef-btn {
+        min-height: 2.75rem;
+    }
+
+    .pc-home .ef-panel h2 a {
+        display: inline-block;
+        padding-block: 0.9rem;
+        margin-block: -0.9rem;
+    }
+}

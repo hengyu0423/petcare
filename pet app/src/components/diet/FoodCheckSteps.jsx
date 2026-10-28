@@ -23,13 +23,13 @@ export default function FoodCheckSteps({
   const total = warnings.length
 
   return (
-    <div className="bg-[#fafafa] border border-[#d9d9d9] p-3.5 my-3" data-theme="light">
+    <div className="bg-[var(--ef-paper)] border border-[var(--ef-rule)] p-3.5 my-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-mono text-[#8a8a8a] uppercase tracking-wider">
+        <span className="text-[10px] font-mono text-[var(--ef-ink-2)] uppercase tracking-wider">
           餵食安全管線檢測 // SAFETY_PIPELINE
         </span>
         {checking && (
-          <span className="text-[10px] font-mono text-[#191919] flex items-center gap-1 animate-pulse">
+          <span className="text-[10px] font-mono text-[var(--ef-ink)] flex items-center gap-1 animate-pulse">
             <Loader2 size={11} className="animate-spin" />
             CHECKING...
           </span>
@@ -39,15 +39,15 @@ export default function FoodCheckSteps({
       <div className="flex flex-wrap items-center gap-2">
         {STEPS.map((step, index) => {
           const count = counts[step.key]
-          let badgeStyle = 'bg-white border-[#d9d9d9] text-[#8a8a8a]'
+          let badgeStyle = 'bg-[var(--ef-panel)] border-[var(--ef-rule)] text-[var(--ef-ink-2)]'
           let Icon = null
 
           if (!checking) {
             if (count === 0) {
-              badgeStyle = 'bg-white border-[#191919] text-[#191919] font-bold'
+              badgeStyle = 'bg-[var(--ef-panel)] border-[var(--ef-ink)] text-[var(--ef-ink)] font-bold'
               Icon = Check
             } else {
-              badgeStyle = 'bg-[#fffbeb] border-[#fde68a] text-[#b45309] font-bold'
+              badgeStyle = 'bg-[var(--ef-signal)] border-[var(--ef-ink)] text-[var(--ef-on-signal)] font-bold'
               Icon = AlertTriangle
             }
           }
@@ -55,7 +55,7 @@ export default function FoodCheckSteps({
           return (
             <div key={step.key} className="flex items-center gap-1.5">
               {index > 0 && (
-                <ChevronRight size={13} className="text-[#b0b0b0]" />
+                <ChevronRight size={13} className="text-[var(--ef-rule)]" />
               )}
               <span
                 className={`text-[11px] font-mono px-2.5 py-1 border flex items-center gap-1 transition-colors ${badgeStyle} ${
@@ -70,14 +70,14 @@ export default function FoodCheckSteps({
           )
         })}
 
-        <ChevronRight size={13} className="text-[#b0b0b0]" />
+        <ChevronRight size={13} className="text-[var(--ef-rule)]" />
 
-        <span className="text-[11px] font-mono px-2.5 py-1 border border-[#e5e5e5] bg-[#f5f5f5] text-[#8a8a8a]">
+        <span className="text-[11px] font-mono px-2.5 py-1 border border-[var(--ef-rule)] bg-[var(--ef-paper)] text-[var(--ef-ink-2)]">
           確認給食
         </span>
       </div>
 
-      <p className="text-[11px] font-mono text-[#8a8a8a] mt-2.5">
+      <p className="text-[11px] font-mono text-[var(--ef-ink-2)] mt-2.5">
         {checking
           ? '// 正在進行多階段安全分析與過敏比對...'
           : total === 0

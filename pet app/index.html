@@ -1,13 +1,19 @@
 <!doctype html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-ef-accent="lime" data-ef-paper="warm" data-ef-cut="standard" data-ef-ground="contours" data-ef-density="standard" data-ef-motion="full">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      try {
+        const t = localStorage.getItem('pawcare-home-theme')
+        if (t) document.documentElement.setAttribute('data-theme', t)
+      } catch {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-    <meta name="theme-color" content="#22c55e" />
+    <meta name="theme-color" content="#191919" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

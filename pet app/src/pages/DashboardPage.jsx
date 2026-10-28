@@ -1,617 +1,420 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
-import {
-  SectionTitle,
-  BracketTitle,
-  Stat,
-  RollingNumber,
-  Tag,
-  TagPair,
-  Button,
-  RecIndicator,
-  Texture,
-  RegistrationStrip,
-  Progress,
-  CornerBrackets,
-  ArrowRight
-} from '@endfield-ui/react'
-import {
-  Dog,
-  Cat,
-  Bird,
-  Fish,
-  Rabbit,
-  PawPrint,
-  Zap,
-  Moon,
-  Eye,
-  Smile,
-  Compass,
-  CreditCard,
-  ClipboardCheck,
-  Bell,
-  Wallet,
-  BarChart3
-} from 'lucide-react'
-import { useAuthStore } from '../store/authStore'
+import '@fontsource-variable/saira/standard.css'
+import '@fontsource-variable/noto-sans-sc/wght.css'
+import '../styles/endfield/endfield.css'
+import './dashboard.css'
 import { api } from '../lib/api'
+import { useAuthStore } from '../store/authStore'
+import { petAgeText, ageInMonths } from '../lib/petAge'
+import { lifeStage, weightTrend, formatKg, todayString } from '../lib/petInsights'
+import { useHealthRecords, upcomingReminders } from '../lib/petHealth'
+import Dial from '../components/ef/Dial'
+import Num from '../components/ef/Num'
 
-const SPECIES_ICONS = {
-  dog: Dog,
-  cat: Cat,
-  bird: Bird,
-  rabbit: Rabbit,
-  fish: Fish,
-  other: PawPrint
+// ======================================================
+// 設計變體（Endfield UI skill 的變體卡）
+//   產品：PawCare 寵物生活管理。每天打開看一眼，要溫暖、好讀，也要有資料的精準感。
+//   強調色 lime    ← 呼應 PawCare 原本的綠，但是 Endfield 規定裡的那一種螢光綠
+//   紙色   warm    ← 家、寵物，比中性灰白更暖
+//   切角   standard
+//   底紋   contours（等高線）
+//   密度   standard
+//   動態   full    ← 首頁的進場、圓盤、數字讀數都保留
+// 變體只掛在 <html> 上，而且只在首頁顯示的期間；離開首頁就拿掉，不影響其他頁面。
+// ======================================================
+const VARIANT = {
+  'data-ef-accent': 'lime',
+  'data-ef-paper': 'warm',
+  'data-ef-cut': 'standard',
+  'data-ef-ground': 'contours',
+  'data-ef-density': 'standard',
+  'data-ef-motion': 'full'
 }
 
-function getSpeciesIcon(species, props = {}) {
-  const Icon = SPECIES_ICONS[species?.toLowerCase()] || PawPrint
-  return <Icon {...props} />
+const THEME_KEY = 'pawcare-home-theme' // 'dark' | 'light'；沒有就跟著系統
+
+const SPECIES_ZH = { dog: '狗', cat: '貓', bird: '鳥', rabbit: '兔子', fish: '魚', other: '其他' }
+const SPECIES_EN = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', fish: 'Fish', other: 'Pet' }
+
+const pad = n => String(n).padStart(2, '0')
+const dotDate = d => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+const dotDateStr = s => String(s || '').slice(0, 10).replaceAll('-', '.')
+const hm = iso => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const n0 = v => Math.round(Number(v) || 0).toLocaleString('en-US')
+
+// 三格讀數的容器：依最長那個數字的字數縮小字號，太長就改成一行一項（見 dashboard.css）
+const figs = (...vals) => {
+  const n = Math.max(...vals.map(v => String(v).length))
+  return `ef-figs${n >= 6 ? ' pc-fig-stack' : n === 5 ? ' pc-fig-xs' : n === 4 ? ' pc-fig-sm' : ''}`
 }
 
-function getMoodIcon(mood, props = {}) {
-  if (!mood) return <Cat {...props} />
-  if (mood.includes('活躍') || mood.includes('興奮')) return <Zap {...props} />
-  if (mood.includes('好奇') || mood.includes('探索')) return <Eye {...props} />
-  if (mood.includes('休息') || mood.includes('放鬆')) return <Moon {...props} />
-  if (mood.includes('平靜')) return <Smile {...props} />
-  if (mood.includes('觀察') || mood.includes('警戒')) return <Compass {...props} />
-  return <PawPrint {...props} />
+// ISO 週數與這一週的起訖（週一到週日）
+function weekInfo(now = new Date()) {
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+  const day = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - day)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
+
+  const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7))
+  const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6)
+  return { week, range: `${pad(mon.getMonth() + 1)}.${pad(mon.getDate())} – ${pad(sun.getMonth() + 1)}.${pad(sun.getDate())}` }
+}
+
+function greeting(now = new Date()) {
+  const h = now.getHours()
+  if (h < 5) return '夜深了'
+  if (h < 12) return '早安'
+  if (h < 18) return '午安'
+  return '晚安'
+}
+
+// 首頁顯示期間，把變體與主題掛到 <html>
+function useHomeTheme() {
+  const [dark, setDark] = useState(() => {
+    try {
+      const saved = localStorage.getItem(THEME_KEY)
+      if (saved) return saved === 'dark'
+    } catch { /* 忽略 */ }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    Object.entries(VARIANT).forEach(([k, v]) => root.setAttribute(k, v))
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-theme', dark ? 'dark' : 'light')
+  }, [dark])
+
+  const toggle = () =>
+    setDark(d => {
+      try { localStorage.setItem(THEME_KEY, d ? 'light' : 'dark') } catch { /* 忽略 */ }
+      return !d
+    })
+
+  return [dark, toggle]
 }
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
-  const [hoveredPetId, setHoveredPetId] = useState(null)
+  const [searchParams] = useSearchParams()
+  const [dark, toggleTheme] = useHomeTheme()
 
-  // 寵物清單
-  const { data: pets = [], isLoading: petsLoading } = useQuery({
+  const { data: pets = [], isLoading: loadingPets, isError: petsError, refetch: refetchPets } = useQuery({
     queryKey: ['pets'],
     queryFn: () => api.get('/pets').then(r => r.data.data)
   })
 
-  // 支出統計
-  const { data: expSummary = [] } = useQuery({
-    queryKey: ['expenses-summary'],
-    queryFn: () => api.get('/expenses/summary').then(r => r.data.data)
+  // 目前聚焦的寵物：網址 ?pet=ID，沒有就優先貓（監控是看貓的），再來第一隻
+  const wanted = Number(searchParams.get('pet'))
+  const featured = pets.find(p => p.id === wanted) || pets.find(p => p.species === 'cat') || pets[0]
+  const fid = featured?.id
+
+  const { data: plan, isError: planError } = useQuery({
+    queryKey: ['meal-plan-home', fid],
+    queryFn: () => api.get(`/food/meal-plan/${fid}`).then(r => r.data.data),
+    enabled: !!fid
+  })
+  const { data: weights = [] } = useQuery({
+    queryKey: ['pet-weights', fid],
+    queryFn: async () => (await api.get(`/pets/${fid}/weights`)).data.data,
+    enabled: !!fid
+  })
+  const { data: health = [] } = useHealthRecords(fid)
+  const { data: monthly = [] } = useQuery({
+    queryKey: ['expenses-monthly'],
+    queryFn: () => api.get('/expenses/monthly').then(r => r.data.data)
+  })
+  const { data: mood } = useQuery({
+    queryKey: ['mood-summary', fid],
+    queryFn: () => api.get(`/mood-records/pet/${fid}/summary?minutes=10`).then(r => r.data),
+    enabled: !!fid
+  })
+  const { data: notices = [] } = useQuery({
+    queryKey: ['dashboard-notifications', fid],
+    queryFn: () => api.get(`/notifications?petId=${fid}`).then(r => r.data.notifications || []),
+    enabled: !!fid
   })
 
-  // 攝影機目前對應的寵物：優先抓貓
-  const cameraPet = pets.find(p => p.species === 'cat') || pets[0]
-
-  // 最近 10 分鐘狀態摘要
-  const {
-    data: moodSummary,
-    isLoading: moodLoading
-  } = useQuery({
-    queryKey: ['mood-summary', cameraPet?.id],
-    queryFn: () =>
-      api
-        .get(`/mood-records/pet/${cameraPet.id}/summary?minutes=10`)
-        .then(r => r.data),
-    enabled: !!cameraPet?.id,
-    refetchInterval: 60000
-  })
-
-  // 通知事項
-  const { data: notifications = [] } = useQuery({
-    queryKey: ['dashboard-notifications', cameraPet?.id],
-    queryFn: () =>
-      api
-        .get(`/notifications?petId=${cameraPet.id}`)
-        .then(r => r.data.notifications || []),
-    enabled: !!cameraPet?.id,
-    refetchInterval: 30000
-  })
-
-  const unreadCount = notifications.filter(
-    item => !(item.isRead ?? item.is_read)
-  ).length
-
-  const totalExpense = expSummary.reduce(
-    (sum, row) => sum + Number(row.total),
-    0
-  )
-
-  const formatTime = value => {
-    if (!value) return '--:--'
-    return new Date(value).toLocaleTimeString('zh-TW', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
+  // ---------- 由真實資料算出來的讀數 ----------
+  const now = new Date()
+  const today = todayString(now)
+  const monthKey = today.slice(0, 7)
+  const lastMonthKey = (() => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+  })()
+  const sumMonth = key => monthly.filter(r => r.month === key).reduce((s, r) => s + Number(r.total || 0), 0)
+  const spend = {
+    month: sumMonth(monthKey),
+    last: sumMonth(lastMonthKey),
+    all: monthly.reduce((s, r) => s + Number(r.total || 0), 0)
   }
 
-  const hour = new Date().getHours()
-  const greeting =
-    hour < 5
-      ? '夜深了'
-      : hour < 12
-        ? '早安'
-        : hour < 18
-          ? '午安'
-          : '晚安'
+  const logged = plan?.today?.loggedKcal ?? 0
+  const target = plan?.today?.targetKcal ?? null
+  const meals = plan?.meals ?? []
+  const mealsDone = meals.filter(m => m.logged).length
+  const share = target > 0 ? logged / target : null
+
+  const months = featured?.birth_date ? ageInMonths(String(featured.birth_date).slice(0, 10)) : null
+  const stage = featured ? lifeStage(featured.species, months) : null
+  const trend = weightTrend(weights)
+  const latestWeight = weights[weights.length - 1]
+  const reminder = upcomingReminders(health, today)[0]
+  const unread = notices.filter(n => !n.isRead).length
+  const wk = weekInfo(now)
+
+  const goto = href => navigate(href)
+
+  // ---------- 圓盤：六個入口，每一個都是一組真實讀數 ----------
+  const sections = [
+    {
+      zh: '寵物', en: 'Pets', href: '/pets',
+      big: pets.length, unit: '隻',
+      sub: pets.slice(0, 2).map(p => p.name).join('、') || '尚未新增'
+    },
+    {
+      zh: '飲食', en: 'Diet', href: '/diet',
+      big: plan ? n0(logged) : '—', unit: plan ? 'kcal' : '',
+      sub: target ? `目標 ${n0(target)}` : plan ? '需先記錄體重' : '讀取中'
+    },
+    {
+      zh: '健康', en: 'Health', href: '/health-consult',
+      big: reminder ? reminder.daysLeft : '—', unit: reminder ? '天' : '',
+      sub: reminder ? `${reminder.title} ${dotDateStr(reminder.date)}` : '沒有安排的提醒',
+      alert: !!reminder && reminder.daysLeft <= 7
+    },
+    {
+      zh: '週報', en: 'Report', href: '/weekly-report',
+      big: wk.week, unit: '週', sub: wk.range
+    },
+    {
+      zh: '監控', en: 'Camera', href: '/pet-cam',
+      big: mood?.success ? mood.mainMood : '—', unit: '',
+      sub: mood?.success ? `更新 ${hm(mood.updatedAt)}` : '最近沒有辨識紀錄'
+    },
+    {
+      zh: '財務', en: 'Spend', href: '/expenses',
+      big: n0(spend.month), unit: 'TWD', sub: `本月 ${monthKey.replace('-', '.')}`
+    }
+  ]
+  const gauges = share !== null ? [{ label: '今日熱量', share }] : []
+  const idle = featured
+    ? { label: featured.name.slice(0, 6), big: plan ? n0(logged) : '—', unit: plan ? 'kcal' : '', sub: '今日已記錄' }
+    : { label: 'PawCare', big: 0, unit: '隻', sub: '尚未新增寵物' }
+
+  const navPets = pets.slice(0, 5)
 
   return (
-    <div
-      data-theme="light"
-      className="relative min-h-full bg-[#fafafa] text-[#191919] p-4 md:p-8 font-sans selection:bg-[#fffa00] selection:text-[#191919] overflow-x-hidden"
-    >
-      {/* 輕量科技背景網格 */}
-      <div className="absolute inset-0 pointer-events-none opacity-10">
-        <Texture variant="grid" />
-      </div>
+    <div className="ef ef-contours pc-home">
+      <div className="ef-tri" aria-hidden="true"><i></i><i></i><i></i></div>
 
-      <div className="relative z-10 max-w-6xl mx-auto space-y-6">
-
-        {/* 頂部系統狀態列 */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e5e5e5] pb-3 text-xs text-[#626262] font-mono">
-          <div className="flex items-center gap-2.5">
-            <RegistrationStrip size="sm" />
-            <span className="font-bold text-[#191919] tracking-wider">
-              PAWCARE // 智慧照護總覽
-            </span>
-            <span className="text-[#d9d9d9]">|</span>
-            <span className="hidden sm:inline">即時守護中</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Tag variant="accent" size="sm" numeric>
-              連線正常
-            </Tag>
-            <span className="text-[#8a8a8a]">
-              {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '.')}
-            </span>
-          </div>
-        </div>
-
-        {/* 歡迎標題區 */}
-        <div className="relative">
-          <SectionTitle
-            latin="OVERVIEW // PAWCARE"
-            meta="// DAILY SUMMARY"
-            level={1}
-            tone="accent"
-            className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#191919]"
-          >
-            {greeting}，{user?.name || '主人'}
-          </SectionTitle>
-          <p className="text-sm text-[#626262] mt-1.5 max-w-2xl leading-relaxed">
-            歡迎回到 PawCare，今天你的毛孩子們還好嗎？
-          </p>
-        </div>
-
-        {/* 貓咪近期狀態與即時監控 */}
-        <section className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 bg-[#fffa00] border border-[#d9d9d9]" />
-              <BracketTitle level={3} className="text-sm md:text-base font-bold text-[#191919]">
-                即時影像與近期狀態 // LIVE CAM
-              </BracketTitle>
-              {cameraPet && (
-                <span className="text-xs text-[#626262] font-mono hidden sm:inline">
-                  [{cameraPet.name} 的視角]
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <RecIndicator label="LIVE" blink />
-              <Tag variant="outline" size="sm">
-                HD 60FPS
-              </Tag>
-              <Tag variant="outline" size="sm">
-                AI 辨識
-              </Tag>
-            </div>
-          </div>
-
-          <div className="relative bg-white border border-[#d9d9d9] p-5 md:p-6 shadow-sm transition-all duration-200 hover:border-[#191919] group">
-            <CornerBrackets size="sm" />
-
-            {!cameraPet ? (
-              <div className="py-10 text-center font-mono space-y-3">
-                <div className="w-12 h-12 mx-auto bg-white border border-[#d9d9d9] flex items-center justify-center text-[#8a8a8a]">
-                  <PawPrint size={24} strokeWidth={1.5} />
-                </div>
-                <p className="text-[#8a8a8a] text-sm">
-                  目前尚未新增寵物資料
-                </p>
-                <Button
-                  variant="action"
-                  size="sm"
-                  render={<Link to="/pets" />}
-                >
-                  前往新增寵物
-                </Button>
-              </div>
-            ) : moodLoading ? (
-              <div className="py-10 text-center font-mono space-y-3">
-                <div className="inline-block w-6 h-6 border-2 border-[#191919] border-t-transparent animate-spin rounded-full" />
-                <p className="text-xs text-[#626262] tracking-wider">
-                  正在讀取近期活動狀態...
-                </p>
-              </div>
-            ) : moodSummary?.success ? (
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
-                  
-                  {/* 左側：狀態卡片 */}
-                  <div className="md:col-span-5 flex items-start gap-3.5 bg-[#f8f9fa] border border-[#e5e5e5] p-4">
-                    <div className="w-12 h-12 bg-white border border-[#d9d9d9] flex items-center justify-center text-[#191919] shrink-0 shadow-xs">
-                      {getMoodIcon(moodSummary.mainMood, { size: 24, strokeWidth: 2 })}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-[#8a8a8a] font-mono">// 分析結果</span>
-                        <Tag variant="accent" size="sm">推測狀態</Tag>
-                      </div>
-                      <div className="text-lg font-bold text-[#191919] tracking-wide">
-                        {moodSummary.mainMood}
-                      </div>
-                      <p className="text-xs text-[#626262] mt-1">
-                        觀察目標：<span className="font-semibold text-[#191919]">{cameraPet.name}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 中間：取樣佔比與進度條 */}
-                  <div className="md:col-span-4 bg-[#f8f9fa] border border-[#e5e5e5] p-4 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-[#626262]">// 過去 {moodSummary.minutes} 分鐘狀態佔比</span>
-                      <span className="text-[#191919] font-bold">{moodSummary.percentage}%</span>
-                    </div>
-                    <Progress
-                      value={Number(moodSummary.percentage)}
-                      segments={10}
-                      aria-label="狀態佔比"
-                    />
-                    <p className="text-[11px] text-[#8a8a8a] leading-tight">
-                      ※ 依攝影機偵測到的姿態與活動量推測
-                    </p>
-                  </div>
-
-                  {/* 右側：調度與時間戳 */}
-                  <div className="md:col-span-3 flex flex-col justify-between h-full space-y-3 bg-[#f8f9fa] border border-[#e5e5e5] p-4 text-xs font-mono">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[#8a8a8a]">最後更新</span>
-                      <span className="text-[#191919] font-bold">
-                        {formatTime(moodSummary.updatedAt)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="action"
-                      size="sm"
-                      block
-                      iconEnd={<ArrowRight size={14} />}
-                      render={<Link to="/pet-cam" />}
-                    >
-                      查看即時影像
-                    </Button>
-                  </div>
-
-                </div>
-
-                {/* 底部輔助狀態 */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#f0f0f0] text-xs font-mono text-[#626262]">
-                  <div className="flex items-center gap-2">
-                    <TagPair name="偵測取樣" value={`${moodSummary.minutes} 分鐘`} size="sm" />
-                    <TagPair name="鏡頭狀態" value="正常連線" size="sm" />
-                  </div>
-                  <Link
-                    to="/health-consult?view=emotion"
-                    className="text-[#191919] font-semibold hover:underline flex items-center gap-1 transition-colors"
-                  >
-                    查看歷史情緒紀錄 →
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="py-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white border border-[#d9d9d9] flex items-center justify-center text-[#626262] shrink-0">
-                    <Cat size={20} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[#191919]">
-                      {cameraPet.name} · 近期無辨識紀錄
-                    </p>
-                    <p className="text-xs text-[#8a8a8a] mt-0.5">
-                      最近 10 分鐘內尚未累積足夠的影像活動數據
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="control"
-                  size="sm"
-                  iconEnd={<ArrowRight size={14} />}
-                  render={<Link to="/pet-cam" />}
-                >
-                  開啟即時監控
-                </Button>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* 核心數據指標 (Endfield Stat & RollingNumber) */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-[#8a8a8a] uppercase tracking-wider">
-              // OVERVIEW STATS // 關鍵照顧數據
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* 卡片 1: 寵物總數 */}
-            <div
-              onClick={() => navigate('/pets')}
-              className="relative group cursor-pointer bg-white border border-[#e5e5e5] p-4 transition-all duration-200 hover:border-[#191919] shadow-sm hover:shadow"
+      <header className="ef-cmdbar">
+        <Link className="brand" to="/dashboard"><span className="seal" aria-hidden="true">P</span>PAWCARE</Link>
+        <nav aria-label="切換寵物">
+          {navPets.map(p => (
+            <Link
+              key={p.id}
+              to={`/dashboard?pet=${p.id}`}
+              replace
+              aria-current={p.id === fid ? 'page' : undefined}
             >
-              <CornerBrackets size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-between mb-3 text-xs font-mono text-[#8a8a8a]">
-                <span>// PETS</span>
-                <div className="w-6 h-6 flex items-center justify-center text-[#191919]">
-                  <PawPrint size={16} strokeWidth={2} />
-                </div>
-              </div>
-              <Stat
-                label="寵物總數"
-                value={<RollingNumber value={pets.length} />}
-                unit="隻"
-                delta={pets.length > 0 ? "已登錄" : "未登錄"}
-                size="md"
-              />
-              <div className="mt-3 pt-2 border-t border-[#f0f0f0] flex items-center justify-between text-xs font-mono text-[#8a8a8a] group-hover:text-[#191919]">
-                <span>查看寵物資料</span>
-                <span>→</span>
-              </div>
-            </div>
-
-            {/* 卡片 2: 本月支出 */}
-            <div
-              onClick={() => navigate('/expenses')}
-              className="relative group cursor-pointer bg-white border border-[#e5e5e5] p-4 transition-all duration-200 hover:border-[#191919] shadow-sm hover:shadow"
-            >
-              <CornerBrackets size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-between mb-3 text-xs font-mono text-[#8a8a8a]">
-                <span>// EXPENSES</span>
-                <div className="w-6 h-6 flex items-center justify-center text-[#191919]">
-                  <CreditCard size={16} strokeWidth={2} />
-                </div>
-              </div>
-              <Stat
-                label="本月總支出"
-                value={<RollingNumber value={Math.round(totalExpense)} />}
-                unit="TWD"
-                delta="開銷統計"
-                size="md"
-              />
-              <div className="mt-3 pt-2 border-t border-[#f0f0f0] flex items-center justify-between text-xs font-mono text-[#8a8a8a] group-hover:text-[#191919]">
-                <span>查看支出明細</span>
-                <span>→</span>
-              </div>
-            </div>
-
-            {/* 卡片 3: 健康週報 */}
-            <div
-              onClick={() => navigate('/weekly-report')}
-              className="relative group cursor-pointer bg-white border border-[#e5e5e5] p-4 transition-all duration-200 hover:border-[#191919] shadow-sm hover:shadow"
-            >
-              <CornerBrackets size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-between mb-3 text-xs font-mono text-[#8a8a8a]">
-                <span>// REPORT</span>
-                <div className="w-6 h-6 flex items-center justify-center text-[#191919]">
-                  <ClipboardCheck size={16} strokeWidth={2} />
-                </div>
-              </div>
-              <Stat
-                label="健康週報"
-                value="已就緒"
-                unit=""
-                delta="本週"
-                size="md"
-              />
-              <div className="mt-3 pt-2 border-t border-[#f0f0f0] flex items-center justify-between text-xs font-mono text-[#8a8a8a] group-hover:text-[#191919]">
-                <span>閱讀健康分析</span>
-                <span>→</span>
-              </div>
-            </div>
-
-            {/* 卡片 4: 提醒事項 */}
-            <div className="relative group bg-white border border-[#e5e5e5] p-4 transition-all duration-200 hover:border-[#191919] shadow-sm hover:shadow">
-              <CornerBrackets size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-between mb-3 text-xs font-mono text-[#8a8a8a]">
-                <span>// ALERTS</span>
-                <div className="w-6 h-6 flex items-center justify-center">
-                  <Bell size={16} strokeWidth={2} className={unreadCount > 0 ? "text-[#de0909]" : "text-[#8a8a8a]"} />
-                </div>
-              </div>
-              <Stat
-                label="待處理提醒"
-                value={<RollingNumber value={unreadCount} />}
-                unit="項"
-                delta={unreadCount > 0 ? "需處理" : "無待辦"}
-                trend={unreadCount > 0 ? "down" : undefined}
-                size="md"
-              />
-              <div className="mt-3 pt-2 border-t border-[#f0f0f0] flex items-center justify-between text-xs font-mono text-[#8a8a8a]">
-                <span>{unreadCount > 0 ? '有新的通知' : '目前一切安好'}</span>
-                {unreadCount > 0 && <span className="text-[#de0909]">●</span>}
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* 我的寵物名冊 (My Pets) */}
-        <section className="bg-white border border-[#d9d9d9] p-5 md:p-6 shadow-sm relative overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5 border-b border-[#f0f0f0] pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-[#fffa00] border border-[#d9d9d9]" />
-                <BracketTitle level={3} className="text-base md:text-lg font-bold text-[#191919]">
-                  我的寵物 // MY PETS
-                </BracketTitle>
-              </div>
-              <p className="text-xs text-[#8a8a8a] font-mono mt-0.5">
-                // 家中已登記的毛小孩成員
-              </p>
-            </div>
-
-            <Button
-              variant="light"
-              size="sm"
-              iconEnd={<ArrowRight size={14} />}
-              render={<Link to="/pets" />}
-            >
-              查看全部寵物
-            </Button>
-          </div>
-
-          {petsLoading ? (
-            <div className="py-10 text-center text-xs text-[#8a8a8a] font-mono">
-              載入寵物資料中...
-            </div>
-          ) : pets.length === 0 ? (
-            <div className="py-10 text-center border border-dashed border-[#e5e5e5] p-6 space-y-3">
-              <div className="w-12 h-12 mx-auto bg-white border border-[#d9d9d9] flex items-center justify-center text-[#8a8a8a]">
-                <PawPrint size={24} strokeWidth={1.5} />
-              </div>
-              <p className="text-xs text-[#8a8a8a] font-mono">
-                還沒有新增任何寵物
-              </p>
-              <Button
-                variant="action"
-                size="sm"
-                render={<Link to="/pets" />}
-              >
-                新增第一隻寵物
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {pets.map((pet, idx) => {
-                const isHovered = hoveredPetId === pet.id
-                return (
-                  <Link
-                    key={pet.id}
-                    to={`/pets/${pet.id}`}
-                    onMouseEnter={() => setHoveredPetId(pet.id)}
-                    onMouseLeave={() => setHoveredPetId(null)}
-                    className="relative block bg-[#f8f9fa] border border-[#e5e5e5] p-4 transition-all duration-200 hover:border-[#191919] hover:bg-white group shadow-sm hover:shadow"
-                  >
-                    <CornerBrackets visible={isHovered} size="sm" />
-
-                    <div className="flex items-center justify-between text-[11px] font-mono text-[#8a8a8a] mb-2.5">
-                      <TagPair name="ID" value={`0${idx + 1}`} size="sm" emphasis={isHovered} />
-                      <Tag variant="outline" size="sm">
-                        {(pet.species || 'PET').toUpperCase()}
-                      </Tag>
-                    </div>
-
-                    <div className="flex items-center gap-3 my-2">
-                      <div className="w-12 h-12 bg-white border border-[#d9d9d9] flex items-center justify-center text-[#191919] group-hover:bg-[#fffa00] group-hover:border-[#191919] transition-colors shrink-0">
-                        {getSpeciesIcon(pet.species, { size: 22, strokeWidth: 2 })}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-sm text-[#191919] truncate group-hover:text-black transition-colors">
-                          {pet.name}
-                        </div>
-                        <div className="text-xs text-[#8a8a8a] truncate">
-                          {pet.breed || pet.species || '未知品種'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-[#e5e5e5] flex items-center justify-between text-[11px] font-mono text-[#8a8a8a] group-hover:text-[#191919]">
-                      <span>基本資料正常</span>
-                      <span>查看資料 →</span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+              {p.name}<small>{SPECIES_EN[p.species] || 'Pet'}</small>
+            </Link>
+          ))}
+          {pets.length > navPets.length && (
+            <Link to="/pets">更多<small>+{pets.length - navPets.length}</small></Link>
           )}
-        </section>
+        </nav>
+        <div className="util">
+          <button className="ef-btn small" type="button" aria-pressed={dark} onClick={toggleTheme}>深色</button>
+        </div>
+      </header>
 
-        {/* 常用功能調度 (Quick Actions) */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-[#8a8a8a] uppercase tracking-wider">
-              // QUICK ACTIONS // 常用功能
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* 模組 1: 財務管理 */}
-            <div className="bg-white border border-[#d9d9d9] p-5 shadow-sm hover:border-[#191919] transition-all group">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 flex items-center justify-center text-[#191919]">
-                      <Wallet size={18} strokeWidth={2} />
-                    </div>
-                    <h3 className="font-bold text-sm text-[#191919]">
-                      財務管理 // EXPENSES
-                    </h3>
-                  </div>
-                  <p className="text-xs text-[#626262] leading-relaxed">
-                    記錄毛孩的飲食飼糧、日常用品與醫療健康開銷。
-                  </p>
-                </div>
-                <Button
-                  variant="control"
-                  size="sm"
-                  iconEnd={<ArrowRight size={14} />}
-                  render={<Link to="/expenses" />}
-                >
-                  進入管理
-                </Button>
-              </div>
-            </div>
-
-            {/* 模組 2: 支出報表 */}
-            <div className="bg-white border border-[#d9d9d9] p-5 shadow-sm hover:border-[#191919] transition-all group">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 flex items-center justify-center text-[#191919]">
-                      <BarChart3 size={18} strokeWidth={2} />
-                    </div>
-                    <h3 className="font-bold text-sm text-[#191919]">
-                      支出報表 // REPORTS
-                    </h3>
-                  </div>
-                  <p className="text-xs text-[#626262] leading-relaxed">
-                    以統計圖表分析毛孩每月花費走勢與各類別佔比。
-                  </p>
-                </div>
-                <Button
-                  variant="control"
-                  size="sm"
-                  iconEnd={<ArrowRight size={14} />}
-                  render={<Link to="/expense-report" />}
-                >
-                  查看報表
-                </Button>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* 頁尾 */}
-        <div className="border-t border-[#e5e5e5] pt-4 flex flex-wrap items-center justify-between text-[11px] font-mono text-[#8a8a8a]">
-          <span>// PAWCARE SMART PET CARE SYSTEM</span>
-          <span>ENDFIELD DESIGN SPEC</span>
+      <main className="pc-main">
+        <div className="pc-head">
+          <span className="ef-eyebrow slash">PawCare / Overview</span>
+          <h1>
+            {greeting(now)}，{user?.name || '主人'}{' '}<span className="ef-marker ef-in-stroke">總覽</span>
+          </h1>
+          <ul className="ef-facts ef-field">
+            <li><time dateTime={today}>{dotDate(now)}</time></li>
+            <li>寵物 {pets.length} 隻</li>
+            {featured && <li>目前顯示 {featured.name}</li>}
+            {featured && <li>未讀提醒 {unread} 則</li>}
+          </ul>
         </div>
 
-      </div>
+        {loadingPets ? (
+          <div className="ef-progress is-unknown" role="progressbar" aria-label="正在載入">
+            <span className="ef-eyebrow">Loading / 載入中</span><i></i>
+          </div>
+        ) : petsError ? (
+          <section className="ef-panel">
+            <h2><span className="ef-pair"><span className="ef-eyebrow">Error</span><span>讀取失敗</span></span></h2>
+            <p className="ef-notice" data-flag="錯誤">寵物資料讀取失敗，請確認網路連線後再試一次。</p>
+            <p className="ef-actions"><button type="button" className="ef-btn go" onClick={() => refetchPets()}>重新讀取</button></p>
+          </section>
+        ) : !featured ? (
+          <section className="ef-panel">
+            <h2><span className="ef-pair"><span className="ef-eyebrow">Start</span><span>開始使用</span></span></h2>
+            <p className="ef-empty">還沒有新增寵物。先建立第一隻，首頁就會開始顯示牠的餵食、體重和健康提醒。</p>
+            <p className="ef-actions"><Link className="ef-btn go" to="/pets">新增寵物</Link></p>
+          </section>
+        ) : (
+          <>
+            <div className="pc-board">
+              <div className="pc-orbit">
+                <figure className="pc-hub">
+                  <Dial label="快速入口" sections={sections} gauges={gauges} idle={idle} onNavigate={goto} />
+                </figure>
+
+                {/* 左上：今日餵食 */}
+                <section className="ef-panel cut-br lead-right pc-l1 ef-in-power" style={{ '--i': 0 }}>
+                  <h2><span className="ef-pair"><span className="ef-eyebrow">Diet</span><span>今日餵食</span></span> <Link to="/diet">飲食管理</Link></h2>
+                  {plan && target ? (
+                    <div className={figs(n0(logged), n0(target), `${mealsDone}/${meals.length}`)}>
+                      <Link to="/diet"><Num value={n0(logged)} /><span>已記錄 kcal</span></Link>
+                      <Link to="/diet"><Num value={n0(target)} /><span>目標 kcal</span></Link>
+                      <Link to="/diet"><Num value={`${mealsDone}/${meals.length}`} /><span>餐次</span></Link>
+                    </div>
+                  ) : plan ? (
+                    <p className="ef-notice" data-flag="缺體重">{featured.name} 還沒有體重，算不出每日熱量目標。<Link to={`/pets/${featured.id}`}>去記錄體重</Link></p>
+                  ) : planError ? (
+                    <p className="ef-notice" data-flag="錯誤">飲食計畫讀取失敗，請稍後再試。</p>
+                  ) : (
+                    <span className="ef-skeleton line"></span>
+                  )}
+                </section>
+
+                {/* 右上：即時監控 */}
+                <section className="ef-panel cut-bl tab-right pc-r1 ef-in-power" style={{ '--i': 0 }}>
+                  <h2><span className="ef-pair"><span className="ef-eyebrow">Camera</span><span>即時監控</span></span> <Link to="/pet-cam">詳情</Link></h2>
+                  {mood?.success ? (
+                    <div className={figs(Number(mood.percentage), Number(mood.minutes))}>
+                      <Link to="/pet-cam"><b className="pc-word">{mood.mainMood}</b><span>主要心情</span></Link>
+                      <Link to="/pet-cam"><Num value={Number(mood.percentage)} /><span>佔比 %</span></Link>
+                      <Link to="/pet-cam"><Num value={Number(mood.minutes)} /><span>取樣 分鐘</span></Link>
+                    </div>
+                  ) : (
+                    <p className="ef-empty">{featured.name} 最近 10 分鐘沒有辨識紀錄。開啟即時監控後，牠的心情佔比會顯示在這裡。</p>
+                  )}
+                </section>
+
+                {/* 左中：提醒 */}
+                <section className="ef-panel lead-right pc-l2 ef-in-power" style={{ '--i': 1 }}>
+                  <h2><span className="ef-pair"><span className="ef-eyebrow">Alerts</span><span>提醒</span></span></h2>
+                  <div className={figs(unread, notices.length, reminder ? reminder.daysLeft : '—')}>
+                    <a href="#notices" className={unread > 0 ? 'is-alert' : undefined}><Num value={unread} /><span>未讀</span></a>
+                    <a href="#notices"><Num value={notices.length} /><span>近期通知</span></a>
+                    <Link to="/health-consult" className={reminder && reminder.daysLeft <= 7 ? 'is-alert' : undefined}>
+                      <Num value={reminder ? reminder.daysLeft : '—'} /><span>距提醒 天</span>
+                    </Link>
+                  </div>
+                </section>
+
+                {/* 右中：支出 */}
+                <section className="ef-panel lead-left tab-right pc-r2 ef-in-power" style={{ '--i': 1 }}>
+                  <h2><span className="ef-pair"><span className="ef-eyebrow">Spend</span><span>支出</span></span> <Link to="/expenses">財務管理</Link></h2>
+                  <div className={figs(n0(spend.month), n0(spend.last), n0(spend.all))}>
+                    <Link to="/expenses"><Num value={n0(spend.month)} /><span>本月 TWD</span></Link>
+                    <Link to="/expenses"><Num value={n0(spend.last)} /><span>上月 TWD</span></Link>
+                    <Link to="/expense-report"><Num value={n0(spend.all)} /><span>累計 TWD</span></Link>
+                  </div>
+                </section>
+
+                {/* 左下：這隻寵物 */}
+                <section className="ef-panel cut-tr pc-l3 ef-in-power" style={{ '--i': 2 }}>
+                  <h2><span className="ef-pair"><span className="ef-eyebrow">Pet</span><span>{featured.name}</span></span> <Link to={`/pets/${featured.id}`}>詳細</Link></h2>
+                  <ul className="ef-ledger">
+                    <li><span>種類</span><span className="ef-field">{SPECIES_ZH[featured.species] || '其他'}{featured.breed ? ` ${featured.breed}` : ''}</span></li>
+                    <li><span>年齡</span><span className="ef-field">{petAgeText(featured.birth_date) || '未設定生日'}</span></li>
+                    <li><span>生命階段</span><span className="ef-field">{stage ? stage.label : '—'}</span></li>
+                  </ul>
+                </section>
+
+                {/* 右下：體重 */}
+                <section className="ef-panel cut-tl tab-right pc-r3 ef-in-power" style={{ '--i': 2 }}>
+                  <h2><span className="ef-pair"><span className="ef-eyebrow">Weight</span><span>體重</span></span> <Link to={`/pets/${featured.id}`}>曲線</Link></h2>
+                  {latestWeight ? (
+                    <ul className="ef-ledger">
+                      <li><span>目前</span><span className="ef-field">{formatKg(latestWeight.weight)} kg</span></li>
+                      <li>
+                        <span>{trend ? `近 ${trend.spanDays} 天` : '變化'}</span>
+                        <span className={`ef-field${trend && Math.abs(trend.pct) >= 10 && stage?.key !== 'young' ? ' warn' : ''}`}>
+                          {trend ? `${trend.delta > 0 ? '+' : ''}${formatKg(trend.delta)} kg` : '再記錄一次就能比較'}
+                        </span>
+                      </li>
+                      <li><span>最近記錄</span><span className="ef-field">{dotDateStr(latestWeight.measured_on)}</span></li>
+                    </ul>
+                  ) : (
+                    <p className="ef-empty">{featured.name} 還沒有體重紀錄。記錄之後，這裡會顯示變化。</p>
+                  )}
+                </section>
+              </div>
+            </div>
+
+            <div className="pc-cols">
+              <section className="ef-panel">
+                <h2><span className="ef-pair"><span className="ef-eyebrow">Roster</span><span>寵物名冊</span></span> <Link to="/pets">全部寵物</Link></h2>
+                <ul className="ef-rows">
+                  {pets.map(p => {
+                    const st = lifeStage(p.species, p.birth_date ? ageInMonths(String(p.birth_date).slice(0, 10)) : null)
+                    return (
+                      <li key={p.id}>
+                        <div>
+                          <div>{p.name} {st && <span className="ef-state">{st.label}</span>}</div>
+                          <div className="meta">
+                            <span>{SPECIES_ZH[p.species] || '其他'}{p.breed ? ` ${p.breed}` : ''}</span>
+                            <span>{petAgeText(p.birth_date) || '未設定生日'}</span>
+                            {p.weight && <span>{formatKg(p.weight)} kg</span>}
+                          </div>
+                        </div>
+                        <div className="acts">
+                          <Link className="ef-btn small" to={`/dashboard?pet=${p.id}`} replace aria-label={`首頁改為顯示 ${p.name}`}>切換</Link>
+                          <Link className="ef-btn small" to={`/pets/${p.id}`}>詳細</Link>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+
+              <section className="ef-panel" id="notices">
+                <h2><span className="ef-pair"><span className="ef-eyebrow">Notices</span><span>{featured.name} 的通知</span></span></h2>
+                {notices.length === 0 ? (
+                  <p className="ef-empty">目前沒有通知。有新的提醒時，會依序列在這裡。</p>
+                ) : (
+                  <ul className="ef-rows">
+                    {notices.slice(0, 4).map(n => (
+                      <li key={n.id}>
+                        <div>
+                          <div>{n.title} {!n.isRead && <span className="ef-state is-alert">未讀</span>}</div>
+                          <div className="meta"><span>{dotDateStr(n.createdAt)} {hm(n.createdAt)}</span></div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="ef-actions">
+                  <Link className="ef-btn go" to="/diet">記錄餵食</Link>
+                  <Link className="ef-btn" to="/health-consult">健康諮詢</Link>
+                </p>
+              </section>
+            </div>
+          </>
+        )}
+      </main>
     </div>
   )
 }
