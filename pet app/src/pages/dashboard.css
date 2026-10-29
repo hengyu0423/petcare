@@ -2,19 +2,24 @@
    所有類名都以 pc- 開頭，不會影響其他頁面。 */
 
 .pc-home {
-    /* 放在應用的內容區裡（不是整個 body），所以不要撐成整個視窗高 */
+    /* 外框（Layout）已經提供紙色、字體、等高線底紋與指令列；這裡只管首頁自己的版面 */
     min-height: 100%;
-    position: relative;
-    isolation: isolate;
 }
 
-/* 等高線底紋：原本是固定在整個視窗，放進內容區改成貼著這個區塊 */
-.pc-home.ef-contours::before {
-    position: absolute;
+/* 頁首：眉標與深色開關同一列；寵物切換用筛選芯片 */
+.pc-head-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
-/* 專案的全域樣式（index.css 的 @layer base）把 h1～h6 指定成 Nunito，
-   會蓋掉 Endfield 的字體（Saira + Noto Sans SC）。在首頁裡讓標題改回繼承 .ef 的字體。 */
+.pc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
 .pc-home :is(h1, h2, h3, h4, h5, h6) {
     font-family: inherit;
 }
@@ -190,17 +195,6 @@
     }
 }
 
-/* 命令列裡放寵物頁籤：名字長時不要折行 */
-.pc-home .ef-cmdbar nav a {
-    white-space: nowrap;
-}
-
-/* 窄螢幕上，外框頂端已經有 PAWCARE 品牌了，這裡的就省掉 */
-@media (max-width: 52rem) {
-    .pc-home .ef-cmdbar .brand {
-        display: none;
-    }
-}
 
 .pc-skel {
     display: grid;
@@ -222,7 +216,9 @@
 
 /* 觸控螢幕：按鈕與面板標題的連結至少 44px 高，手指好點 */
 @media (pointer: coarse) {
-    .pc-home .ef-btn {
+
+    .pc-home .ef-btn,
+    .pc-home .ef-chip {
         min-height: 2.75rem;
     }
 

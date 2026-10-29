@@ -1,0 +1,175 @@
+/* 應用外框（指令列、底部標籤列、更多面板）的排版。
+   顏色、字體、切角、按鈕等都來自 styles/endfield/endfield.css；這裡只寫版面。類名都以 pc- 開頭。 */
+
+.pc-shell {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* 等高線底紋：套件預設是固定在整個視窗；放進外框後改成貼著外框 */
+.pc-shell.ef-contours::before {
+    position: absolute;
+}
+
+/* 三色條與指令列固定在上方，內容區自己捲動（頁面本身不會出現第二條捲軸） */
+.pc-shell>.ef-tri,
+.pc-shell>.ef-cmdbar {
+    flex: none;
+}
+
+.pc-shell>.ef-cmdbar {
+    position: relative;
+    z-index: 30;
+    /* 通知下拉面板要蓋在內容上面 */
+}
+
+.pc-area {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    position: relative;
+    outline: none;
+}
+
+/* 鍵盤使用者：Tab 第一下出現「跳到主要內容」 */
+.pc-skip {
+    position: absolute;
+    left: 0.5rem;
+    top: 0.5rem;
+    z-index: 100;
+    padding: 0.5rem 0.9rem;
+    background: var(--ef-signal);
+    color: var(--ef-on-signal);
+    font-weight: 700;
+    transform: translateY(-300%);
+}
+
+.pc-skip:focus-visible {
+    transform: none;
+}
+
+/* ---- 指令列右側：使用者 ---- */
+.pc-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #ededed;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.pc-avatar {
+    display: inline-grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid #ededed;
+    font-stretch: var(--ef-wide);
+    font-weight: 800;
+    font-size: 0.8rem;
+}
+
+.pc-uname {
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 指令列上的頁籤：名字不要折行 */
+.pc-shell .ef-cmdbar nav a {
+    white-space: nowrap;
+}
+
+/* ---- 手機／平板：底部標籤列 ---- */
+/* 套件的標籤列預設浮在內容上面（fixed），這裡改成排在版面最底，
+   頁面高度就剛好是「剩下的空間」，不會被蓋住，也不用另外補底部留白 */
+.pc-tabbar {
+    position: static;
+    flex: none;
+}
+
+/* 「更多」是按鈕，要跟其他標籤（連結）長得一樣 */
+.pc-tabbar button {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    min-height: 52px;
+    border: 0;
+    background: none;
+    color: var(--ef-ink);
+    font: 500 0.875rem/1.3 var(--ef-font-ui);
+    cursor: pointer;
+    transition: background-color 0.28s var(--ef-mech);
+}
+
+.pc-tabbar button small {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    font-stretch: var(--ef-wider);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ef-ink-2);
+}
+
+.pc-tabbar button[aria-current='page'] {
+    background: linear-gradient(-45deg, transparent calc(var(--ef-cut) - 0.5px), var(--ef-signal) var(--ef-cut));
+    color: var(--ef-on-signal);
+    font-weight: 700;
+}
+
+.pc-tabbar button[aria-current='page'] small {
+    color: var(--ef-on-signal);
+}
+
+/* 「更多」面板裡，目前所在的項目 */
+.ef-drawer .ef-act[aria-current='page'] {
+    background: var(--ef-signal);
+    color: var(--ef-on-signal);
+}
+
+.ef-drawer .pc-account {
+    color: var(--ef-ink-2);
+    font-weight: 500;
+    min-height: 44px;
+}
+
+/* 帳號那一行只是顯示資訊、不能點，不要出現「›」箭頭 */
+.ef-drawer .pc-account::after {
+    content: none;
+}
+
+/* ---- 響應式：1024px 以上用指令列頁籤；以下改成底部標籤列 ---- */
+@media (min-width: 64rem) {
+    .pc-tabbar {
+        display: none;
+    }
+}
+
+@media (max-width: 63.99rem) {
+
+    .pc-shell .ef-cmdbar nav.pc-nav,
+    .pc-uname,
+    .pc-logout {
+        display: none;
+    }
+}
+
+@media (max-width: 40rem) {
+    .pc-shell .ef-cmdbar .brand {
+        font-size: 0.95rem;
+    }
+}
+
+/* 觸控螢幕：頂部的按鈕（鈴鐺）至少 44×44，手指好點 */
+@media (pointer: coarse) {
+    .pc-shell .ef-cmdbar .util button {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+}

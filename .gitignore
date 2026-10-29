@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # Frontend
 pet app/node_modules/
 pet app/dist/

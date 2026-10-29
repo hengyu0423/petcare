@@ -54,7 +54,9 @@ function timeAgo(iso) {
   return `${Math.floor(hr / 24)} 天前`
 }
 
-export default function NotificationBell() {
+// placement：'side' = 原本放在側邊欄（面板開在鈴鐺右邊）；'bar' = 放在頂部指令列（面板往下、靠右展開，數字徽章改用強調色）
+export default function NotificationBell({ placement = 'side' }) {
+  const bar = placement === 'bar'
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
@@ -102,7 +104,7 @@ export default function NotificationBell() {
       qc.invalidateQueries({ queryKey: ['notifications'] })
     })
 
-    source.onerror = () => {}
+    source.onerror = () => { }
 
     return () => source.close()
   }, [qc])
@@ -118,25 +120,21 @@ export default function NotificationBell() {
   }
 
   return (
-    <div className="relative" ref={boxRef}>
+    <div className={bar ? '' : 'relative'} ref={boxRef}>
 
-      {/* 鈴鐺觸發按鈕 (Endfield 切角與指示) */}
+      {/* 鈴鐺觸發按鈕 */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className={`relative w-8 h-8 border flex items-center justify-center transition-all ${
-          open
-            ? 'border-[var(--ef-ink)] bg-[var(--ef-chip)] text-[var(--ef-ink)]'
-            : 'border-[var(--ef-rule)] bg-[var(--ef-panel)] text-[var(--ef-ink-2)] hover:border-[var(--ef-ink)] hover:bg-[var(--ef-paper)] hover:text-[var(--ef-ink)]'
-        }`}
-        style={{
-          clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%)'
-        }}
+        className={`relative w-8 h-8 border flex items-center justify-center transition-all ${open
+            ? 'border-[#191919] bg-[#f0f0f0] text-[#191919]'
+            : 'border-[#e5e5e5] bg-white text-[#626262] hover:border-[#191919] hover:bg-[#f8f9fa] hover:text-[#191919]'
+          }`}
         aria-label="通知中心"
       >
-        <Bell size={15} strokeWidth={2} />
+        <Bell size={16} strokeWidth={2} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-[var(--ef-signal)] text-[var(--ef-on-signal)] text-[9px] font-mono font-bold flex items-center justify-center border border-[var(--ef-ink)]">
+          <span className={`absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 text-[9px] font-mono font-bold flex items-center justify-center border ${bar ? 'bg-[var(--ef-signal)] text-[var(--ef-on-signal)] border-[#161616]' : 'bg-[#de0909] text-white border-white'}`}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -144,7 +142,7 @@ export default function NotificationBell() {
 
       {/* 下拉面板 (Endfield UI 工業彈窗樣式) */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] md:left-full md:right-auto md:top-0 md:ml-3 md:w-84 bg-[var(--ef-panel)] border border-[var(--ef-ink)] shadow-2xl z-50 max-h-[75vh] flex flex-col font-sans animate-fade-in">
+        <div className={`absolute ${bar ? 'right-2' : 'right-0'} top-full mt-2 w-[min(22rem,calc(100vw-2rem))] ${bar ? 'md:w-84' : 'md:left-full md:right-auto md:top-0 md:ml-3 md:w-84'} bg-white border border-[#191919] shadow-2xl z-50 max-h-[75vh] flex flex-col font-sans animate-fade-in`}>
 
           {/* 頂部標題列 */}
           <div className="flex items-center justify-between px-3.5 py-2.5 bg-[#f8f9fa] border-b border-[#e5e5e5]">
@@ -198,11 +196,10 @@ export default function NotificationBell() {
                   key={n.id}
                   type="button"
                   onClick={() => !n.isRead && markRead(n.id)}
-                  className={`w-full text-left px-3.5 py-3 flex items-start gap-3 transition-colors ${
-                    n.isRead
+                  className={`w-full text-left px-3.5 py-3 flex items-start gap-3 transition-colors ${n.isRead
                       ? 'bg-white text-[#626262] hover:bg-[#f8f9fa]'
                       : 'bg-[#fafafa] border-l-3 border-[#fffa00] text-[#191919] hover:bg-[#f0f0f0]'
-                  }`}
+                    }`}
                 >
                   {/* 圖示方塊 */}
                   <div className="w-8 h-8 bg-white border border-[#d9d9d9] flex items-center justify-center shrink-0 mt-0.5">
@@ -214,9 +211,8 @@ export default function NotificationBell() {
                     <div className="flex items-center justify-between gap-1 mb-0.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            SEVERITY_DOT[n.severity] || 'bg-[#25759f]'
-                          }`}
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${SEVERITY_DOT[n.severity] || 'bg-[#25759f]'
+                            }`}
                         />
                         <p className={`text-xs truncate ${n.isRead ? 'font-medium text-[#191919]' : 'font-bold text-[#191919]'}`}>
                           {n.title}

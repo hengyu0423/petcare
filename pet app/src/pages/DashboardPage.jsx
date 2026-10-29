@@ -13,30 +13,11 @@ import { useHealthRecords, upcomingReminders } from '../lib/petHealth'
 import Dial from '../components/ef/Dial'
 import Num from '../components/ef/Num'
 
-// ======================================================
-// 設計變體（Endfield UI skill 的變體卡）
-//   產品：PawCare 寵物生活管理。每天打開看一眼，要溫暖、好讀，也要有資料的精準感。
-//   強調色 lime    ← 呼應 PawCare 原本的綠，但是 Endfield 規定裡的那一種螢光綠
-//   紙色   warm    ← 家、寵物，比中性灰白更暖
-//   切角   standard
-//   底紋   contours（等高線）
-//   密度   standard
-//   動態   full    ← 首頁的進場、圓盤、數字讀數都保留
-// 變體只掛在 <html> 上，而且只在首頁顯示的期間；離開首頁就拿掉，不影響其他頁面。
-// ======================================================
-const VARIANT = {
-  'data-ef-accent': 'lime',
-  'data-ef-paper': 'warm',
-  'data-ef-cut': 'standard',
-  'data-ef-ground': 'contours',
-  'data-ef-density': 'standard',
-  'data-ef-motion': 'full'
-}
-
+// 設計變體（強調色、紙色、切角…）由外框 Layout 統一設定，見 lib/useEfVariant.js。
+// 首頁自己只管深色／淺色主題。
 const THEME_KEY = 'pawcare-home-theme' // 'dark' | 'light'；沒有就跟著系統
 
 const SPECIES_ZH = { dog: '狗', cat: '貓', bird: '鳥', rabbit: '兔子', fish: '魚', other: '其他' }
-const SPECIES_EN = { dog: 'Dog', cat: 'Cat', bird: 'Bird', rabbit: 'Rabbit', fish: 'Fish', other: 'Pet' }
 
 const pad = n => String(n).padStart(2, '0')
 const dotDate = d => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
@@ -74,7 +55,7 @@ function greeting(now = new Date()) {
   return '晚安'
 }
 
-// 首頁顯示期間，把變體與主題掛到 <html>
+// 首頁顯示期間，把主題掛到 <html>（離開首頁就拿掉，其他頁面還是淺色）
 function useHomeTheme() {
   const [dark, setDark] = useState(() => {
     try {
@@ -86,12 +67,8 @@ function useHomeTheme() {
 
   useEffect(() => {
     const root = document.documentElement
-    Object.entries(VARIANT).forEach(([k, v]) => root.setAttribute(k, v))
-  }, [])
-
-  useEffect(() => {
-    const root = document.documentElement
     root.setAttribute('data-theme', dark ? 'dark' : 'light')
+    return () => root.removeAttribute('data-theme')
   }, [dark])
 
   const toggle = () =>
@@ -106,7 +83,7 @@ function useHomeTheme() {
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [dark, toggleTheme] = useHomeTheme()
 
   const { data: pets = [], isLoading: loadingPets, isError: petsError, refetch: refetchPets } = useQuery({
@@ -213,37 +190,14 @@ export default function DashboardPage() {
     ? { label: featured.name.slice(0, 6), big: plan ? n0(logged) : '—', unit: plan ? 'kcal' : '', sub: '今日已記錄' }
     : { label: 'PawCare', big: 0, unit: '隻', sub: '尚未新增寵物' }
 
-  const navPets = pets.slice(0, 5)
-
   return (
-    <div className="ef ef-contours pc-home">
-      <div className="ef-tri" aria-hidden="true"><i></i><i></i><i></i></div>
-
-      <header className="ef-cmdbar">
-        <Link className="brand" to="/dashboard"><span className="seal" aria-hidden="true">P</span>PAWCARE</Link>
-        <nav aria-label="切換寵物">
-          {navPets.map(p => (
-            <Link
-              key={p.id}
-              to={`/dashboard?pet=${p.id}`}
-              replace
-              aria-current={p.id === fid ? 'page' : undefined}
-            >
-              {p.name}<small>{SPECIES_EN[p.species] || 'Pet'}</small>
-            </Link>
-          ))}
-          {pets.length > navPets.length && (
-            <Link to="/pets">更多<small>+{pets.length - navPets.length}</small></Link>
-          )}
-        </nav>
-        <div className="util">
-          <button className="ef-btn small" type="button" aria-pressed={dark} onClick={toggleTheme}>深色</button>
-        </div>
-      </header>
-
+    <div className="pc-home">
       <main className="pc-main">
         <div className="pc-head">
-          <span className="ef-eyebrow slash">PawCare / Overview</span>
+          <div className="pc-head-top">
+            <span className="ef-eyebrow slash">PawCare / Overview</span>
+            <button className="ef-btn small" type="button" aria-pressed={dark} onClick={toggleTheme}>深色</button>
+          </div>
           <h1>
             {greeting(now)}，{user?.name || '主人'}{' '}<span className="ef-marker ef-in-stroke">總覽</span>
           </h1>
@@ -253,6 +207,22 @@ export default function DashboardPage() {
             {featured && <li>目前顯示 {featured.name}</li>}
             {featured && <li>未讀提醒 {unread} 則</li>}
           </ul>
+          {pets.length > 1 && (
+            <div className="pc-chips" role="group" aria-label="切換寵物">
+              {pets.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="ef-chip"
+                  aria-pressed={p.id === fid}
+                  aria-label={`${p.name}（${SPECIES_ZH[p.species] || '其他'}）`}
+                  onClick={() => setSearchParams({ pet: String(p.id) }, { replace: true })}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {loadingPets ? (
