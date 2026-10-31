@@ -1,13 +1,20 @@
-# Frontend
+# Dependencies
+node_modules/
 pet app/node_modules/
-pet app/dist/
-
-# Backend
 pet-api/node_modules/
+
+# Build
+pet app/dist/
+dist/
 
 # Environment
 pet-api/.env
 pet app/.env
+.env
+.env.*
+
+# Agents & AI IDE
+.agents/
 
 # Logs
 *.log
@@ -19,8 +26,3 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
-
-GROQ_API_KEY
-GEMINI_API_KEY
-DATABASE_URL
-.env

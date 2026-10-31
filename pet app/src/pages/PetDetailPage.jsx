@@ -18,15 +18,7 @@ const GENDER_MAP = Object.fromEntries(GENDER)
 
 const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
 
-function InfoRow({ label, value }) {
-  if (!value) return null
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-400">{label}</span>
-      <span className="text-sm font-medium text-gray-700">{value}</span>
-    </div>
-  )
-}
+
 
 function StatTile({ label, value, sub, tone = 'text-gray-800' }) {
   return (
@@ -130,8 +122,16 @@ export default function PetDetailPage() {
       </Link>
 
       <div className="space-y-4">
-        {/* 頂部：頭像、名字、標籤 */}
-        <header className="bg-white rounded-2xl border border-gray-200 p-6 text-center">
+        {/* 頂部：頭像、名字、標籤 + 編輯按鈕 */}
+        <header className="bg-white rounded-2xl border border-gray-200 p-6 text-center relative">
+          {/* 右上角編輯按鈕 */}
+          <button
+            onClick={startEdit}
+            className="absolute top-4 right-4 bg-white border border-gray-200 text-green-500 hover:bg-green-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+          >
+            ✏️ 編輯
+          </button>
+
           <div className="text-7xl mb-3" aria-hidden="true">{EMOJI[pet.species] || '🐾'}</div>
           <h1 className="text-2xl font-bold text-gray-800">{pet.name}</h1>
           {pet.breed && <p className="text-gray-400 text-sm mt-1">{pet.breed}</p>}
@@ -152,6 +152,70 @@ export default function PetDetailPage() {
             )}
           </div>
         </header>
+
+        {/* 編輯 Modal */}
+        {editing && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md border border-gray-100 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-base font-bold text-gray-800">編輯資料</h2>
+                <button onClick={() => setEditing(false)} className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors text-sm">✕</button>
+              </div>
+              <form onSubmit={handleSave} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">名字</label>
+                  <input required value={form.name} onChange={e => set('name', e.target.value)} className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">種類</label>
+                    <select value={form.species} onChange={e => set('species', e.target.value)} className={inputCls}>
+                      {SPECIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">性別</label>
+                    <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls}>
+                      {GENDER.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">品種</label>
+                  <input value={form.breed} onChange={e => set('breed', e.target.value)} placeholder="選填" className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">生日</label>
+                    <input type="date" max={today} value={form.birthDate} onChange={e => set('birthDate', e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">體重 (kg)</label>
+                    <input type="number" step="0.01" min="0.01" max="200" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="選填" className={inputCls} />
+                  </div>
+                </div>
+                <p className="-mt-2 text-[11px] text-gray-400">改了體重會同時新增一筆今天的體重紀錄，成長曲線也會更新。</p>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">備注</label>
+                  <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="選填" className={`${inputCls} resize-none`} />
+                </div>
+                {updatePet.isError && (
+                  <p role="alert" className="text-xs text-red-500">
+                    {updatePet.error?.response?.data?.error || '儲存失敗，請稍後再試'}
+                  </p>
+                )}
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setEditing(false)}
+                    className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-500 hover:bg-gray-50 font-medium transition-colors">取消</button>
+                  <button type="submit" disabled={updatePet.isPending}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm">
+                    {updatePet.isPending ? '儲存中...' : '儲存'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* 重點數字 */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="重點數字">
@@ -211,89 +275,7 @@ export default function PetDetailPage() {
           </div>
         </section>
 
-        {/* 基本資料 */}
-        <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="基本資料">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              {editing ? '編輯資料' : '基本資料'}
-            </p>
-            {!editing && (
-              <button onClick={startEdit}
-                className="bg-white border border-gray-200 text-green-500 hover:bg-green-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
-                ✏️ 編輯
-              </button>
-            )}
-          </div>
 
-          {!editing ? (
-            <>
-              <InfoRow label="種類" value={SPECIES_MAP[pet.species]} />
-              <InfoRow label="性別" value={GENDER_MAP[pet.gender]} />
-              <InfoRow label="年齡" value={age} />
-              <InfoRow label="生日" value={birthDate} />
-              <InfoRow label="體重" value={pet.weight ? `${formatKg(pet.weight)} kg` : null} />
-              {pet.notes && (
-                <div className="mt-4 bg-gray-50 rounded-xl p-4">
-                  <p className="text-xs text-gray-400 font-semibold mb-1">備注</p>
-                  <p className="text-sm text-gray-600">{pet.notes}</p>
-                </div>
-              )}
-            </>
-          ) : (
-            <form onSubmit={handleSave} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">名字</label>
-                <input required value={form.name} onChange={e => set('name', e.target.value)} className={inputCls} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">種類</label>
-                  <select value={form.species} onChange={e => set('species', e.target.value)} className={inputCls}>
-                    {SPECIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">性別</label>
-                  <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls}>
-                    {GENDER.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">品種</label>
-                <input value={form.breed} onChange={e => set('breed', e.target.value)} placeholder="選填" className={inputCls} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">生日</label>
-                  <input type="date" max={today} value={form.birthDate} onChange={e => set('birthDate', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">體重 (kg)</label>
-                  <input type="number" step="0.01" min="0.01" max="200" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="選填" className={inputCls} />
-                </div>
-              </div>
-              <p className="-mt-2 text-[11px] text-gray-400">改了體重會同時新增一筆今天的體重紀錄，成長曲線也會更新。</p>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">備注</label>
-                <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="選填" className={`${inputCls} resize-none`} />
-              </div>
-              {updatePet.isError && (
-                <p role="alert" className="text-xs text-red-500">
-                  {updatePet.error?.response?.data?.error || '儲存失敗，請稍後再試'}
-                </p>
-              )}
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setEditing(false)}
-                  className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-500 hover:bg-gray-50 font-medium transition-colors">取消</button>
-                <button type="submit" disabled={updatePet.isPending}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm">
-                  {updatePet.isPending ? '儲存中...' : '儲存'}
-                </button>
-              </div>
-            </form>
-          )}
-        </section>
       </div>
     </div>
   )

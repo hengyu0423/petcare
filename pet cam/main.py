@@ -42,10 +42,17 @@ except Exception:
     pass
 
 # Node.js API
-PET_API_URL = "http://localhost:4000"
+PET_API_URL = os.environ.get("PET_API_URL", "http://localhost:4000")
 
-# ⚠️ 改成你 Neon pets 資料表裡這隻寵物的 id
-PET_ID = 8
+# =========================================================
+# 攝影機身分設定（以 Camera ID 和 User ID 為單位，不綁定 Pet ID）
+# =========================================================
+# PawCare 使用者帳號 ID
+USER_ID = int(os.environ.get("USER_ID", "1"))
+
+# 攝影機代號與名稱（Camera 1 獨立運作）
+CAMERA_ID = os.environ.get("CAMERA_ID", "cam_1")
+CAMERA_NAME = os.environ.get("CAMERA_NAME", "Camera 1")
 
 
 # =========================================================
@@ -74,7 +81,11 @@ NOTIFICATION_API_URL = f"{PET_API_URL}/api/notifications"
 # =========================================================
 
 current_status = {
+    "cameraId": CAMERA_ID,
+    "cameraName": CAMERA_NAME,
+    "userId": USER_ID,
     "detected": False,
+    "detectedType": "pet",
     "behavior": "讀取中...",
     "mood": "讀取中...",
     "confidence": 0,
@@ -167,7 +178,9 @@ def format_duration(seconds):
 def save_mood_to_database(data):
     try:
         payload = {
-            "petId": PET_ID,
+            "userId": USER_ID,
+            "cameraId": CAMERA_ID,
+            "detectedType": data.get("detectedType", "pet"),
             "mood": data["mood"],
             "behavior": data["behavior"],
             "confidence": data["confidence"],
@@ -175,22 +188,30 @@ def save_mood_to_database(data):
             "movement": data["movement"],
         }
 
-        response = requests.post(
-            f"{PET_API_URL}/api/mood-records",
-            json=payload,
-            timeout=10,
-        )
-
-        response.raise_for_status()
+        # 優先呼叫以攝影機為單位的端點，失敗時自動退回通用端點
+        try:
+            response = requests.post(
+                f"{PET_API_URL}/api/camera-records",
+                json=payload,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except Exception:
+            response = requests.post(
+                f"{PET_API_URL}/api/mood-records",
+                json=payload,
+                timeout=10,
+            )
+            response.raise_for_status()
 
         print(
-            f"💾 已寫入資料庫："
-            f"{data['mood']}"
+            f"💾 [Camera {CAMERA_ID}] 已寫入資料庫："
+            f"{data['mood']} ({data.get('detectedType', 'pet')})"
         )
 
     except Exception as e:
         print(
-            "❌ 推測狀態寫入資料庫失敗：",
+            "❌ 攝影機行為紀錄寫入資料庫失敗：",
             e,
         )
 
@@ -202,10 +223,16 @@ def save_mood_to_database(data):
 def send_camera_notification(notification_type, title, message):
     try:
         payload = {
-            "petId": PET_ID,
+            "userId": USER_ID,
+            "cameraId": CAMERA_ID,
             "type": notification_type,
             "title": title,
             "message": message,
+            "severity": "warning" if notification_type == "camera_missing" else "info",
+            "metadata": {
+                "cameraId": CAMERA_ID,
+                "cameraName": CAMERA_NAME,
+            },
         }
 
         response = requests.post(
@@ -216,7 +243,7 @@ def send_camera_notification(notification_type, title, message):
 
         response.raise_for_status()
 
-        print(f"🔔 通知已送出：{title}")
+        print(f"🔔 [Camera {CAMERA_ID}] 通知已送出：{title}")
 
     except Exception as e:
         # 如果 Node.js 尚未做 /notifications 路由，攝影機本身仍可繼續工作
@@ -250,6 +277,9 @@ def save_mood_history(status):
             return
 
     data = {
+        "cameraId": CAMERA_ID,
+        "userId": USER_ID,
+        "detectedType": status.get("detectedType", "pet"),
         "mood": status["mood"],
         "behavior": status["behavior"],
         "confidence": float(status["confidence"]),
@@ -265,8 +295,9 @@ def save_mood_history(status):
     last_mood_record_time = now
 
     print(
-        f"📊 行為紀錄："
+        f"📊 [Camera {CAMERA_ID}] 行為紀錄："
         f"{data['mood']} "
+        f"| 物種：{data['detectedType']} "
         f"| 行為：{data['behavior']} "
         f"| 信心度：{data['confidence']}% "
         f"| {now.strftime('%H:%M:%S')}"
@@ -285,7 +316,7 @@ def save_mood_history(status):
 # 分析寵物狀態
 # =========================================================
 
-def analyze_live_frame(x1, y1, x2, y2, conf):
+def analyze_live_frame(x1, y1, x2, y2, conf, detected_type="pet"):
     global prev_center
 
     # Bounding Box 寬高
@@ -355,6 +386,9 @@ def analyze_live_frame(x1, y1, x2, y2, conf):
             mood = "平靜"
 
     return {
+        "cameraId": CAMERA_ID,
+        "cameraName": CAMERA_NAME,
+        "detectedType": detected_type,
         "behavior": behavior,
         "mood": mood,
         "confidence": confidence,
@@ -642,17 +676,32 @@ def camera_worker():
                     box.conf[0]
                 )
 
+                # 辨識物種類別 (cat / dog / pet)
+                cls_id = int(box.cls[0]) if hasattr(box, "cls") and len(box.cls) > 0 else 0
+                detected_type = "pet"
+                if hasattr(model, "names") and isinstance(model.names, dict):
+                    detected_type = model.names.get(cls_id, "pet")
+                elif cls_id == 0:
+                    detected_type = "cat"
+                elif cls_id == 1:
+                    detected_type = "dog"
+
                 new_status = analyze_live_frame(
                     x1,
                     y1,
                     x2,
                     y2,
                     conf,
+                    detected_type=detected_type,
                 )
 
                 # 加入鏡頭狀態
                 new_status.update({
+                    "cameraId": CAMERA_ID,
+                    "cameraName": CAMERA_NAME,
+                    "userId": USER_ID,
                     "detected": True,
+                    "detectedType": detected_type,
                     "lastSeenAt": now.isoformat(),
                     "missingSince": None,
                     "missingSeconds": 0,
@@ -670,6 +719,8 @@ def camera_worker():
                 if was_missing:
                     event = {
                         "type": "reappeared",
+                        "cameraId": CAMERA_ID,
+                        "detectedType": detected_type,
                         "missingStartedAt": missing_started_at,
                         "reappearedAt": now,
                         "durationSeconds": missing_duration_seconds,
@@ -683,7 +734,7 @@ def camera_worker():
                         presence_history.append(event)
 
                     print(
-                        f"🐱 寵物重新出現在鏡頭中 "
+                        f"🐱 [{CAMERA_NAME}] 重新出現在鏡頭中 "
                         f"| 離開鏡頭 "
                         f"{format_duration(missing_duration_seconds)}"
                     )
@@ -699,10 +750,10 @@ def camera_worker():
                             target=send_camera_notification,
                             args=(
                                 "camera_reappeared",
-                                "🐱 寵物重新出現在鏡頭中",
+                                f"🐱 [{CAMERA_NAME}] 重新出現在鏡頭中",
                                 (
-                                    f"寵物於 {now.strftime('%H:%M')} "
-                                    f"重新出現在攝影機畫面中，"
+                                    f"攝影機（{CAMERA_NAME}）於 {now.strftime('%H:%M')} "
+                                    f"重新偵測到畫面動態，"
                                     f"本次離開鏡頭約 "
                                     f"{format_duration(missing_duration_seconds)}。"
                                 ),
@@ -760,7 +811,11 @@ def camera_worker():
 
                     with status_lock:
                         current_status = {
+                            "cameraId": CAMERA_ID,
+                            "cameraName": CAMERA_NAME,
+                            "userId": USER_ID,
                             "detected": False,
+                            "detectedType": "none",
                             "behavior": "目前未出現在鏡頭中",
                             "mood": "未偵測",
                             "confidence": 0,
@@ -788,6 +843,7 @@ def camera_worker():
                         # 記錄長時間未偵測事件
                         event = {
                             "type": "missing_alert",
+                            "cameraId": CAMERA_ID,
                             "missingStartedAt": not_detected_since,
                             "alertAt": now,
                             "durationSeconds": missing_seconds,
@@ -804,14 +860,13 @@ def camera_worker():
                             target=send_camera_notification,
                             args=(
                                 "camera_missing",
-                                "⚠️ 長時間未偵測到寵物",
+                                f"⚠️ [{CAMERA_NAME}] 長時間未偵測到畫面動態",
                                 (
-                                    f"攝影機已連續 "
+                                    f"攝影機（{CAMERA_NAME}）已連續 "
                                     f"{MISSING_ALERT_MINUTES} 分鐘 "
-                                    f"未偵測到寵物。"
+                                    f"未偵測到寵物或畫面動態。"
                                     f"最後偵測時間：{last_seen_text}。"
-                                    f"寵物可能只是位於鏡頭範圍外，"
-                                    f"可查看即時監控確認。"
+                                    f"可能只是位於鏡頭範圍外，可查看即時監控確認。"
                                 ),
                             ),
                             daemon=True,

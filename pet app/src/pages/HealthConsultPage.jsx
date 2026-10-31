@@ -10,6 +10,7 @@ import { api } from '../lib/api'
 import { petAgeText } from '../lib/petAge'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
 import PetEmotionPage from './PetEmotion'
+import KnowledgeSources from '../components/consult/KnowledgeSources'
 
 
 // =====================================================
@@ -483,7 +484,13 @@ export default function HealthConsultPage() {
             aiText,
 
           severity:
-            aiSeverity
+            aiSeverity,
+
+          // 這次回答參考的知識庫來源（只傳 slug，由後端查出名稱與網址）
+          sources:
+            (response.data?.data?.sources || [])
+              .map(source => source.slug)
+              .filter(Boolean)
         })
 
 
@@ -968,6 +975,19 @@ export default function HealthConsultPage() {
                                         )
                                     }}
                                   />
+
+                                  {/* =====================
+                                      參考來源
+                                  ===================== */}
+
+                                  {!msg.content
+                                    ?.startsWith(
+                                      '❌'
+                                    ) && (
+                                      <KnowledgeSources
+                                        sources={msg.sources}
+                                      />
+                                    )}
 
                                 </>
 

@@ -63,31 +63,35 @@ export default function DashboardPage() {
     queryFn: () => api.get('/expenses/summary').then(r => r.data.data)
   })
 
-  // 攝影機目前對應的寵物：優先抓貓
+  // 攝影機目前對應的寵物（若有）
   const cameraPet = pets.find(p => p.species === 'cat') || pets[0]
 
-  // 最近 10 分鐘狀態摘要
+  // 攝影機 Camera 1 最近 10 分鐘狀態摘要（以攝影機為單位，不依賴 Pet ID）
   const {
     data: moodSummary,
     isLoading: moodLoading
   } = useQuery({
-    queryKey: ['mood-summary', cameraPet?.id],
-    queryFn: () =>
-      api
-        .get(`/mood-records/pet/${cameraPet.id}/summary?minutes=10`)
-        .then(r => r.data),
-    enabled: !!cameraPet?.id,
+    queryKey: ['camera-summary', 'cam_1'],
+    queryFn: async () => {
+      try {
+        const camRes = await api.get('/camera-records/summary?cameraId=cam_1&minutes=10')
+        if (camRes.data?.success) return camRes.data
+      } catch {}
+      if (cameraPet?.id) {
+        return api.get(`/mood-records/pet/${cameraPet.id}/summary?minutes=10`).then(r => r.data)
+      }
+      return { success: false, message: '最近 10 分鐘沒有攝影機辨識紀錄' }
+    },
     refetchInterval: 60000
   })
 
-  // 通知
+  // 通知（使用者全站與攝影機通知）
   const { data: notifications = [] } = useQuery({
-    queryKey: ['dashboard-notifications', cameraPet?.id],
+    queryKey: ['dashboard-notifications'],
     queryFn: () =>
       api
-        .get(`/notifications?petId=${cameraPet.id}`)
+        .get('/notifications')
         .then(r => r.data.notifications || []),
-    enabled: !!cameraPet?.id,
     refetchInterval: 30000
   })
 
@@ -142,77 +146,79 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* 貓咪近期狀態：點擊前往即時監控 */}
-      {!cameraPet ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
-          <p className="text-sm text-gray-500">🐾 尚未新增寵物</p>
-        </div>
-      ) : (
-        <Link to="/pet-cam" className="block mb-6">
-          {moodLoading ? (
-            <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm hover:border-green-200 transition-all cursor-pointer">
-              <p className="text-sm text-gray-400">🐱 正在讀取近期狀態...</p>
-              <p className="text-xs text-green-600 font-medium mt-2">查看即時監控 →</p>
-            </div>
-          ) : moodSummary?.success ? (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-5 hover:shadow-sm hover:border-green-300 transition-all cursor-pointer">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{moodEmoji(moodSummary.mainMood)}</span>
-                    <h2 className="text-sm font-bold text-gray-800">
-                      {cameraPet?.name || '貓咪'}近期狀態
-                    </h2>
-                  </div>
-
-                  <p className="text-sm text-gray-600 mt-3">
-                    過去 <span className="font-semibold">{moodSummary.minutes}</span> 分鐘主要推測狀態：
-                    <span className="font-bold text-green-600 ml-1">{moodSummary.mainMood}</span>
-                  </p>
-
-                  <p className="text-xs text-gray-500 mt-1">
-                    約佔 {moodSummary.percentage}% 的辨識紀錄
-                  </p>
-
-                  <p className="text-[10px] text-gray-400 mt-2">
-                    ※ 依攝影機偵測到的姿態與活動量推測
-                  </p>
-
-                  <p className="text-xs text-green-600 font-medium mt-3">
-                    查看即時監控 →
-                  </p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-gray-400">最後更新</p>
-                  <p className="text-xs font-medium text-gray-500 mt-1">
-                    {formatTime(moodSummary.updatedAt)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-sm hover:border-green-200 transition-all cursor-pointer">
-              <div className="flex items-center justify-between gap-4">
+      {/* 攝影機即時監控（Camera 1 獨立運作）：點擊前往監控頁 */}
+      <Link to="/pet-cam" className="block mb-6">
+        {moodLoading ? (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm hover:border-green-200 transition-all cursor-pointer">
+            <p className="text-sm text-gray-400">📷 正在讀取攝影機狀態...</p>
+            <p className="text-xs text-green-600 font-medium mt-2">查看即時監控 →</p>
+          </div>
+        ) : moodSummary?.success ? (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-5 hover:shadow-sm hover:border-green-300 transition-all cursor-pointer">
+            <div className="flex items-start justify-between gap-4">
+              <div>
                 <div className="flex items-center gap-2">
-                  <span>🐱</span>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-600">
-                      {cameraPet?.name || '貓咪'}近期狀態
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      最近 10 分鐘沒有攝影機辨識紀錄
-                    </p>
-                    <p className="text-xs text-green-600 font-medium mt-2">
-                      查看即時監控 →
-                    </p>
-                  </div>
+                  <span className="text-xl">{moodEmoji(moodSummary.mainMood)}</span>
+                  <h2 className="text-sm font-bold text-gray-800">
+                    攝影機（Camera 1）近期狀態
+                  </h2>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-green-200/60 text-green-800">
+                    即時連線中
+                  </span>
+                </div>
+
+                <p className="text-sm text-gray-600 mt-3">
+                  過去 <span className="font-semibold">{moodSummary.minutes}</span> 分鐘主要推測狀態：
+                  <span className="font-bold text-green-600 ml-1">{moodSummary.mainMood}</span>
+                  {moodSummary.detectedType && (
+                    <span className="text-xs text-gray-400 ml-2">
+                      ({moodSummary.detectedType === 'cat' ? '貓咪' : moodSummary.detectedType === 'dog' ? '狗狗' : '目標'})
+                    </span>
+                  )}
+                </p>
+
+                <p className="text-xs text-gray-500 mt-1">
+                  約佔 {moodSummary.percentage}% 的辨識紀錄
+                </p>
+
+                <p className="text-[10px] text-gray-400 mt-2">
+                  ※ 依攝影機 YOLO 偵測之姿態與活動量推估
+                </p>
+
+                <p className="text-xs text-green-600 font-medium mt-3">
+                  查看即時監控 →
+                </p>
+              </div>
+
+              <div className="text-right shrink-0">
+                <p className="text-xs text-gray-400">最後更新</p>
+                <p className="text-xs font-medium text-gray-500 mt-1">
+                  {formatTime(moodSummary.updatedAt)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-sm hover:border-green-200 transition-all cursor-pointer">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📷</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">
+                    攝影機（Camera 1）即時監控
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    最近 10 分鐘沒有辨識紀錄或鏡頭待機中
+                  </p>
+                  <p className="text-xs text-green-600 font-medium mt-2">
+                    點擊進入查看即時畫面 →
+                  </p>
                 </div>
               </div>
             </div>
-          )}
-        </Link>
-      )}
+          </div>
+        )}
+      </Link>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

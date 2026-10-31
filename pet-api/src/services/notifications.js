@@ -114,6 +114,8 @@ function broadcast(userId, notification) {
 // ------------------------------------------------------
 
 async function createNotification({
+  userId,
+  cameraId,
   petId,
   type,
   title,
@@ -121,32 +123,138 @@ async function createNotification({
   severity = 'info',
   metadata = {}
 }) {
-  const petResult = await pool.query(
-    'SELECT owner_id FROM pets WHERE id = $1',
-    [petId]
-  )
+  let targetUserId = userId
 
-  const userId = petResult.rows[0]?.owner_id
-  if (!userId) return { skipped: 'no_owner' }
+  if (!targetUserId && petId) {
+    const petResult = await pool.query(
+      'SELECT owner_id FROM pets WHERE id = $1',
+      [petId]
+    )
+    targetUserId = petResult.rows[0]?.owner_id
+  }
 
-  const prefs = await getPreferences(userId)
+  // 若仍無 targetUserId（例如攝影機獨立運作），自動關聯到系統第一個使用者
+  if (!targetUserId) {
+    const userRes = await pool.query('SELECT id FROM users ORDER BY id ASC LIMIT 1')
+    targetUserId = userRes.rows[0]?.id
+  }
+
+  if (!targetUserId) return { skipped: 'no_owner' }
+
+  // 驗證 petId 是否在資料庫中存在；若已被刪除或不存在則設為 null，避免外鍵錯誤
+  let validPetId = null
+  if (petId) {
+    const chk = await pool.query('SELECT id FROM pets WHERE id = $1', [petId])
+    if (chk.rows.length > 0) validPetId = petId
+  }
+
+  if (cameraId && !metadata.cameraId) {
+    metadata.cameraId = cameraId
+  }
+
+  // 攝影機通知（以攝影機為單位，通知給所有註冊使用者，不限於 user 1）
+  const isCameraNotification = type.startsWith('camera_') || Boolean(cameraId)
+  if (isCameraNotification) {
+    const usersResult = await pool.query('SELECT id FROM users')
+    const userIds = usersResult.rows.map(u => u.id)
+    let lastRow = null
+    let anyDeduped = false
+
+    for (const uid of userIds) {
+      const prefs = await getPreferences(uid)
+      if (prefs[type] === false) continue
+
+      const dedupHours = DEDUP_HOURS[type] ?? 24
+      const existing = await pool.query(
+        `
+        SELECT *
+        FROM notifications
+        WHERE user_id = $1
+          AND pet_id IS NULL
+          AND type = $2
+          AND (metadata->>'cameraId' = $3 OR $3 IS NULL OR metadata->>'cameraId' IS NULL)
+          AND created_at >= NOW() - ($4 || ' hours')::interval
+        ORDER BY created_at DESC
+        LIMIT 1
+        `,
+        [uid, type, cameraId || null, dedupHours]
+      )
+
+      let r
+      if (existing.rows.length > 0) {
+        anyDeduped = true
+        const updated = await pool.query(
+          `
+          UPDATE notifications
+          SET
+            title = $2,
+            message = $3,
+            severity = $4,
+            metadata = $5::jsonb,
+            event_at = NOW(),
+            is_read = FALSE,
+            read_at = NULL
+          WHERE id = $1
+          RETURNING *
+          `,
+          [existing.rows[0].id, title, message, severity, JSON.stringify(metadata)]
+        )
+        r = updated.rows[0]
+      } else {
+        const inserted = await pool.query(
+          `
+          INSERT INTO notifications
+            (user_id, pet_id, type, title, message, severity, metadata)
+          VALUES ($1, NULL, $2, $3, $4, $5, $6::jsonb)
+          RETURNING *
+          `,
+          [uid, type, title, message, severity, JSON.stringify(metadata)]
+        )
+        r = inserted.rows[0]
+      }
+      broadcast(uid, r)
+      lastRow = r
+    }
+
+    return { notification: lastRow, deduped: anyDeduped }
+  }
+
+  const prefs = await getPreferences(targetUserId)
   if (prefs[type] === false) return { skipped: 'muted' }
 
   const dedupHours = DEDUP_HOURS[type] ?? 24
 
-  const existing = await pool.query(
-    `
-    SELECT *
-    FROM notifications
-    WHERE user_id = $1
-      AND pet_id = $2
-      AND type = $3
-      AND created_at >= NOW() - ($4 || ' hours')::interval
-    ORDER BY created_at DESC
-    LIMIT 1
-    `,
-    [userId, petId, type, dedupHours]
-  )
+  let existing
+  if (validPetId) {
+    existing = await pool.query(
+      `
+      SELECT *
+      FROM notifications
+      WHERE user_id = $1
+        AND pet_id = $2
+        AND type = $3
+        AND created_at >= NOW() - ($4 || ' hours')::interval
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [targetUserId, validPetId, type, dedupHours]
+    )
+  } else {
+    existing = await pool.query(
+      `
+      SELECT *
+      FROM notifications
+      WHERE user_id = $1
+        AND pet_id IS NULL
+        AND type = $2
+        AND (metadata->>'cameraId' = $3 OR $3 IS NULL OR metadata->>'cameraId' IS NULL)
+        AND created_at >= NOW() - ($4 || ' hours')::interval
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [targetUserId, type, cameraId || null, dedupHours]
+    )
+  }
 
   let row
   let deduped = false
@@ -187,13 +295,13 @@ async function createNotification({
       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
       RETURNING *
       `,
-      [userId, petId, type, title, message, severity, JSON.stringify(metadata)]
+      [targetUserId, validPetId, type, title, message, severity, JSON.stringify(metadata)]
     )
 
     row = inserted.rows[0]
   }
 
-  broadcast(userId, row)
+  broadcast(targetUserId, row)
 
   return { notification: row, deduped }
 }

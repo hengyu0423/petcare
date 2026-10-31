@@ -4,20 +4,42 @@ const pool = require('../db')
 // 新增行為紀錄
 // POST /api/mood-records
 router.post('/', async (req, res) => {
-  const { petId, mood, behavior, confidence, aspectRatio, movement } = req.body
+  let { petId, userId, cameraId = 'cam_1', detectedType = 'pet', mood, behavior, confidence, aspectRatio, movement } = req.body
 
-  if (!petId || !mood) {
-    return res.status(400).json({ success: false, error: '缺少 petId 或 mood' })
+  if (!mood) {
+    return res.status(400).json({ success: false, error: '缺少 mood 狀態資料' })
   }
 
   try {
+    if (!userId) {
+      if (petId) {
+        const petRes = await pool.query('SELECT owner_id FROM pets WHERE id = $1', [petId])
+        userId = petRes.rows[0]?.owner_id
+      }
+      if (!userId) {
+        const userRes = await pool.query('SELECT id FROM users ORDER BY id ASC LIMIT 1')
+        userId = userRes.rows[0]?.id
+      }
+    }
+
+    // 檢查 petId 是否在資料庫中有效，若無效則設為 null，避免外鍵錯誤
+    let validPetId = null
+    if (petId) {
+      const chk = await pool.query('SELECT id FROM pets WHERE id = $1', [petId])
+      if (chk.rows.length > 0) validPetId = petId
+    }
+
+    // 寫入 pet_mood_records
     const result = await pool.query(`
       INSERT INTO pet_mood_records
-        (pet_id, mood, behavior, confidence, aspect_ratio, movement)
-      VALUES ($1, $2, $3, $4, $5, $6)
+        (pet_id, user_id, camera_id, detected_type, mood, behavior, confidence, aspect_ratio, movement)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
-      petId,
+      validPetId,
+      userId,
+      cameraId,
+      detectedType,
       mood,
       behavior || null,
       confidence ?? null,
@@ -25,7 +47,27 @@ router.post('/', async (req, res) => {
       movement ?? null
     ])
 
-    console.log(`🐱 已儲存狀態：${mood} | pet: ${petId}`)
+    // 同步寫入 camera_records
+    if (userId) {
+      try {
+        await pool.query(`
+          INSERT INTO camera_records
+            (user_id, camera_id, detected_type, mood, behavior, confidence, aspect_ratio, movement)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          userId,
+          cameraId,
+          detectedType,
+          mood,
+          behavior || null,
+          confidence ?? null,
+          aspectRatio ?? null,
+          movement ?? null
+        ])
+      } catch (camErr) {}
+    }
+
+    console.log(`🐱 已儲存狀態：${mood} | camera: ${cameraId} | user: ${userId}`)
 
     res.status(201).json({
       success: true,

@@ -14,9 +14,12 @@ const ranges = {
   today: { label: '今天', minutes: 1440, bucket: 60 }
 }
 
-export default function PetCam({ petId = 8 }) {
+export default function PetCam({ cameraId = 'cam_1' }) {
   const [status, setStatus] = useState({
+    cameraId: 'cam_1',
+    cameraName: 'Camera 1',
     detected: false,
+    detectedType: 'pet',
     behavior: '讀取中...',
     mood: '讀取中...',
     confidence: 0,
@@ -59,7 +62,7 @@ export default function PetCam({ petId = 8 }) {
   }, [])
 
   // ==============================
-  // PostgreSQL 歷史紀錄
+  // 攝影機歷史紀錄（以 cameraId 運作，不依賴 petId）
   // ==============================
   useEffect(() => {
     const fetchHistory = async () => {
@@ -69,16 +72,16 @@ export default function PetCam({ petId = 8 }) {
 
         const url =
           range === 'today'
-            ? `${API}/mood-records/pet/${petId}/today`
-            : `${API}/mood-records/pet/${petId}?minutes=${config.minutes}`
+            ? `${API}/camera-records/today?cameraId=${cameraId}`
+            : `${API}/camera-records?cameraId=${cameraId}&minutes=${config.minutes}`
 
-        const res = await fetch(url)
+        const res = await fetch(url, { headers: authHeaders() })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
         const data = await res.json()
         setTimeline(groupRecords(data.records || [], config.bucket))
       } catch (err) {
-        console.error('取得行為紀錄失敗：', err)
+        console.error('取得攝影機歷史紀錄失敗：', err)
         setTimeline([])
       } finally {
         setTimelineLoading(false)
@@ -89,17 +92,17 @@ export default function PetCam({ petId = 8 }) {
     const timer = setInterval(fetchHistory, 60000)
 
     return () => clearInterval(timer)
-  }, [range, petId])
+  }, [range, cameraId])
 
   // ==============================
-  // 通知
+  // 通知（取得攝影機與系統通知，不依賴 petId）
   // ==============================
   useEffect(() => {
     fetchNotifications()
 
     const timer = setInterval(fetchNotifications, 30000)
     return () => clearInterval(timer)
-  }, [petId])
+  }, [cameraId])
 
   useEffect(() => {
     const handleClickOutside = e => {
@@ -117,7 +120,7 @@ export default function PetCam({ petId = 8 }) {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${API}/notifications?petId=${petId}`, {
+      const res = await fetch(`${API}/notifications`, {
         headers: authHeaders()
       })
       if (!res.ok) return
@@ -171,9 +174,11 @@ export default function PetCam({ petId = 8 }) {
     const groups = {}
 
     records.forEach(item => {
-      if (!item.recordedAt) return
+      const rawTime = item.recordedAt || item.recorded_at
+      if (!rawTime) return
 
-      const date = new Date(item.recordedAt)
+      const date = new Date(rawTime)
+      if (isNaN(date.getTime())) return
 
       date.setMinutes(
         Math.floor(date.getMinutes() / bucketMinutes) * bucketMinutes,
@@ -291,9 +296,14 @@ export default function PetCam({ petId = 8 }) {
         {/* 標題 + 通知 */}
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">寵物即時監控</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-800">即時監控</h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {status.cameraName || 'Camera 1'}
+              </span>
+            </div>
             <p className="text-xs text-gray-400 mt-1">
-              依攝影機偵測到的姿態與活動量推測寵物行為狀態
+              以攝影機為單位獨立運作，依 YOLO 偵測之姿態與活動量推估行為狀態
             </p>
           </div>
 
@@ -408,7 +418,7 @@ export default function PetCam({ petId = 8 }) {
           {status.detected ? (
             <>
               <p className="font-bold text-green-700">
-                🐱 寵物目前在鏡頭中
+                {status.detectedType === 'cat' ? '🐱 偵測到貓咪在鏡頭中' : status.detectedType === 'dog' ? '🐶 偵測到狗狗在鏡頭中' : '🐾 目前畫面中有偵測到目標'}
               </p>
 
               <p className="text-xs text-green-600 mt-2">
@@ -418,7 +428,7 @@ export default function PetCam({ petId = 8 }) {
           ) : (
             <>
               <p className="font-bold text-orange-700">
-                📷 寵物目前未出現在鏡頭中
+                📷 目前鏡頭範圍內未偵測到畫面動態
               </p>
 
               <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2">
@@ -427,7 +437,7 @@ export default function PetCam({ petId = 8 }) {
                 </p>
 
                 <p className="text-xs text-orange-600">
-                  已離開鏡頭：{formatMissing()}
+                  離開鏡頭時間：{formatMissing()}
                 </p>
               </div>
 

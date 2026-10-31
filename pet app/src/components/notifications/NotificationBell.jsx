@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import NotificationPreferencesModal from './NotificationPreferencesModal'
@@ -12,6 +13,10 @@ import NotificationPreferencesModal from './NotificationPreferencesModal'
 // 更新方式：
 //   - 有新通知時，後端透過 SSE 主動推播（即時）
 //   - 額外每 60 秒 polling 一次，當作 SSE 斷線時的備援
+//
+// 下拉選單透過 React Portal 掛在 document.body，
+// 並使用 position:fixed + getBoundingClientRect 計算位置，
+// 完全不受父容器 transform / overflow 影響。
 // ======================================================
 
 const ICON = {
@@ -46,7 +51,11 @@ export default function NotificationBell() {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
-  const boxRef = useRef(null)
+  const btnRef = useRef(null)
+  const dropRef = useRef(null)
+
+  // 下拉選單的 fixed 座標（對齊鈴鐺按鈕）
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 })
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -56,10 +65,30 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length
 
+  // 每次展開時重算位置
+  const calcPos = () => {
+    if (!btnRef.current) return
+    const rect = btnRef.current.getBoundingClientRect()
+    setDropPos({ top: rect.bottom + 8, left: rect.right })
+  }
+
+  useEffect(() => {
+    if (open) calcPos()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('resize', calcPos)
+    return () => window.removeEventListener('resize', calcPos)
+  }, [open])
+
   // 點外面關閉下拉選單
   useEffect(() => {
     const handleClick = e => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) {
+      if (
+        btnRef.current && !btnRef.current.contains(e.target) &&
+        dropRef.current && !dropRef.current.contains(e.target)
+      ) {
         setOpen(false)
       }
     }
@@ -107,8 +136,102 @@ export default function NotificationBell() {
     qc.invalidateQueries({ queryKey: ['notifications'] })
   }
 
+  // 下拉寬 320px，右邊對齊按鈕右邊，向左展開；確保不超出視窗左緣
+  const DROP_W = 320
+  const safeLeft = Math.max(8, dropPos.left - DROP_W)
+
+  const dropdown = open && createPortal(
+    <div
+      ref={dropRef}
+      style={{
+        position: 'fixed',
+        top: dropPos.top,
+        left: safeLeft,
+        width: DROP_W,
+        zIndex: 9999
+      }}
+      className="bg-white rounded-xl shadow-lg border border-gray-100 max-h-[70vh] flex flex-col"
+    >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <p className="text-sm font-bold text-gray-800">通知</p>
+
+        <div className="flex items-center gap-3">
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={markAllRead}
+              className="text-xs text-green-600 font-semibold hover:underline"
+            >
+              全部已讀
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setShowPrefs(true)
+            }}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            title="通知設定"
+          >
+            ⚙️
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-y-auto flex-1">
+
+        {notifications.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-10">
+            目前沒有通知
+          </p>
+        )}
+
+        {notifications.map(n => (
+          <button
+            key={n.id}
+            type="button"
+            onClick={() => !n.isRead && markRead(n.id)}
+            className={`w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 flex gap-2.5 transition-colors ${
+              n.isRead ? 'bg-white' : 'bg-green-50/40 hover:bg-green-50'
+            }`}
+          >
+            <span className="text-lg shrink-0">
+              {ICON[n.type] || '🔔'}
+            </span>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    SEVERITY_DOT[n.severity] || 'bg-gray-300'
+                  }`}
+                />
+                <p className="text-sm font-semibold text-gray-800 truncate">
+                  {n.title}
+                </p>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                {n.message}
+              </p>
+
+              <p className="text-xs text-gray-400 mt-1">
+                {n.petName ? `${n.petName}・` : ''}
+                {timeAgo(n.createdAt)}
+              </p>
+            </div>
+          </button>
+        ))}
+
+      </div>
+    </div>,
+    document.body
+  )
+
   return (
-    <div className="relative" ref={boxRef}>
+    <div className="relative" ref={btnRef}>
 
       <button
         type="button"
@@ -124,81 +247,7 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] md:left-full md:right-auto md:top-0 md:ml-2 md:mt-0 md:w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 max-h-[70vh] flex flex-col">
-
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <p className="text-sm font-bold text-gray-800">通知</p>
-
-            <div className="flex items-center gap-3">
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={markAllRead}
-                  className="text-xs text-green-600 font-semibold hover:underline"
-                >
-                  全部已讀
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setShowPrefs(true)}
-                className="text-xs text-gray-400 hover:text-gray-600"
-              >
-                ⚙️
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-y-auto flex-1">
-
-            {notifications.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-10">
-                目前沒有通知
-              </p>
-            )}
-
-            {notifications.map(n => (
-              <button
-                key={n.id}
-                type="button"
-                onClick={() => !n.isRead && markRead(n.id)}
-                className={`w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 flex gap-2.5 transition-colors ${
-                  n.isRead ? 'bg-white' : 'bg-green-50/40 hover:bg-green-50'
-                }`}
-              >
-                <span className="text-lg shrink-0">
-                  {ICON[n.type] || '🔔'}
-                </span>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        SEVERITY_DOT[n.severity] || 'bg-gray-300'
-                      }`}
-                    />
-                    <p className="text-sm font-semibold text-gray-800 truncate">
-                      {n.title}
-                    </p>
-                  </div>
-
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
-                    {n.message}
-                  </p>
-
-                  <p className="text-xs text-gray-400 mt-1">
-                    {n.petName ? `${n.petName}・` : ''}
-                    {timeAgo(n.createdAt)}
-                  </p>
-                </div>
-              </button>
-            ))}
-
-          </div>
-        </div>
-      )}
+      {dropdown}
 
       {showPrefs && (
         <NotificationPreferencesModal onClose={() => setShowPrefs(false)} />

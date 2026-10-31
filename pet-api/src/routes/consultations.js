@@ -3,6 +3,12 @@ const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const pool = require('../db')
 const Groq = require('groq-sdk')
+const {
+  retrieveKnowledge,
+  formatKnowledgeForPrompt,
+  resolveSourceSlugs
+} = require('../services/knowledge')
+const { addFastingNotice } = require('../services/replyGuards')
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
@@ -27,16 +33,21 @@ const SEVERITY_LABELS = {
 // ======================================================
 
 function extractAgeMonths(text = '') {
+  // 年齡文字有三種格式：「3 個月」「1 歲」「2 歲 1 個月」。
+  // 先處理「N 歲（M 個月）」，否則「2 歲 1 個月」會只抓到 1 個月，被當成幼齡。
+  const combined = text.match(/(\d+(?:\.\d+)?)\s*歲\s*(?:(\d+)\s*個月)?/)
+
+  if (combined) {
+    return (
+      Math.round(Number(combined[1]) * 12) +
+      Number(combined[2] || 0)
+    )
+  }
+
   const monthMatch = text.match(/(\d+)\s*個月/)
 
   if (monthMatch) {
     return Number(monthMatch[1])
-  }
-
-  const yearMatch = text.match(/(\d+(?:\.\d+)?)\s*歲/)
-
-  if (yearMatch) {
-    return Math.round(Number(yearMatch[1]) * 12)
   }
 
   return null
@@ -641,11 +652,65 @@ router.post('/ai', async (req, res) => {
 
 
     // ==================================================
+    // RAG：檢索寵物健康知識庫
+    //
+    // - 物種由資料庫的 pets 取得（同時確認這隻寵物屬於目前使用者）
+    // - 用最新一則使用者訊息查詢；太短的追問（「那怎麼辦？」）才補上前一則
+    // - 任何失敗都只會略過檢索，不影響原本的回覆流程
+    // ==================================================
+
+    let knowledge = []
+
+    try {
+      if (petId) {
+        const petResult = await pool.query(
+          'SELECT species FROM pets WHERE id = $1 AND owner_id = $2',
+          [petId, req.userId]
+        )
+
+        const petRow = petResult.rows[0]
+
+        if (petRow) {
+          const userTexts = cleanMessages
+            .filter(msg => msg.role === 'user')
+            .map(msg => msg.content)
+
+          const latest = userTexts[userTexts.length - 1] || ''
+          const previous = userTexts[userTexts.length - 2] || ''
+
+          // 最新一則夠長就單獨查詢，避免上一輪的主題污染這一輪的檢索；
+          // 太短（例如「那怎麼辦？」）才補上前一則使用者訊息當上下文
+          const question =
+            latest.replace(/\s/g, '').length >= 8
+              ? latest
+              : [previous, latest].filter(Boolean).join('\n')
+
+          knowledge = await retrieveKnowledge({
+            question,
+            species: petRow.species
+          })
+        }
+      }
+    } catch (kbErr) {
+      console.error('知識庫檢索失敗（已略過）：', kbErr.message)
+      knowledge = []
+    }
+
+    const knowledgeBlock = formatKnowledgeForPrompt(knowledge)
+
+
+    // ==================================================
     // 建立安全判斷用完整文字
     // ==================================================
 
+    // 只取系統提示中「年齡：…」那一行。整段系統提示含有「幼犬、幼貓」
+    // 「脫水」等固定的規則文字，放進關鍵字判斷會讓每一次嘔吐、腹瀉
+    // 都被誤判成 emergency。
+    const petAgeLine =
+      (String(systemPrompt).match(/年齡：[^\n]*/) || [''])[0]
+
     const safetyText = [
-      systemPrompt,
+      petAgeLine,
 
       ...cleanMessages
         .filter(msg =>
@@ -663,7 +728,7 @@ router.post('/ai', async (req, res) => {
 
     const instructionPrompt = `
 ${systemPrompt}
-
+${knowledgeBlock}
 你是一位寵物健康諮詢與分級助手。
 
 你必須根據寵物目前症狀，先判斷嚴重程度。
@@ -1005,6 +1070,13 @@ healthEvent 欄位：
 
 
     // ==================================================
+    // 內容提到「禁食、暫停進食」時，補上依獸醫指示的提醒
+    // ==================================================
+
+    content = addFastingNotice(content)
+
+
+    // ==================================================
     // ⭐ 儲存重要健康事件（與飲食管理整合）
     //
     // 不能因為儲存失敗而讓飼主收不到 AI 回覆，
@@ -1095,8 +1167,12 @@ healthEvent 欄位：
               event.summary ||
               `AI 健康諮詢記錄了一筆「${event.title}」事件，建議留意。`,
 
+            // notifications 資料表的 severity 只允許 info / warning / important，
+            // 不能直接放諮詢的 urgent / emergency，否則會違反 notifications_severity_check
             severity:
-              finalSeverity,
+              finalSeverity === 'emergency'
+                ? 'important'
+                : 'warning',
 
             metadata: {
               recordId:
@@ -1135,7 +1211,15 @@ healthEvent 欄位：
         severityLabel:
           SEVERITY_LABELS[
             finalSeverity
-          ]
+          ],
+
+        // 這次回答參考的知識庫來源（前端可選擇顯示）
+        sources: knowledge.map(item => ({
+          slug: item.slug,
+          title: item.title,
+          source: item.sourceName,
+          url: item.sourceUrl
+        }))
       }
     })
 
@@ -1196,7 +1280,8 @@ router.post('/', async (req, res) => {
     petId,
     role,
     content,
-    severity
+    severity,
+    sources
   } = req.body
 
   console.log('📥 收到要儲存的訊息：', {
@@ -1231,27 +1316,77 @@ router.post('/', async (req, res) => {
     }
   }
 
+  // 只有 assistant 的回覆才會有參考來源；來源資料由資料庫依 slug 查出
+  let sourcesJson = null
+
+  if (role === 'assistant' && Array.isArray(sources) && sources.length > 0) {
+    try {
+      const resolved = await resolveSourceSlugs(sources)
+
+      if (resolved.length > 0) {
+        sourcesJson = JSON.stringify(resolved)
+      }
+    } catch (srcErr) {
+      console.error('查詢來源資料失敗（改為不存來源）：', srcErr.message)
+    }
+  }
+
   try {
-    const result = await pool.query(
-      `
-      INSERT INTO health_consultations
-        (
-          pet_id,
+    let result
+
+    try {
+      result = await pool.query(
+        `
+        INSERT INTO health_consultations
+          (
+            pet_id,
+            role,
+            content,
+            severity,
+            sources
+          )
+        VALUES
+          ($1, $2, $3, $4, $5::jsonb)
+        RETURNING *
+        `,
+        [
+          petId,
           role,
           content,
-          severity
-        )
-      VALUES
-        ($1, $2, $3, $4)
-      RETURNING *
-      `,
-      [
-        petId,
-        role,
-        content,
-        finalSeverity
-      ]
-    )
+          finalSeverity,
+          sourcesJson
+        ]
+      )
+    } catch (insertErr) {
+      // 42703 = 欄位不存在：資料庫還沒執行
+      // sql/2026-10-consultation-sources.sql 時，退回不含來源的儲存，聊天不受影響
+      if (insertErr.code !== '42703') {
+        throw insertErr
+      }
+
+      console.warn('health_consultations 尚未有 sources 欄位，略過來源儲存')
+
+      result = await pool.query(
+        `
+        INSERT INTO health_consultations
+          (
+            pet_id,
+            role,
+            content,
+            severity
+          )
+        VALUES
+          ($1, $2, $3, $4)
+        RETURNING *
+        `,
+        [
+          petId,
+          role,
+          content,
+          finalSeverity
+        ]
+      )
+    }
 
     console.log(
       '✅ 已存入資料庫：',

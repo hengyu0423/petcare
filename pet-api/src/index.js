@@ -148,6 +148,10 @@ const initDB = async () => {
     ALTER TABLE health_consultations
       ADD COLUMN IF NOT EXISTS severity VARCHAR(20);
 
+    -- AI 回覆參考的知識庫來源：[{ slug, title, source, url }]，可為空
+    ALTER TABLE health_consultations
+      ADD COLUMN IF NOT EXISTS sources JSONB;
+
     ALTER TABLE health_records
       -- manual = 使用者手動新增；ai_consult = 健康諮詢 AI 自動記錄
       ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'manual',
@@ -190,6 +194,51 @@ const initDB = async () => {
 
     CREATE INDEX IF NOT EXISTS idx_pet_weight_records_pet_date
     ON pet_weight_records(pet_id, measured_on DESC);
+
+    -- ======================================================
+    -- Pet Cam 行為紀錄
+    -- main.py 每 60 秒透過 POST /api/mood-records 寫入一筆，
+    -- 用來顯示首頁「寵物近期狀態」與行為圖表。
+    -- ======================================================
+    CREATE TABLE IF NOT EXISTS pet_mood_records (
+      id          BIGSERIAL PRIMARY KEY,
+      pet_id      INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      mood        VARCHAR(50)  NOT NULL,
+      behavior    VARCHAR(100),
+      confidence  SMALLINT,
+      aspect_ratio DECIMAL(5,2),
+      movement    INTEGER,
+      recorded_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pet_mood_records_pet_time
+    ON pet_mood_records(pet_id, recorded_at DESC);
+
+    -- ======================================================
+    -- 攝影機獨立行為與歷史紀錄
+    -- 以 Camera ID 和 User ID 為單位，不依賴 Pet ID
+    -- ======================================================
+    CREATE TABLE IF NOT EXISTS camera_records (
+      id           BIGSERIAL PRIMARY KEY,
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      camera_id    VARCHAR(50) NOT NULL DEFAULT 'cam_1',
+      detected_type VARCHAR(20) DEFAULT 'pet',
+      mood         VARCHAR(50)  NOT NULL,
+      behavior     VARCHAR(100),
+      confidence   SMALLINT,
+      aspect_ratio DECIMAL(5,2),
+      movement     INTEGER,
+      recorded_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_camera_records_user_cam_time
+    ON camera_records(user_id, camera_id, recorded_at DESC);
+
+    -- 放寬 pet_mood_records 的 pet_id 必填限制，增加 user_id 和 camera_id 欄位
+    ALTER TABLE pet_mood_records ALTER COLUMN pet_id DROP NOT NULL;
+    ALTER TABLE pet_mood_records ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+    ALTER TABLE pet_mood_records ADD COLUMN IF NOT EXISTS camera_id VARCHAR(50) DEFAULT 'cam_1';
+    ALTER TABLE pet_mood_records ADD COLUMN IF NOT EXISTS detected_type VARCHAR(20) DEFAULT 'pet';
   `)
   console.log('✅ 資料表準備完成')
 }
@@ -206,6 +255,7 @@ app.use('/api/feeding', require('./routes/feeding'))
 app.use('/api/consultations', require('./routes/consultations'))
 app.use('/api/posts', require('./routes/posts'))
 app.use('/api/mood-records', require('./routes/moodRecords'))
+app.use('/api/camera-records', require('./routes/cameraRecords'))
 app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/pet-emotion', require('./routes/petEmotion'))
 app.use('/api/assistant', require('./routes/assistant'))

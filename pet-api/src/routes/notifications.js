@@ -23,6 +23,8 @@ const {
 router.post('/', async (req, res) => {
   try {
     const {
+      userId,
+      cameraId,
       petId,
       type,
       title,
@@ -31,14 +33,16 @@ router.post('/', async (req, res) => {
       metadata = {}
     } = req.body
 
-    if (!petId || !type || !title || !message) {
+    if (!type || !title || !message) {
       return res.status(400).json({
         success: false,
-        message: '缺少必要資料'
+        message: '缺少必要資料 (type, title, message)'
       })
     }
 
     const result = await createNotification({
+      userId,
+      cameraId,
       petId,
       type,
       title,
