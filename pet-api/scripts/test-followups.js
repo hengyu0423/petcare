@@ -19,14 +19,18 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
 const { FOLLOWUP_SLUGS, listAllFollowups } = require('../src/services/followups')
 const { parseSeed } = require('./ingest-kb')
 
-const SEED = path.join(__dirname, '..', 'knowledge', 'kb_seed_v5.md')
 const slugsOnly = process.argv.includes('--slugs')
 
 async function main() {
   // ---------- 1. slug 檢查 ----------
-  const seedFile = fs.existsSync(SEED)
-    ? SEED
-    : path.join(__dirname, '..', 'knowledge', fs.readdirSync(path.join(__dirname, '..', 'knowledge')).filter(f => f.startsWith('kb_seed_')).sort().pop())
+  // 用 knowledge/ 裡版號最大的種子檔（例如 kb_seed_v7.md）
+  const knowledgeDir = path.join(__dirname, '..', 'knowledge')
+  const versionOf = f => Number((f.match(/kb_seed_v(\d+)\.md$/) || [])[1] || 0)
+  const latest = fs
+    .readdirSync(knowledgeDir)
+    .filter(f => /^kb_seed_v\d+\.md$/.test(f))
+    .sort((x, y) => versionOf(y) - versionOf(x))[0]
+  const seedFile = path.join(knowledgeDir, latest)
 
   const docs = parseSeed(fs.readFileSync(seedFile, 'utf8'))
   const known = new Set(docs.map(d => d.slug))

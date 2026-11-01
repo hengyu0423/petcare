@@ -95,7 +95,40 @@ const BY_SLUG = {
   'merck-vaccines-cats': [
     { text: '幼貓的疫苗什麼時候開始打？', species: 'cat' }
   ],
-  'tw-rabies-annual-booster': ['不打狂犬病疫苗會怎麼樣？']
+  'tw-rabies-annual-booster': ['不打狂犬病疫苗會怎麼樣？'],
+
+  // 跳蚤、搔癢、關節炎、甲狀腺（知識庫 v7 新增）
+  'merck-fleas-life-cycle': [
+    '怎麼檢查{pet}有沒有跳蚤？',
+    '跳蚤對人和寵物有什麼健康風險？'
+  ],
+  'merck-fleas-health-risks': [
+    '怎麼檢查{pet}有沒有跳蚤？',
+    '跳蚤要處理多久才會好？'
+  ],
+  'merck-fleas-control': [
+    '怎麼檢查{pet}有沒有跳蚤？',
+    '跳蚤的生活史是怎樣的？'
+  ],
+  'merck-flea-allergy-dermatitis': [
+    '怎麼檢查{pet}有沒有跳蚤？',
+    '跳蚤要處理多久才會好？'
+  ],
+  'merck-flea-check-method': [
+    '跳蚤要處理多久才會好？',
+    '{pet}身上的跳蚤會傳染給人嗎？'
+  ],
+  'merck-dog-osteoarthritis': [
+    { text: '狗的關節炎可以怎麼運動？', species: 'dog' },
+    { text: '關節炎的狗可以吃止痛藥嗎？', species: 'dog' }
+  ],
+  'merck-cat-hyperthyroidism': [
+    { text: '貓的甲狀腺機能亢進有哪些治療方式？', species: 'cat' },
+    {
+      text: '甲狀腺機能亢進的貓可以吃一般貓食嗎？',
+      species: 'cat'
+    }
+  ]
 }
 
 // 依條目類別的通用追問（key 是 kb_documents.category）
@@ -116,7 +149,8 @@ const BY_CATEGORY = {
   ],
   symptom: [
     '這些症狀超過多久要看獸醫？',
-    '看獸醫時要準備什麼資料？'
+    '看獸醫時要準備什麼資料？',
+    '{pet}一直在抓癢，可能是什麼原因？'
   ],
   emergency: [
     HOSPITAL_PREP,
@@ -145,7 +179,8 @@ const BY_CATEGORY = {
   ],
   parasite: [
     '{pet}需要吃心絲蟲預防藥嗎？',
-    '幼小的{pet}怎麼驅蟲？'
+    '幼小的{pet}怎麼驅蟲？',
+    '怎麼檢查{pet}有沒有跳蚤？'
   ],
   dental: [
     '需要幫{pet}刷牙嗎？怎麼刷？',
@@ -153,7 +188,9 @@ const BY_CATEGORY = {
   ],
   chronic_disease: [
     '{pet}喝水和尿尿變多，是怎麼了？',
-    '老年{pet}要注意哪些慢性病？'
+    '老年{pet}要注意哪些慢性病？',
+    { text: '老狗的關節炎要怎麼照顧？', species: 'dog' },
+    { text: '貓吃很多卻一直變瘦，是怎麼了？', species: 'cat' }
   ],
   regulation: [
     '寵物晶片是什麼？需要登記嗎？',
@@ -184,6 +221,10 @@ const BY_EVENT = {
   illness: [
     '怎麼知道{pet}生病了？',
     '{pet}多久要帶去健康檢查一次？'
+  ],
+  allergy: [
+    '{pet}一直在抓癢，可能是什麼原因？',
+    '怎麼檢查{pet}有沒有跳蚤？'
   ]
 }
 

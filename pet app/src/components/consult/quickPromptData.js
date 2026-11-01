@@ -52,6 +52,20 @@ export const QUICK_PROMPT_CATEGORIES = [
       {
         label: '口臭牙齦',
         text: '{pet}口臭很嚴重，牙齦紅腫，需要處理嗎？'
+      },
+      {
+        label: '有跳蚤',
+        text: '{pet}身上好像有跳蚤，要怎麼確認和處理？'
+      },
+      {
+        label: '走路跛腳',
+        species: 'dog',
+        text: '狗走路一跛一跛的，是關節炎嗎？'
+      },
+      {
+        label: '吃多卻變瘦',
+        species: 'cat',
+        text: '貓吃很多卻一直變瘦，還變得很愛叫，是怎麼了？'
       }
     ]
   },
@@ -197,6 +211,19 @@ export const QUICK_PROMPT_CATEGORIES = [
       {
         label: '老年照護',
         text: '老年{pet}要注意哪些慢性病？'
+      },
+      {
+        label: '除蚤',
+        text: '{pet}需要定期除蚤嗎？治療後還看到跳蚤是正常的嗎？'
+      },
+      {
+        label: '跳蚤與人',
+        text: '{pet}身上的跳蚤會傳染給人嗎？'
+      },
+      {
+        label: '老狗關節保養',
+        species: 'dog',
+        text: '老狗的關節炎要怎麼照顧？可以怎麼運動？'
       }
     ]
   },
