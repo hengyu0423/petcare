@@ -9,6 +9,7 @@ const {
   resolveSourceSlugs
 } = require('../services/knowledge')
 const { addFastingNotice } = require('../services/replyGuards')
+const { buildFollowups } = require('../services/followups')
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
@@ -660,6 +661,7 @@ router.post('/ai', async (req, res) => {
     // ==================================================
 
     let knowledge = []
+    let petSpecies = null
 
     try {
       if (petId) {
@@ -671,6 +673,8 @@ router.post('/ai', async (req, res) => {
         const petRow = petResult.rows[0]
 
         if (petRow) {
+          petSpecies = petRow.species
+
           const userTexts = cleanMessages
             .filter(msg => msg.role === 'user')
             .map(msg => msg.content)
@@ -1193,6 +1197,31 @@ healthEvent 欄位：
 
 
     // ==================================================
+    // 「接下來可以問」：依這次命中的知識庫條目產生追問建議
+    // （不額外呼叫模型；失敗就不顯示，不影響回覆）
+    // ==================================================
+
+    let followups = []
+
+    try {
+      const lastUserText =
+        [...cleanMessages]
+          .reverse()
+          .find(msg => msg.role === 'user')?.content || ''
+
+      followups = buildFollowups({
+        items: knowledge,
+        species: petSpecies,
+        severity: finalSeverity,
+        eventType: savedEvent?.type,
+        lastUserText
+      })
+    } catch (followupErr) {
+      console.error('產生追問建議失敗（已略過）：', followupErr.message)
+    }
+
+
+    // ==================================================
     // 回傳前端
     // ==================================================
 
@@ -1219,7 +1248,10 @@ healthEvent 欄位：
           title: item.title,
           source: item.sourceName,
           url: item.sourceUrl
-        }))
+        })),
+
+        // 接下來可以問（最多 3 則）
+        followups
       }
     })
 

@@ -11,6 +11,8 @@ import { petAgeText } from '../lib/petAge'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
 import PetEmotionPage from './PetEmotion'
 import KnowledgeSources from '../components/consult/KnowledgeSources'
+import QuickPrompts from '../components/consult/QuickPrompts'
+import FollowupSuggestions from '../components/consult/FollowupSuggestions'
 
 
 // =====================================================
@@ -25,38 +27,6 @@ const EMOJI = {
   fish: '🐟',
   other: '🐾'
 }
-
-
-// =====================================================
-// 快速問題
-// =====================================================
-
-const QUICK_PROMPTS = [
-  {
-    label: '食慾不振',
-    text: '最近食慾不振，不太想吃東西，可能的原因是什麼？'
-  },
-  {
-    label: '嘔吐',
-    text: '今天嘔吐了幾次，需要就醫嗎？'
-  },
-  {
-    label: '腹瀉',
-    text: '排便異常，糞便很稀，該怎麼辦？'
-  },
-  {
-    label: '精神不佳',
-    text: '精神很差，一直在睡覺，比平常安靜很多。'
-  },
-  {
-    label: '皮膚問題',
-    text: '皮膚出現紅疹或一直在抓癢，是過敏嗎？'
-  },
-  {
-    label: '咳嗽',
-    text: '一直在咳嗽或打噴嚏，是感冒嗎？'
-  }
-]
 
 
 // =====================================================
@@ -145,6 +115,9 @@ export default function HealthConsultPage() {
 
   const chatEndRef =
     useRef(null)
+
+  // AI 回覆後的「接下來可以問」；綁定寵物 id，切換寵物後就不會顯示別隻的建議
+  const [followups, setFollowups] = useState({ petId: null, items: [] })
 
   // AI 自動記錄健康事件後的提示
   const [savedNotice, setSavedNotice] =
@@ -279,6 +252,7 @@ export default function HealthConsultPage() {
 
       setInput('')
       setLoading(true)
+      setFollowups({ petId: null, items: [] })
 
       try {
 
@@ -491,6 +465,13 @@ export default function HealthConsultPage() {
             (response.data?.data?.sources || [])
               .map(source => source.slug)
               .filter(Boolean)
+        })
+
+
+        // 回覆存好之後，才顯示「接下來可以問」
+        setFollowups({
+          petId: selectedPet.id,
+          items: response.data?.data?.followups || []
         })
 
 
@@ -825,31 +806,11 @@ export default function HealthConsultPage() {
                   </p>
 
 
-                  <div className="flex flex-wrap gap-2 justify-center">
-
-                    {QUICK_PROMPTS.map(q => (
-
-                      <button
-                        key={q.label}
-
-                        onClick={() =>
-                          sendMessage(
-                            q.text
-                          )
-                        }
-
-                        disabled={loading}
-
-                        className="bg-white border border-gray-200 rounded-full px-4 py-2 text-sm text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-all disabled:opacity-50"
-                      >
-
-                        {q.label}
-
-                      </button>
-
-                    ))}
-
-                  </div>
+                  <QuickPrompts
+                    species={selectedPet?.species}
+                    onSelect={text => sendMessage(text)}
+                    disabled={loading}
+                  />
 
                 </div>
 
@@ -1123,36 +1084,23 @@ export default function HealthConsultPage() {
                   </div>
                 )}
 
+              {messages.length > 0 &&
+                !loading &&
+                followups.petId === selectedPet?.id && (
+                  <FollowupSuggestions
+                    items={followups.items}
+                    onSelect={text => sendMessage(text)}
+                    disabled={loading}
+                  />
+                )}
+
               {messages.length > 0 && (
-
-                <div className="flex gap-2 mb-3 flex-wrap">
-
-                  {QUICK_PROMPTS
-                    .slice(0, 4)
-                    .map(q => (
-
-                      <button
-                        key={q.label}
-
-                        onClick={() =>
-                          sendMessage(
-                            q.text
-                          )
-                        }
-
-                        disabled={loading}
-
-                        className="text-xs bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-gray-500 hover:border-green-300 hover:text-green-600 transition-all disabled:opacity-50"
-                      >
-
-                        {q.label}
-
-                      </button>
-
-                    ))}
-
-                </div>
-
+                <QuickPrompts
+                  compact
+                  species={selectedPet?.species}
+                  onSelect={text => sendMessage(text)}
+                  disabled={loading}
+                />
               )}
 
 

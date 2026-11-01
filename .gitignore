@@ -20,6 +20,9 @@ pet app/.env
 *.log
 npm-debug.log*
 
+# Patches
+*.patch
+
 # VS Code
 .vscode/
 
