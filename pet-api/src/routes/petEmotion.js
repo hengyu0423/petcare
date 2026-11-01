@@ -1,7 +1,7 @@
 
 const express = require('express')
 const multer = require('multer')
-const Groq = require('groq-sdk')
+const { ai: groq, hasAiKey, getWeeklyModel } = require('../lib/ai')
 const requireAuth = require('../middleware/auth')
 
 const router = express.Router()
@@ -10,9 +10,7 @@ const router = express.Router()
 router.use(requireAuth)
 
 // AI 視覺模型
-const VISION_MODEL =
-  process.env.GROQ_WEEKLY_MODEL ||
-  'qwen/qwen3.8-27b'
+const VISION_MODEL = getWeeklyModel('qwen/qwen3.8-27b')
 
 // 設定照片上傳
 const upload = multer({
@@ -62,10 +60,10 @@ function uploadPhoto(req, res, next) {
 router.post('/', uploadPhoto, async (req, res) => {
   try {
     // 確認 Groq 金鑰
-    if (!process.env.GROQ_API_KEY) {
+    if (!hasAiKey()) {
       return res.status(500).json({
         success: false,
-        error: 'Groq API Key 尚未設定'
+        error: 'AI API Key 尚未設定'
       })
     }
 
@@ -76,11 +74,6 @@ router.post('/', uploadPhoto, async (req, res) => {
         error: '請先拍照或上傳照片'
       })
     }
-
-    // 使用原本的 Groq SDK
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY
-    })
 
     // 把圖片轉成 Base64
     const imageBase64 =

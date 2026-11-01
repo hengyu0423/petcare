@@ -1,6 +1,6 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
-const Groq = require('groq-sdk')
+const { ai: groq, getModel } = require('../lib/ai')
 const pool = require('../db')
 const { createNotification } = require('../services/notifications')
 const { ageInMonths, formatAge } = require('../utils/petAge')
@@ -9,10 +9,6 @@ const {
   findFeedingConflicts,
   getDietAlerts
 } = require('../services/dietInsights')
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
 
 router.use(requireAuth)
 
@@ -69,9 +65,7 @@ ${symptoms}
 `
 
     const completion = await groq.chat.completions.create({
-      model:
-        process.env.GROQ_MODEL ||
-        'openai/gpt-oss-20b',
+      model: getModel('openai/gpt-oss-20b'),
 
       messages: [
         {

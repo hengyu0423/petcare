@@ -2,11 +2,7 @@ const router = require('express').Router()
 
 const requireAuth = require('../middleware/auth')
 const pool = require('../db')
-const Groq = require('groq-sdk')
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
+const { ai: groq, getModel } = require('../lib/ai')
 
 router.use(requireAuth)
 
@@ -800,9 +796,7 @@ healthEvent 欄位：
     // Groq 模型
     // ==================================================
 
-    const model =
-      process.env.GROQ_MODEL ||
-      'openai/gpt-oss-20b'
+    const model = getModel('openai/gpt-oss-20b')
 
     console.log(
       '目前 Groq 模型：',

@@ -17,14 +17,10 @@ const {
 } = require('../services/mealPlan')
 
 const DIET_TZ = process.env.APP_TIMEZONE || 'Asia/Taipei'
-const Groq = require('groq-sdk')
+const { ai: groq, hasAiKey, getModel } = require('../lib/ai')
 const multer = require('multer')
 
 const { GoogleGenAI } = require('@google/genai')
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
 
 const gemini = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
@@ -36,9 +32,7 @@ const upload = multer({
 
 router.use(requireAuth)
 
-const DEFAULT_GROQ_MODEL =
-  process.env.GROQ_MODEL ||
-  'openai/gpt-oss-120b'
+const DEFAULT_GROQ_MODEL = getModel('openai/gpt-oss-120b')
 
 
 /* =========================================================
@@ -342,7 +336,7 @@ async function analyzeNutrition(foodName) {
   }
 
 
-  if (!process.env.GROQ_API_KEY) {
+  if (!hasAiKey()) {
     return getFallbackNutrition(foodName)
   }
 
@@ -2639,9 +2633,7 @@ router.post(
        * 仍然可以使用規則推薦
        */
 
-      if (
-        !process.env.GROQ_API_KEY
-      ) {
+      if (!hasAiKey()) {
         return res.json({
           success: true,
 
