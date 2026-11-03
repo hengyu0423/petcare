@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 const CAMERA_API = import.meta.env.VITE_CAMERA_API_URL || 'http://localhost:8000'
 const API = '/api'
@@ -35,12 +35,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
   const [range, setRange] = useState('20m')
   const [timeline, setTimeline] = useState([])
   const [timelineLoading, setTimelineLoading] = useState(false)
-
-  const [notifications, setNotifications] = useState([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [showNotifications, setShowNotifications] = useState(false)
-
-  const notificationRef = useRef(null)
 
   // ==============================
   // 即時攝影機狀態
@@ -93,79 +87,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
 
     return () => clearInterval(timer)
   }, [range, cameraId])
-
-  // ==============================
-  // 通知（取得攝影機與系統通知，不依賴 petId）
-  // ==============================
-  useEffect(() => {
-    fetchNotifications()
-
-    const timer = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(timer)
-  }, [cameraId])
-
-  useEffect(() => {
-    const handleClickOutside = e => {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(e.target)
-      ) {
-        setShowNotifications(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch(`${API}/notifications`, {
-        headers: authHeaders()
-      })
-      if (!res.ok) return
-
-      const data = await res.json()
-      const list = data.notifications || data.records || data || []
-
-      if (Array.isArray(list)) {
-        setNotifications(list.slice(0, 10))
-        setUnreadCount(
-          list.filter(item => !(item.isRead ?? item.is_read)).length
-        )
-      }
-    } catch (err) {
-      console.error('取得通知失敗：', err)
-    }
-  }
-
-  const markAsRead = async notification => {
-    const id = notification.id
-    const alreadyRead = notification.isRead ?? notification.is_read
-
-    if (!id || alreadyRead) return
-
-    try {
-      const res = await fetch(`${API}/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: authHeaders()
-      })
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-      setNotifications(prev =>
-        prev.map(item =>
-          item.id === id
-            ? { ...item, isRead: true, is_read: true }
-            : item
-        )
-      )
-
-      setUnreadCount(prev => Math.max(0, prev - 1))
-    } catch (err) {
-      console.error('標記通知已讀失敗：', err)
-    }
-  }
 
   // ==============================
   // SQL 紀錄分組
@@ -233,18 +154,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
     })
   }
 
-  const formatDateTime = value => {
-    if (!value) return ''
-
-    return new Date(value).toLocaleString('zh-TW', {
-      month: 'numeric',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
-  }
-
   const formatMissing = () => {
     const seconds = Number(status.missingSeconds || 0)
 
@@ -281,108 +190,21 @@ export default function PetCam({ cameraId = 'cam_1' }) {
     return 'bg-gray-100 text-gray-600'
   }
 
-  const notificationIcon = type => {
-    if (type === 'camera_missing') return '📷'
-    if (type === 'camera_reappeared') return '🐱'
-    if (type === 'health_alert') return '🩺'
-    if (type === 'feeding_reminder') return '🍽️'
-    return '🔔'
-  }
-
   return (
     <div className="w-full min-h-full bg-gray-50 px-4 py-6">
       <div className="w-full max-w-[900px] mx-auto flex flex-col gap-5">
 
-        {/* 標題 + 通知 */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-gray-800">即時監控</h2>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                {status.cameraName || 'Camera 1'}
-              </span>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              以攝影機為單位獨立運作，依 YOLO 偵測之姿態與活動量推估行為狀態
-            </p>
+        {/* 標題（通知中心由上方的全域鈴鐺提供，頁面不再重複放置） */}
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-800">即時監控</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              {status.cameraName || 'Camera 1'}
+            </span>
           </div>
-
-          <div className="relative" ref={notificationRef}>
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative w-10 h-10 bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center hover:bg-gray-50"
-            >
-              <span className="text-lg">🔔</span>
-
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-[330px] max-h-[420px] overflow-y-auto bg-white border border-gray-200 rounded-2xl shadow-lg z-50">
-                <div className="flex items-center justify-between px-4 py-3 border-b">
-                  <p className="font-bold text-sm text-gray-800">通知中心</p>
-                  <span className="text-xs text-gray-400">
-                    {unreadCount} 則未讀
-                  </span>
-                </div>
-
-                {notifications.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-10">
-                    目前沒有通知
-                  </p>
-                ) : (
-                  notifications.map(item => {
-                    const isRead = item.isRead ?? item.is_read
-
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => markAsRead(item)}
-                        className={`w-full text-left px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 ${
-                          !isRead ? 'bg-orange-50/50' : ''
-                        }`}
-                      >
-                        <div className="flex gap-3">
-                          <span className="text-lg">
-                            {notificationIcon(item.type)}
-                          </span>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-semibold text-gray-800">
-                                {item.title}
-                              </p>
-
-                              {!isRead && (
-                                <span className="w-2 h-2 bg-red-500 rounded-full mt-1.5 flex-shrink-0" />
-                              )}
-                            </div>
-
-                            <p className="text-xs text-gray-500 mt-1">
-                              {item.message}
-                            </p>
-
-                            <p className="text-[10px] text-gray-300 mt-2">
-                              {formatDateTime(
-                                item.eventAt ||
-                                item.event_at ||
-                                item.createdAt ||
-                                item.created_at
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            )}
-          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            以攝影機為單位獨立運作，依 YOLO 偵測之姿態與活動量推估行為狀態
+          </p>
         </div>
 
         {/* 攝影機 */}

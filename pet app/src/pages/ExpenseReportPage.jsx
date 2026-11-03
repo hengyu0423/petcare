@@ -94,14 +94,14 @@ export default function ExpenseReportPage() {
   const isLoading = loadingSummary || loadingMonthly
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 sm:p-6 max-w-6xl">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link to="/expenses" className="w-9 h-9 flex items-center justify-center rounded-xl border border-green-200 text-green-400 hover:bg-green-50 transition-colors text-lg">
+      <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <Link to="/expenses" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl border border-green-200 text-green-400 hover:bg-green-50 transition-colors text-lg">
           ←
         </Link>
-        <div>
-          <h1 style={{fontFamily:'Nunito,sans-serif'}} className="text-3xl font-black text-gray-800">支出報表</h1>
+        <div className="min-w-0">
+          <h1 style={{fontFamily:'Nunito,sans-serif'}} className="text-2xl sm:text-3xl font-black text-gray-800">支出報表</h1>
           <p className="text-gray-400 text-sm mt-0.5">所有寵物的財務統計總覽</p>
         </div>
       </div>
@@ -127,19 +127,19 @@ export default function ExpenseReportPage() {
         <div className="space-y-6">
 
           {/* 統計卡片 */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[
               { label: '總支出', value: `TWD ${total.toFixed(2)}`, color: 'text-green-500', bg: 'bg-green-50', icon: '💰' },
               { label: '寵物數量', value: `${petNames.length} 隻`, color: 'text-blue-500', bg: 'bg-blue-50', icon: '🐾' },
               { label: '最高花費', value: topPet ? topPet.name : '—', color: 'text-purple-500', bg: 'bg-purple-50', icon: '🏆' },
               { label: '最多類別', value: topCat ? topCat.emoji + ' ' + topCat.name : '—', color: 'text-green-500', bg: 'bg-green-50', icon: '📂' },
             ].map(card => (
-              <div key={card.label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+              <div key={card.label} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 min-w-0">
                 <div className={`w-10 h-10 ${card.bg} rounded-xl flex items-center justify-center text-xl mb-3`}>
                   {card.icon}
                 </div>
                 <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{card.label}</p>
-                <p style={{fontFamily:'Nunito,sans-serif'}} className={`text-xl font-black mt-1 ${card.color}`}>
+                <p style={{fontFamily:'Nunito,sans-serif'}} className={`text-base sm:text-xl font-black mt-1 break-words ${card.color}`}>
                   {card.value}
                 </p>
               </div>
@@ -147,8 +147,8 @@ export default function ExpenseReportPage() {
           </div>
 
           {/* 圓餅圖 + 類別明細 */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
               <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">支出類別分布</h2>
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
@@ -165,7 +165,7 @@ export default function ExpenseReportPage() {
             </div>
 
             {/* 類別明細列表 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
               <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">類別明細</h2>
               <div className="space-y-3">
                 {categoryData.map((d, i) => {
@@ -195,14 +195,15 @@ export default function ExpenseReportPage() {
 
           {/* 每隻寵物花費 */}
           {petTotals.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
               <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">每隻寵物花費比較</h2>
-              <div className="grid grid-cols-2 gap-6 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-center">
+                <div className="min-w-0">
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={petTotals} margin={{top:5, right:10, left:0, bottom:5}}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis dataKey="name" tick={{fontSize:12, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="name" tick={{fontSize:12, fill:'#9ca3af'}} axisLine={false} tickLine={false} interval={0} />
+                    <YAxis width={56} tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="total" name="總花費" radius={[8,8,0,0]}>
                       {petTotals.map((_, i) => (
@@ -211,6 +212,7 @@ export default function ExpenseReportPage() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
 
                 <div className="space-y-3">
                   {petTotals.map((p, i) => {
@@ -241,15 +243,15 @@ export default function ExpenseReportPage() {
 
           {/* 月度趨勢 */}
           {monthlyGrouped.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
               <h2 style={{fontFamily:'Nunito,sans-serif'}} className="text-lg font-black text-gray-700 mb-5">月度支出趨勢</h2>
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={monthlyGrouped} margin={{top:5, right:20, left:0, bottom:5}}>
+                <LineChart data={monthlyGrouped} margin={{top:5, right:10, left:0, bottom:5}}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis dataKey="month" tick={{fontSize:12, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
-                  <YAxis tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="month" tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} minTickGap={16} />
+                  <YAxis width={56} tick={{fontSize:11, fill:'#9ca3af'}} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                   {petNames.map((name, i) => (
                     <Line key={name} type="monotone" dataKey={name}
                       stroke={COLORS[i % COLORS.length]} strokeWidth={2.5}

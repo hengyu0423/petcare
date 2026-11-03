@@ -751,10 +751,19 @@ export default function AssistantWidget() {
   }, [open])
 
   // ---------- 拖曳 ----------
+  // 觸控按壓時手指本來就會有幾 px 的位移；而球被 clamp 在畫面內，
+  // 貼在邊緣（例如最上方）時往邊外拖也看不出有移動。
+  // 若只照「手指動過 5px」判定，就變成邊緣上的點按被打開無反應。
+  // 所以放開時改看：手指是否回到按下點附近、球是否真的被拖動过。
+  const TAP_SLOP = 12
   const onPointerDown = e => {
     movedRef.current = false
     dragRef.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }
-    e.currentTarget.setPointerCapture?.(e.pointerId)
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    } catch {
+      /* 合成／已釋放的指標沒有可捕獲的指標，忽略 */
+    }
   }
   const onPointerMove = e => {
     const d = dragRef.current
@@ -764,11 +773,22 @@ export default function AssistantWidget() {
     if (Math.abs(dx) + Math.abs(dy) > 5) movedRef.current = true
     if (movedRef.current) setPos(clampPos(d.ox + dx, d.oy + dy))
   }
-  const onPointerUp = () => {
-    if (!dragRef.current) return
+  const onPointerUp = e => {
+    const d = dragRef.current
+    if (!d) return
     dragRef.current = null
-    if (!movedRef.current) {
-      setOpen(true)
+
+    const dx = e.clientX - d.sx
+    const dy = e.clientY - d.sy
+    // 手指幾乎回到原位，或球其實沒被拖開多少（貼邊時被 clamp），都算點擊
+    // → 切換面板：電腦版球在面板開啟時仍顯示，再點一次可以關掉
+    const target = clampPos(d.ox + dx, d.oy + dy)
+    const slop = e.pointerType === 'touch' ? TAP_SLOP : 6
+    const fingerNearStart = Math.abs(dx) <= slop && Math.abs(dy) <= slop
+    const ballBarelyMoved =
+      Math.abs(target.x - d.ox) <= 6 && Math.abs(target.y - d.oy) <= 6
+    if (fingerNearStart || ballBarelyMoved) {
+      setOpen(v => !v)
       return
     }
     // 放開後吸附到最近的左右邊
@@ -1102,9 +1122,18 @@ export default function AssistantWidget() {
 
       {open && (
         <>
-          {/* 手機的半透明背景，點一下收起 */}
+          {/*
+            手機的半透明背景，點一下收起。
+            注意：關閉改用 pointerdown，且忽略滑鼠（合成）事件。
+            因為點球開啟面板的同一手勢，手指離開後瀏覽器還會補發一個
+            對新畫面重新命中測試的 click／mouse，落點剛好是全螢幕背景；
+            用 onClick 會讓面板「剛開又馬上被關」，
+            表現就是球放在上方（面板蓋不到的位置）時點不開。
+          */}
           <div
-            onClick={() => setOpen(false)}
+            onPointerDown={e => {
+              if (e.pointerType !== 'mouse') setOpen(false)
+            }}
             aria-hidden="true"
             className="sm:hidden fixed inset-0 z-40 bg-black/30"
           />
