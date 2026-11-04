@@ -7,6 +7,10 @@ pet-api/node_modules/
 pet app/dist/
 dist/
 
+# YOLO caches (auto-regenerated)
+labels.cache
+*.cache
+
 # Environment
 pet-api/.env
 pet app/.env
