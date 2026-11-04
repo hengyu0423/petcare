@@ -15,6 +15,7 @@ pet app/.env
 
 # Agents & AI IDE
 .agents/
+opencode.json
 
 # Logs
 *.log

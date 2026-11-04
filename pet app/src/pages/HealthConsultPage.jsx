@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   useQuery,
@@ -13,6 +13,11 @@ import PetEmotionPage from './PetEmotion'
 import KnowledgeSources from '../components/consult/KnowledgeSources'
 import QuickPrompts from '../components/consult/QuickPrompts'
 import FollowupSuggestions from '../components/consult/FollowupSuggestions'
+import {
+  makePending,
+  mergeMessages,
+  prunePending
+} from '../components/consult/pendingMessages'
 
 
 // =====================================================
@@ -113,6 +118,14 @@ export default function HealthConsultPage() {
   const [loading, setLoading] =
     useState(false)
 
+  // 「…」動畫只在「已經顯示我的問題、還沒顯示回覆」的期間出現
+  const [showTyping, setShowTyping] =
+    useState(false)
+
+  // 還沒被資料庫紀錄追上的訊息（樂觀顯示）
+  const [pending, setPending] =
+    useState([])
+
   const chatEndRef =
     useRef(null)
 
@@ -169,6 +182,25 @@ export default function HealthConsultPage() {
 
 
   // ===================================================
+  // 要顯示的訊息 = 資料庫的紀錄 + 還沒存好的訊息
+  // ===================================================
+
+  const displayMessages = useMemo(
+    () => mergeMessages(messages, pending, selectedPet?.id),
+    [messages, pending, selectedPet?.id]
+  )
+
+  // 資料庫已經追上的、或太舊的暫時訊息，清掉
+  useEffect(() => {
+    if (pending.length === 0) return
+
+    setPending(list =>
+      prunePending(list, messages, selectedPet?.id)
+    )
+  }, [messages, selectedPet?.id])
+
+
+  // ===================================================
   // 儲存訊息
   // ===================================================
 
@@ -220,8 +252,8 @@ export default function HealthConsultPage() {
       behavior: 'smooth'
     })
   }, [
-    messages,
-    loading
+    displayMessages,
+    showTyping
   ])
 
 
@@ -253,6 +285,18 @@ export default function HealthConsultPage() {
       setInput('')
       setLoading(true)
       setFollowups({ petId: null, items: [] })
+
+      // ⭐ 先把我的問題顯示出來，再顯示「…」（不用等資料庫存好）
+      const userPending = makePending({
+        kind: 'user',
+        petId: selectedPet.id,
+        role: 'user',
+        content,
+        visibleMessages: displayMessages
+      })
+
+      setPending(list => [...list, userPending])
+      setShowTyping(true)
 
       try {
 
@@ -319,7 +363,7 @@ export default function HealthConsultPage() {
         // =============================================
 
         const recentMessages =
-          messages
+          displayMessages
             .slice(-6)
             .map(message => ({
               role:
@@ -443,6 +487,26 @@ export default function HealthConsultPage() {
 
 
         // =============================================
+        // ⭐ 回覆一到就顯示，「…」同時消失（不用等存檔）
+        // =============================================
+
+        setPending(list => [
+          ...list,
+          makePending({
+            kind: 'assistant',
+            petId: selectedPet.id,
+            role: 'assistant',
+            content: aiText,
+            severity: aiSeverity,
+            sources: response.data?.data?.sources || [],
+            visibleMessages: displayMessages
+          })
+        ])
+
+        setShowTyping(false)
+
+
+        // =============================================
         // 6. 儲存 AI 回覆
         // ⭐ severity 一起寫入資料庫
         // =============================================
@@ -491,6 +555,19 @@ export default function HealthConsultPage() {
           'AI 回覆失敗'
 
 
+        setPending(list => [
+          ...list,
+          makePending({
+            kind: 'error',
+            petId: selectedPet.id,
+            role: 'assistant',
+            content: `❌ ${errorMessage}`,
+            visibleMessages: displayMessages
+          })
+        ])
+
+        setShowTyping(false)
+
         try {
 
           await addMessage.mutateAsync({
@@ -518,6 +595,7 @@ export default function HealthConsultPage() {
 
       } finally {
 
+        setShowTyping(false)
         setLoading(false)
 
       }
@@ -746,7 +824,7 @@ export default function HealthConsultPage() {
                 </span>
 
 
-                {messages.length > 0 && (
+                {displayMessages.length > 0 && (
 
                   <button
                     onClick={() => {
@@ -783,13 +861,13 @@ export default function HealthConsultPage() {
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
 
-              {loadingHistory ? (
+              {loadingHistory && displayMessages.length === 0 ? (
 
                 <div className="text-center py-12 text-gray-400 text-sm">
                   載入對話紀錄中...
                 </div>
 
-              ) : messages.length === 0 ? (
+              ) : displayMessages.length === 0 ? (
 
                 <div className="text-center py-12">
 
@@ -822,7 +900,7 @@ export default function HealthConsultPage() {
                       每一則訊息
                   ===================================== */}
 
-                  {messages.map(
+                  {displayMessages.map(
                     (
                       msg,
                       index
@@ -848,6 +926,7 @@ export default function HealthConsultPage() {
 
                         <div
                           key={
+                            msg.key ||
                             msg.id ||
                             `${msg.created_at}-${index}`
                           }
@@ -1000,7 +1079,7 @@ export default function HealthConsultPage() {
                       AI Loading
                   ===================================== */}
 
-                  {loading && (
+                  {showTyping && (
 
                     <div className="flex gap-3">
 
@@ -1084,7 +1163,7 @@ export default function HealthConsultPage() {
                   </div>
                 )}
 
-              {messages.length > 0 &&
+              {displayMessages.length > 0 &&
                 !loading &&
                 followups.petId === selectedPet?.id && (
                   <FollowupSuggestions
@@ -1094,7 +1173,7 @@ export default function HealthConsultPage() {
                   />
                 )}
 
-              {messages.length > 0 && (
+              {displayMessages.length > 0 && (
                 <QuickPrompts
                   compact
                   species={selectedPet?.species}
