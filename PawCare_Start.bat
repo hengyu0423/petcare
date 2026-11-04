@@ -12,7 +12,7 @@ timeout /t 2 /nobreak >nul
 start "PawCare API" /D "%ROOT%pet-api" cmd /k npm run dev
 timeout /t 2 /nobreak >nul
 
-start "PawCare PetCam" /D "%ROOT%pet cam" cmd /k python main.py
+start "PawCare PetCam" cmd /k call "%ROOT%pet cam\restart_petcam.bat"
 
 echo.
 echo Started Frontend, API, and PetCam.
