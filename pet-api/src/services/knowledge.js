@@ -190,6 +190,24 @@ async function retrieveKnowledge({ question, species, limit }) {
 // ------------------------------------------------------
 // 轉成放進 prompt 的文字；沒有結果時回傳空字串（prompt 與原本完全相同）
 // ------------------------------------------------------
+const SEVERITY_LABEL = {
+  info: '資訊參考',
+  urgent: '應儘速就醫',
+  emergency: '緊急（需立即送醫）',
+  urgent_if_persistent: '症狀持續應儘速就醫',
+  urgent_if_ill: '若身體不適應儘速就醫',
+  urgent_if_breathing_difficulty: '呼吸困難時應儘速就醫',
+  urgent_if_puppy_or_worse: '幼年或惡化時應儘速就醫',
+  urgent_if_male_straining:
+    '雄性用力排尿應視為緊急',
+  emergency_if_suspected:
+    '疑似時為緊急',
+  emergency_if_male_straining:
+    '雄性用力排尿時為緊急',
+  urgent_and_emergency_if_cannot_urinate:
+    '尿不出來時為緊急'
+}
+
 function formatKnowledgeForPrompt(items) {
   if (!Array.isArray(items) || items.length === 0) return ''
 
@@ -200,12 +218,16 @@ function formatKnowledgeForPrompt(items) {
           ? item.content.slice(0, MAX_CHARS_PER_ITEM) + '…'
           : item.content
 
-      return `[${i + 1}] ${item.title}（${item.sourceName}）\n${text}`
+      const severity = item.severityHint
+        ? `，分級：${SEVERITY_LABEL[item.severityHint] || item.severityHint}`
+        : ''
+
+      return `[${i + 1}] ${item.title}（${item.sourceName}${severity}）\n${text}`
     })
     .join('\n\n')
 
   return `
-【參考資料（獸醫資料庫摘錄，僅供參考）】
+【參考資料（獸醫資料庫摘錄，分級以資料庫為準）】
 
 ${blocks}
 
@@ -213,12 +235,16 @@ ${blocks}
 
 - 回答時優先依據上述資料；資料沒有涵蓋的部分不要編造，
   可以說明不確定，並建議就醫。
+- 「分級」代表知識庫對該主題的嚴重程度判斷。
+  資料分級為「緊急」或「應儘速就醫」時，
+  回答必須明確要求立即聯絡獸醫，不得只給飲食調整建議；
+  資料為「資訊參考」則可以提供居家照護建議。
+  若資料分級為「症狀持續應儘速就醫」，而飼主描述的症狀持續多天，
+  以緊急處理為準。
 - 資料中的「禁食、限水、用藥」屬於獸醫的處置，
   絕對不要寫成對飼主的直接指示（例如「先禁食 24 小時」「先給某某藥」），
   只能說明「獸醫可能會…，是否需要請依獸醫指示」。
   另外，不要建議飼主自行限制飲水。
-- 資料提到的分級警訊（例如尿不出來、呼吸困難、中毒），
-  若與你的分級判斷不同，以較保守（較高）的分級為準。
 - 急救或居家處置只能依上述資料；資料沒有寫的處置
   （例如催吐、餵牛奶或水、餵人用藥），不要自行建議，
   請飼主先聯絡獸醫，由獸醫指示怎麼做。

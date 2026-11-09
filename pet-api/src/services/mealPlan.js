@@ -117,14 +117,63 @@ function breedProfile(breed) {
 
 const STAPLE_TYPES = ['any', 'dry', 'wet', 'mixed']
 const GOALS = ['maintain', 'lose', 'gain']
+const MAX_MEALS = 6
 
 function cleanText(value, maxLen) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLen)
 }
 
+function cleanTime(value, fallback = '08:00') {
+  const text = String(value ?? '').trim()
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(text) ? text : fallback
+}
+
+// 自訂餐次：每一餐可以有自己的名稱、時間、固定食物與預定份量
+function sanitizeMealSchedule(raw) {
+  if (!Array.isArray(raw)) return []
+
+  const used = new Set()
+
+  return raw
+    .slice(0, MAX_MEALS)
+    .map((item, index) => {
+      const src = item && typeof item === 'object' ? item : {}
+      const baseKey =
+        cleanText(src.key, 20).replace(/[^a-zA-Z0-9_-]/g, '') ||
+        `meal-${index + 1}`
+
+      let key = baseKey
+      let suffix = 2
+      while (used.has(key)) {
+        key = `${baseKey}-${suffix}`
+        suffix += 1
+      }
+      used.add(key)
+
+      const foodId = Number(src.foodId)
+      const amountG = Number(src.amountG)
+
+      return {
+        key,
+        label: cleanText(src.label, 20) || `第 ${index + 1} 餐`,
+        time: cleanTime(src.time, index === 0 ? '08:00' : '18:30'),
+        foodId:
+          Number.isInteger(foodId) && foodId > 0 ? foodId : null,
+        amountG:
+          Number.isFinite(amountG) && amountG > 0
+            ? Math.min(Math.round(amountG * 10) / 10, 2000)
+            : null
+      }
+    })
+    .filter(Boolean)
+}
+
 function sanitizePreferences(raw) {
   const src = raw && typeof raw === 'object' ? raw : {}
 
+  const mealSchedule = sanitizeMealSchedule(src.mealSchedule)
+
+  // 有自訂餐次時，餐數以自訂清單為準；舊資料沒有清單才用 mealsPerDay。
   const meals = Math.round(Number(src.mealsPerDay))
 
   const avoid = []
@@ -136,8 +185,16 @@ function sanitizePreferences(raw) {
     }
   }
 
+  const mealsPerDay =
+    mealSchedule.length > 0
+      ? mealSchedule.length
+      : meals >= 2 && meals <= 4
+        ? meals
+        : 3
+
   return {
-    mealsPerDay: meals >= 2 && meals <= 4 ? meals : 3,
+    mealsPerDay,
+    mealSchedule,
     stapleType: STAPLE_TYPES.includes(src.stapleType) ? src.stapleType : 'any',
     goal: GOALS.includes(src.goal) ? src.goal : 'maintain',
     avoidFoods: avoid,
@@ -244,8 +301,30 @@ function wantedCategory(stapleType, slotKey) {
 }
 
 function bucketOf(mealCount, minutes) {
-  const list = MEAL_BOUNDARIES[mealCount]
+  const list = MEAL_BOUNDARIES[mealCount] || MEAL_BOUNDARIES[3]
   return (list.find(b => minutes < b.until) || list[list.length - 1]).key
+}
+
+function minutesOfTime(value) {
+  const [hour, minute] = String(value || '08:00')
+    .split(':')
+    .map(Number)
+  return (hour || 0) * 60 + (minute || 0)
+}
+
+// 自訂餐次沒有固定的時間界線，改用「最接近且已到時間」的餐次
+function nearestSlotKey(slots, minutes) {
+  const sorted = [...slots].sort(
+    (a, b) => minutesOfTime(a.time) - minutesOfTime(b.time)
+  )
+
+  let chosen = sorted[0]?.key || null
+
+  for (const slot of sorted) {
+    if ((minutes ?? 0) >= minutesOfTime(slot.time)) chosen = slot.key
+  }
+
+  return chosen
 }
 
 // ======================================================
@@ -281,9 +360,24 @@ function buildMealPlan({
     e => e.severity === 'urgent' || e.severity === 'emergency'
   )
 
-  const mealCount = gentle
-    ? Math.max(prefs.mealsPerDay, PLAN.gentleMinMeals)
-    : prefs.mealsPerDay
+  const customSchedule = Array.isArray(prefs.mealSchedule)
+    ? prefs.mealSchedule.filter(m => m && m.label)
+    : []
+
+  const useCustomSchedule = customSchedule.length > 0
+
+  const mealCount = useCustomSchedule
+    ? customSchedule.length
+    : gentle
+      ? Math.max(prefs.mealsPerDay, PLAN.gentleMinMeals)
+      : prefs.mealsPerDay
+
+  const slots = useCustomSchedule
+    ? customSchedule.map(slot => ({
+        ...slot,
+        share: 1 / customSchedule.length
+      }))
+    : MEAL_SLOTS[mealCount] || MEAL_SLOTS[3]
 
   const target = estimateTargetKcal({
     species: pet?.species,
@@ -352,6 +446,7 @@ function buildMealPlan({
 
     notices.push({
       level: 'warning',
+      kind: 'health',
       text:
         `近期有「${e.title}」紀錄${until}。` +
         (info.dietNotes ? `${info.dietNotes}。` : '')
@@ -361,13 +456,14 @@ function buildMealPlan({
   if (gentle) {
     notices.push({
       level: 'info',
-      text: `腸胃不適期間改為少量多餐（${mealCount} 餐），並優先選擇低脂、較清淡的食物。`
+      text: `腸胃不適期間改為少量多餐（${mealCount} 餐），餵平常耐受的食物。`
     })
   }
 
   if (seriousEvent) {
     notices.push({
       level: 'warning',
+      kind: 'health',
       text: '近期健康事件屬於「建議儘快就醫」等級，這份計畫僅供參考，請先諮詢獸醫。'
     })
   }
@@ -446,15 +542,56 @@ function buildMealPlan({
 
   scored.sort((a, b) => b.score - a.score || a.food.id - b.food.id)
 
-  // ---------- 排餐 ----------
-  const slots = MEAL_SLOTS[mealCount]
-
+  // ---------- 今日剩餘熱量分配 ----------
+  // 今天已經吃掉的（含手動餵食、計畫外食物）先扣掉，
+  // 剩下的額度按原本比例分配給今天還沒記錄的餐次，
+  // 讓一天總熱量落在建議範圍內。
   const loggedByMeal = {}
+
   for (const r of todayRecords) {
-    const key = bucketOf(mealCount, r.minutes ?? 0)
+    const key =
+      r.mealType && slots.some(slot => slot.key === r.mealType)
+        ? r.mealType
+        : useCustomSchedule
+          ? nearestSlotKey(slots, r.minutes ?? 0)
+          : bucketOf(mealCount, r.minutes ?? 0)
+
+    if (!key) continue
+
     loggedByMeal[key] = loggedByMeal[key] || { count: 0, kcal: 0 }
     loggedByMeal[key].count += 1
     loggedByMeal[key].kcal += num(r.calories, 0)
+  }
+
+  const totalLoggedKcal = Math.round(
+    todayRecords.reduce((sum, r) => sum + num(r.calories, 0), 0)
+  )
+
+  // 上限 = 建議值的 +10%（和每日建議範圍一致）
+  const capKcal =
+    target.kcal === null ? null : Math.round(target.kcal * 1.1)
+
+  const remainingKcal =
+    target.kcal === null
+      ? null
+      : Math.max(target.kcal - totalLoggedKcal, 0)
+
+  const allowedLeft =
+    capKcal === null ? null : Math.max(capKcal - totalLoggedKcal, 0)
+
+  // 今天吃到建議上限了 → 剩下的餐次建議跳過
+  const overBudget =
+    capKcal !== null && allowedLeft <= 0
+
+  const unloggedShareTotal = slots
+    .filter(slot => !loggedByMeal[slot.key])
+    .reduce((sum, slot) => sum + (slot.share || 0), 0)
+
+  if (overBudget) {
+    notices.push({
+      level: 'warning',
+      text: `今天已吃約 ${totalLoggedKcal} kcal，達到建議上限；剩餘餐次建議跳過，或只餵極少量清淡食物。`
+    })
   }
 
   const meals = slots.map(slot => {
@@ -468,16 +605,84 @@ function buildMealPlan({
         ]
       : scored
 
-    const mealKcal = target.kcal === null ? null : target.kcal * slot.share
+    const originalMealKcal =
+      target.kcal === null ? null : target.kcal * slot.share
 
-    const options = ordered.slice(0, PLAN.optionsPerMeal).map(s => {
+    const logged = loggedByMeal[slot.key]
+
+    // 已記錄的餐次：維持原本顯示用熱量（不影響按鈕，按鈕本已隱藏）
+    // 未記錄的餐次：用今天剩餘額度重新分配，按比例分配給還沒吃的餐次
+    let mealKcal = originalMealKcal
+    let skip = false
+
+    if (!logged && target.kcal !== null) {
+      if (overBudget) {
+        mealKcal = 0
+        skip = true
+      } else if (remainingKcal > 0 && unloggedShareTotal > 0) {
+        mealKcal =
+          remainingKcal * (slot.share / unloggedShareTotal)
+      } else {
+        // 今天已吃到（或超過）建議值但還在上限內：這餐建議跳過／極少量
+        mealKcal = 0
+        skip = true
+      }
+    }
+
+    // 份量比原本建議少 → 告訴飼主已依今天攝取調整
+    const adjusted =
+      !logged &&
+      target.kcal !== null &&
+      mealKcal !== null &&
+      mealKcal < originalMealKcal
+
+    // 飼主在「每日餵食計畫」指定的固定食物，優先排在第一位
+    const presetFood = slot.foodId
+      ? foods.find(food => String(food.id) === String(slot.foodId))
+      : null
+
+    let ranked = ordered
+
+    if (presetFood) {
+      const presetWarnings = (warningsByFoodId[presetFood.id] || [])
+        .filter(w => w.level !== 'info')
+        .map(w => ({
+          level: w.level,
+          title: w.title,
+          reason: w.reason
+        }))
+
+      ranked = [
+        {
+          food: presetFood,
+          reasons: ['依你的固定食物設定'],
+          warnings: presetWarnings,
+          fixed: true
+        },
+        ...ordered.filter(
+          s => String(s.food.id) !== String(presetFood.id)
+        )
+      ]
+    }
+
+    const options = skip
+      ? []
+      : ranked.slice(0, PLAN.optionsPerMeal).map(s => {
       const kcal100 = num(s.food.calories_per_100g, 0)
+      const isPreset =
+        s.fixed || (presetFood && s.food.id === presetFood.id)
 
       let amountG = null
       let kcal = null
       let capped = false
 
-      if (mealKcal !== null) {
+      if (isPreset && slot.amountG) {
+        // 固定食物＋固定份量：直接使用飼主設定的克數
+        amountG = slot.amountG
+        kcal = kcal100
+          ? Math.round((amountG * kcal100) / 100)
+          : null
+      } else if (mealKcal !== null && kcal100 > 0) {
         let grams = (mealKcal / kcal100) * 100
         if (grams > PLAN.maxAmountG) {
           grams = PLAN.maxAmountG
@@ -487,8 +692,8 @@ function buildMealPlan({
         kcal = Math.round((amountG * kcal100) / 100)
       }
 
-      const reasons = [...s.reasons]
-      if (wanted && s.food.category === wanted) {
+      const reasons = [...(s.reasons || [])]
+      if (wanted && s.food.category === wanted && !isPreset) {
         reasons.push(wanted === 'dry' ? '符合你偏好的乾糧' : '符合你偏好的濕食')
       }
 
@@ -499,10 +704,11 @@ function buildMealPlan({
         amountG,
         kcal,
         capped,
+        fixed: Boolean(isPreset),
         proteinPct: num(s.food.protein_pct),
         fatPct: num(s.food.fat_pct),
         reasons,
-        warnings: s.warnings.map(w => ({
+        warnings: (s.warnings || []).map(w => ({
           level: w.level,
           title: w.title,
           reason: w.reason
@@ -510,14 +716,16 @@ function buildMealPlan({
       }
     })
 
-    const logged = loggedByMeal[slot.key]
-
     return {
       key: slot.key,
       label: slot.label,
       time: slot.time,
       targetKcal: mealKcal === null ? null : Math.round(mealKcal),
+      originalKcal:
+        originalMealKcal === null ? null : Math.round(originalMealKcal),
       options,
+      skip,
+      adjusted,
       logged: Boolean(logged),
       loggedKcal: logged ? Math.round(logged.kcal) : 0
     }
@@ -551,7 +759,13 @@ function buildMealPlan({
       kcal: target.kcal,
       goal: target.goal || prefs.goal
     },
-    today: { loggedKcal, targetKcal: target.kcal },
+    today: {
+      loggedKcal,
+      targetKcal: target.kcal,
+      maxKcal: capKcal,
+      remainingKcal
+    },
+    overBudget,
     notices,
     meals,
     excluded: excluded.slice(0, 6)
@@ -561,6 +775,7 @@ function buildMealPlan({
 module.exports = {
   MEAL_SLOTS,
   sanitizePreferences,
+  sanitizeMealSchedule,
   breedProfile,
   estimateTargetKcal,
   isCandidateStaple,

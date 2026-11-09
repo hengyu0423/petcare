@@ -7,7 +7,6 @@ const CAT_LABEL = {
   dry: '乾糧',
   wet: '濕食',
   snack: '零食',
-  supplement: '保健品',
   other: '其他'
 }
 
@@ -15,7 +14,6 @@ const CAT_COLOR = {
   dry: 'bg-green-50 text-green-600',
   wet: 'bg-blue-50 text-blue-600',
   snack: 'bg-amber-50 text-amber-600',
-  supplement: 'bg-purple-50 text-purple-600',
   other: 'bg-gray-50 text-gray-500'
 }
 
@@ -25,6 +23,7 @@ const inputCls =
 export default function FoodDatabasePage() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
+  const [editingFood, setEditingFood] = useState(null) // null＝新增模式；有值＝編輯該食物
   const [filterCat, setFilterCat] = useState('all')
   const [search, setSearch] = useState('')
   const [aiName, setAiName] = useState('')
@@ -36,7 +35,7 @@ export default function FoodDatabasePage() {
   // ✅ 修正 #4：追蹤 objectURL 以便釋放記憶體
   const prevImageUrlRef = useRef('')
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     name: '',
     category: 'dry',
     brand: '',
@@ -45,30 +44,51 @@ export default function FoodDatabasePage() {
     fat_pct: '',
     carb_pct: '',
     fiber_pct: ''
-  })
+  }
+
+  const [form, setForm] = useState(emptyForm)
 
   const { data: foods = [], isLoading } = useQuery({
     queryKey: ['foods'],
     queryFn: () => api.get('/food').then((r) => r.data.data)
   })
 
-  const addFood = useMutation({
-    mutationFn: (payload) => api.post('/food', payload),
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingFood(null)
+    setForm(emptyForm)
+  }
+
+  // 統一處理新增／編輯
+  const saveFood = useMutation({
+    mutationFn: (payload) =>
+      editingFood
+        ? api.put(
+            `/food/${editingFood.id}`,
+            payload
+          )
+        : api.post('/food', payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['foods'] })
-      setShowModal(false)
-      setForm({
-        name: '',
-        category: 'dry',
-        brand: '',
-        calories_per_100g: '',
-        protein_pct: '',
-        fat_pct: '',
-        carb_pct: '',
-        fiber_pct: ''
-      })
+      closeModal()
     }
   })
+
+  const openEdit = (food) => {
+    setEditingFood(food)
+    setForm({
+      name: food.name || '',
+      category: food.category || 'other',
+      brand: food.brand || '',
+      calories_per_100g:
+        food.calories_per_100g ?? '',
+      protein_pct: food.protein_pct ?? '',
+      fat_pct: food.fat_pct ?? '',
+      carb_pct: food.carb_pct ?? '',
+      fiber_pct: food.fiber_pct ?? ''
+    })
+    setShowModal(true)
+  }
 
   // ✅ 修正 #1：原本是 api.delete`/food/${id}`) — tagged template + 多餘右括號
   const deleteFood = useMutation({
@@ -94,6 +114,7 @@ export default function FoodDatabasePage() {
         foodName: aiName
       })
       if (data.success) {
+        setEditingFood(null)
         setForm((f) => ({
           ...f,
           name: aiName,
@@ -174,6 +195,7 @@ export default function FoodDatabasePage() {
   }
 
   const filtered = foods.filter((f) => {
+    if (f.category === 'supplement') return false // 不再保留保健品分類
     const matchCat = filterCat === 'all' || f.category === filterCat
     const matchSearch =
       f.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -251,7 +273,11 @@ export default function FoodDatabasePage() {
               </button>
             )}
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setEditingFood(null)
+                setForm(emptyForm)
+                setShowModal(true)
+              }}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
             >
               ＋ 新增食物
@@ -264,13 +290,13 @@ export default function FoodDatabasePage() {
           <span className="text-2xl">🤖</span>
           <div className="flex-1">
             <p className="text-sm font-semibold text-green-700 mb-1">
-              AI 快速分析食物營養
+              AI 快速估算食物熱量
             </p>
             <div className="flex gap-2">
               <input
                 value={aiName}
                 onChange={(e) => setAiName(e.target.value)}
-                placeholder="輸入食物名稱，AI 自動填入營養數據..."
+                placeholder="輸入食物名稱，AI 自動估算熱量..."
                 className="flex-1 border border-green-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-400"
                 onKeyDown={(e) => e.key === 'Enter' && handleAiAnalyze()}
               />
@@ -309,18 +335,6 @@ export default function FoodDatabasePage() {
                     <p>
                       熱量：<b>{aiResult.calories_per_100g} kcal</b>
                     </p>
-                    <p>
-                      蛋白質：<b>{aiResult.protein_pct}%</b>
-                    </p>
-                    <p>
-                      脂肪：<b>{aiResult.fat_pct}%</b>
-                    </p>
-                    <p>
-                      碳水：<b>{aiResult.carb_pct}%</b>
-                    </p>
-                    <p>
-                      纖維：<b>{aiResult.fiber_pct}%</b>
-                    </p>
                     {aiResult.notes && (
                       <p className="col-span-2 text-gray-600">{aiResult.notes}</p>
                     )}
@@ -329,7 +343,11 @@ export default function FoodDatabasePage() {
               </div>
             </div>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setEditingFood(null)
+                setForm(emptyForm)
+                setShowModal(true)
+              }}
               className="mt-3 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold"
             >
               ＋ 加入食物庫
@@ -350,8 +368,7 @@ export default function FoodDatabasePage() {
               ['all', '全部'],
               ['dry', '乾糧'],
               ['wet', '濕食'],
-              ['snack', '零食'],
-              ['supplement', '保健品']
+              ['snack', '零食']
             ].map(([val, label]) => (
               <button
                 key={val}
@@ -383,44 +400,58 @@ export default function FoodDatabasePage() {
                 key={food.id}
                 className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-sm transition-all"
               >
-                <div className="flex justify-between mb-2">
-                  <div>
-                    {/* ✅ 修正 #2：原本是 className=`...` 缺少 JSX 的 {} 包裹 */}
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        CAT_COLOR[food.category] || CAT_COLOR.other
-                      }`}
-                    >
-                      {CAT_LABEL[food.category] || food.category}
-                    </span>
-                    <p className="text-sm font-semibold text-gray-800 mt-2">
-                      {food.name}
-                    </p>
-                    {food.brand && (
-                      <p className="text-xs text-gray-400">{food.brand}</p>
-                    )}
-                  </div>
-                  {!food.is_preset && (
-                    <button
-                      onClick={() => deleteFood.mutate(food.id)}
-                      className="text-gray-300 hover:text-red-400"
-                    >
-                      🗑️
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-4 gap-1 mt-3">
-                  {[
-                    ['熱量', food.calories_per_100g ? `${food.calories_per_100g}` : '—'],
-                    ['蛋白質', food.protein_pct ? `${food.protein_pct}%` : '—'],
-                    ['脂肪', food.fat_pct ? `${food.fat_pct}%` : '—'],
-                    ['碳水', food.carb_pct ? `${food.carb_pct}%` : '—']
-                  ].map(([label, val]) => (
-                    <div key={label} className="bg-gray-50 rounded-lg p-2 text-center">
-                      <p className="text-xs text-gray-400">{label}</p>
-                      <p className="text-xs font-bold text-gray-700">{val}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="min-w-0">
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          CAT_COLOR[food.category] || CAT_COLOR.other
+                        }`}
+                      >
+                        {CAT_LABEL[food.category] || food.category}
+                      </span>
+                      <p className="text-sm font-semibold text-gray-800 mt-1.5">
+                        {food.name}
+                      </p>
+                      {food.brand && (
+                        <p className="text-xs text-gray-400">{food.brand}</p>
+                      )}
                     </div>
-                  ))}
+
+                    {/* 熱量方格：靠近食物名稱 */}
+                    <div className="shrink-0 bg-green-50 border border-green-100 rounded-xl px-2.5 py-1.5 text-center">
+                      <p className="text-[10px] text-green-600/80">
+                        熱量
+                      </p>
+                      <p className="text-base font-bold text-green-700 leading-tight">
+                        {food.calories_per_100g
+                          ? `${food.calories_per_100g}`
+                          : '—'}
+                      </p>
+                      <p className="text-[9px] text-green-600/70">
+                        kcal/100g
+                      </p>
+                    </div>
+                  </div>
+
+                  {!food.is_preset && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => openEdit(food)}
+                        className="text-gray-300 hover:text-green-500"
+                        title="修改"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => deleteFood.mutate(food.id)}
+                        className="text-gray-300 hover:text-red-400"
+                        title="刪除"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -433,9 +464,11 @@ export default function FoodDatabasePage() {
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md border border-gray-100">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold text-gray-800">新增食物</h2>
+              <h2 className="text-base font-bold text-gray-800">
+                {editingFood ? '編輯食物' : '新增食物'}
+              </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
               >
                 ✕
@@ -444,7 +477,7 @@ export default function FoodDatabasePage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault()
-                addFood.mutate(form)
+                saveFood.mutate(form)
               }}
               className="space-y-4"
             >
@@ -504,43 +537,27 @@ export default function FoodDatabasePage() {
                   className={inputCls}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  ['protein_pct', '蛋白質 (%)'],
-                  ['fat_pct', '脂肪 (%)'],
-                  ['carb_pct', '碳水 (%)']
-                ].map(([key, label]) => (
-                  <div key={key}>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                      {label}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={form[key]}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, [key]: e.target.value }))
-                      }
-                      placeholder="0"
-                      className={inputCls}
-                    />
-                  </div>
-                ))}
-              </div>
+              {/* 一般只看熱量：蛋白質／脂肪／碳水不再輸入 */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-500 hover:bg-gray-50"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  disabled={addFood.isPending}
+                  disabled={saveFood.isPending}
                   className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold disabled:opacity-50"
                 >
-                  {addFood.isPending ? '新增中...' : '新增'}
+                  {saveFood.isPending
+                    ? editingFood
+                      ? '儲存中...'
+                      : '新增中...'
+                    : editingFood
+                      ? '儲存'
+                      : '新增'}
                 </button>
               </div>
             </form>

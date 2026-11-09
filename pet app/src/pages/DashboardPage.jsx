@@ -57,12 +57,6 @@ export default function DashboardPage() {
     queryFn: () => api.get('/pets').then(r => r.data.data)
   })
 
-  // 支出
-  const { data: expSummary = [] } = useQuery({
-    queryKey: ['expenses-summary'],
-    queryFn: () => api.get('/expenses/summary').then(r => r.data.data)
-  })
-
   // 攝影機目前對應的寵物（若有）
   const cameraPet = pets.find(p => p.species === 'cat') || pets[0]
 
@@ -76,7 +70,9 @@ export default function DashboardPage() {
       try {
         const camRes = await api.get('/camera-records/summary?cameraId=cam_1&minutes=10')
         if (camRes.data?.success) return camRes.data
-      } catch {}
+      } catch {
+        // 攝影機沒有資料時，改用寵物最近一筆辨識紀錄
+      }
       if (cameraPet?.id) {
         return api.get(`/mood-records/pet/${cameraPet.id}/summary?minutes=10`).then(r => r.data)
       }
@@ -84,25 +80,6 @@ export default function DashboardPage() {
     },
     refetchInterval: 60000
   })
-
-  // 通知（使用者全站與攝影機通知）
-  const { data: notifications = [] } = useQuery({
-    queryKey: ['dashboard-notifications'],
-    queryFn: () =>
-      api
-        .get('/notifications')
-        .then(r => r.data.notifications || []),
-    refetchInterval: 30000
-  })
-
-  const unreadCount = notifications.filter(
-    item => !(item.isRead ?? item.is_read)
-  ).length
-
-  const totalExpense = expSummary.reduce(
-    (sum, row) => sum + Number(row.total),
-    0
-  )
 
   const formatTime = value => {
     if (!value) return '--:--'
@@ -232,13 +209,25 @@ export default function DashboardPage() {
           iconBg="bg-green-50"
         />
 
-        <Link to="/expenses" className="block h-full">
+        <Link to="/diet" className="block h-full">
           <StatCard
-            label="本月支出"
-            value={`TWD ${totalExpense.toFixed(0)}`}
+            label="飲食管理"
+            value="查看"
             unit=""
-            sub="💰 點擊查看明細"
-            icon="💳"
+            sub="🍽️ 記錄每日餵食"
+            icon="🍽️"
+            iconBg="bg-green-50"
+            subColor="text-green-500"
+          />
+        </Link>
+
+        <Link to="/health-consult" className="block h-full">
+          <StatCard
+            label="健康諮詢"
+            value="查看"
+            unit=""
+            sub="💬 AI 健康問診"
+            icon="💬"
             iconBg="bg-blue-50"
             subColor="text-blue-500"
           />
@@ -255,28 +244,6 @@ export default function DashboardPage() {
             subColor="text-amber-500"
           />
         </Link>
-
-        <StatCard
-          label="提醒事項"
-          value={unreadCount}
-          unit="項"
-          sub={
-            unreadCount > 0
-              ? '🔔 有新的提醒'
-              : '目前沒有新提醒'
-          }
-          icon="🔔"
-          iconBg={
-            unreadCount > 0
-              ? 'bg-purple-50'
-              : 'bg-gray-50'
-          }
-          subColor={
-            unreadCount > 0
-              ? 'text-purple-500'
-              : 'text-gray-400'
-          }
-        />
 
       </div>
 

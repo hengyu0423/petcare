@@ -3,9 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
-import MealPlanSection from '../components/diet/MealPlanSection'
 import DietPreferencesModal from '../components/diet/DietPreferencesModal'
 import FoodCheckSteps from '../components/diet/FoodCheckSteps'
+import DietTodayTab from '../components/diet/DietTodayTab'
+import DietTrendTab from '../components/diet/DietTrendTab'
+import DietAdviceTab from '../components/diet/DietAdviceTab'
 
 const EMOJI = {
   dog: '🐶',
@@ -53,15 +55,6 @@ function calcNutrition(food, amountG) {
   }
 }
 
-function getRecommendedCalories(pet) {
-  if (!pet?.weight) return null
-
-  const w = Number(pet.weight)
-  const rer = 70 * Math.pow(w, 0.75)
-
-  return Math.round(rer * 1.4)
-}
-
 export default function DietPage() {
   const qc = useQueryClient()
   const fileInputRef = useRef(null)
@@ -81,6 +74,26 @@ export default function DietPage() {
     ).toISOString().slice(0, 16)
   }
 
+  // 把後端時間轉成 datetime-local 需要的格式
+  const toLocalInput = value => {
+    if (!value) return getLocalDateTime()
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return getLocalDateTime()
+    const offset = date.getTimezoneOffset()
+    return new Date(date.getTime() - offset * 60000)
+      .toISOString()
+      .slice(0, 16)
+  }
+
+  const inferMealType = value => {
+    const date = value ? new Date(value) : new Date()
+    const hour = date.getHours()
+    if (hour < 10) return 'breakfast'
+    if (hour < 15) return 'lunch'
+    if (hour < 21) return 'dinner'
+    return 'late'
+  }
+
   const today = getLocalDate()
 
   const [selectedPet, setSelectedPet] = useState(null)
@@ -89,12 +102,15 @@ export default function DietPage() {
   const [selectedDate, setSelectedDate] = useState(today)
 
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingRecord, setEditingRecord] = useState(null)
+  const [feedingKey, setFeedingKey] = useState('')
 
   const [form, setForm] = useState({
     foodItemId: '',
     foodName: '',
     amountG: '',
     fedAt: getLocalDateTime(),
+    mealType: 'breakfast',
     notes: ''
   })
 
@@ -112,6 +128,12 @@ export default function DietPage() {
   const [loadingAdvice, setLoadingAdvice] = useState(false)
   const [adviceError, setAdviceError] = useState('')
 
+  // AI 飲食建議的參考來源與追加提問（追問沿用同一份資料）
+  const [adviceSources, setAdviceSources] = useState([])
+  const [adviceQuestion, setAdviceQuestion] = useState('')
+  const [adviceFollowups, setAdviceFollowups] = useState([])
+  const [sendingQuestion, setSendingQuestion] = useState(false)
+
   // 智慧餵食推薦 / 飲食警訊
   const [smartDiet, setSmartDiet] = useState(null)
   const [smartLoading, setSmartLoading] = useState(false)
@@ -124,7 +146,7 @@ export default function DietPage() {
   // 飼主的飲食偏好視窗
   const [showPrefs, setShowPrefs] = useState(false)
 
-  // 頁面分頁：today｜alerts｜records｜advice
+  // 頁面分頁：today｜trends｜advice
   const [activeTab, setActiveTab] = useState('today')
 
   // 需要使用者按「仍要儲存」確認的警訊（維持原本的行為），
@@ -162,6 +184,36 @@ export default function DietPage() {
     queryFn: () =>
       api
         .get(`/feeding/pet/${selectedPet.id}/daily-stats`)
+        .then(r => r.data.data),
+    enabled: !!selectedPet
+  })
+
+  // 今日飲食計畫（含每日建議範圍）
+  const {
+    data: mealPlan,
+    isLoading: planLoading,
+    isError: planError,
+    refetch: refetchPlan
+  } = useQuery({
+    queryKey: ['meal-plan', selectedPet?.id],
+    queryFn: () =>
+      api
+        .get(`/food/meal-plan/${selectedPet.id}`)
+        .then(r => r.data.data),
+    enabled: !!selectedPet,
+    staleTime: 30_000
+  })
+
+  // 一週熱量趨勢（實際攝取＋每日建議範圍）
+  const {
+    data: trendData,
+    isLoading: trendLoading,
+    isError: trendError
+  } = useQuery({
+    queryKey: ['feeding-trends', selectedPet?.id],
+    queryFn: () =>
+      api
+        .get(`/feeding/pet/${selectedPet.id}/trends?days=7`)
         .then(r => r.data.data),
     enabled: !!selectedPet
   })
@@ -209,9 +261,6 @@ export default function DietPage() {
   // 注意期內的事件才算「提醒」；已過注意期的預設收合，不佔版面也不計入數字
   const activeHealthEvents = dietHealthEvents.filter(e => e.is_active)
   const pastHealthEvents = dietHealthEvents.filter(e => !e.is_active)
-  const visibleHealthEvents = showPastHealthEvents
-    ? [...activeHealthEvents, ...pastHealthEvents]
-    : activeHealthEvents
 
   const healthAlertCount =
     activeHealthEvents.length +
@@ -295,6 +344,43 @@ export default function DietPage() {
     return text.slice(0, 10)
   }
 
+  // 一筆餵食紀錄 → 送給後端分析的格式（附上食物資料庫的營養係數）
+  const mapRecordToMeal = record => {
+    const dbFood = foods.find(food =>
+      (record.food_item_id &&
+        String(food.id) === String(record.food_item_id)) ||
+      food.name === record.food_name
+    )
+
+    const meal = {
+      food_name: record.food_name,
+      amount_g: Number(record.amount_g || 0),
+      meal_type: record.meal_type || null,
+      fed_at: record.fed_at || record.created_at || null
+    }
+
+    if (dbFood) {
+      meal.calories_per_100g = dbFood.calories_per_100g
+      meal.protein_pct = dbFood.protein_pct
+      meal.fat_pct = dbFood.fat_pct
+      meal.carb_pct = dbFood.carb_pct
+      meal.fiber_pct = dbFood.fiber_pct
+    } else if (meal.amount_g > 0) {
+      // 找不到食物資料庫時，改用紀錄當下儲存的營養數值回推每 100g
+      const per100 = value =>
+        Number.isFinite(Number(value)) && Number(value) > 0
+          ? (Number(value) / meal.amount_g) * 100
+          : undefined
+
+      meal.calories_per_100g = per100(record.calories)
+      meal.protein_pct = per100(record.protein_g)
+      meal.fat_pct = per100(record.fat_g)
+      meal.carb_pct = per100(record.carb_g)
+    }
+
+    return meal
+  }
+
   // 抓最近 7 天餵食紀錄，最多送 10 筆給後端分析
   const loadRecentMeals = async () => {
     if (!selectedPet) return []
@@ -325,29 +411,7 @@ export default function DietPage() {
           new Date(a.fed_at || a.created_at || 0)
       )
       .slice(0, 10)
-      .map(record => {
-        const dbFood = foods.find(food =>
-          (record.food_item_id &&
-            String(food.id) === String(record.food_item_id)) ||
-          food.name === record.food_name
-        )
-
-        const meal = {
-          food_name: record.food_name,
-          amount_g: Number(record.amount_g || 0),
-          fed_at: record.fed_at || record.created_at || null
-        }
-
-        if (dbFood) {
-          meal.calories_per_100g = dbFood.calories_per_100g
-          meal.protein_pct = dbFood.protein_pct
-          meal.fat_pct = dbFood.fat_pct
-          meal.carb_pct = dbFood.carb_pct
-          meal.fiber_pct = dbFood.fiber_pct
-        }
-
-        return meal
-      })
+      .map(mapRecordToMeal)
   }
 
   const loadSmartRecommendation = async () => {
@@ -384,11 +448,48 @@ export default function DietPage() {
   }
 
   const openAddModal = () => {
+    setEditingRecord(null)
     resetAddForm()
     setShowAddModal(true)
 
     // Modal 開啟後立即依照過去飲食取得推薦
     loadSmartRecommendation()
+  }
+
+  // 編輯既有餵食紀錄：不會再新增一筆
+  const openEditModal = record => {
+    setEditingRecord(record)
+
+    const matchedFood = foods.find(
+      food =>
+        (record.food_item_id &&
+          String(food.id) === String(record.food_item_id)) ||
+        food.name === record.food_name
+    )
+
+    setSelectedFood(matchedFood || null)
+
+    setForm({
+      foodItemId: record.food_item_id ? String(record.food_item_id) : '',
+      foodName: record.food_name || '',
+      amountG: record.amount_g ? String(Number(record.amount_g)) : '',
+      fedAt: toLocalInput(record.fed_at),
+      mealType: record.meal_type || inferMealType(record.fed_at),
+      notes: record.notes || ''
+    })
+
+    setAiResult(null)
+    setAiError('')
+    setInputMode('manual')
+    setFoodImage(null)
+    setImagePreview('')
+    setFoodWarnings([])
+    setWarningAccepted(false)
+    setCheckedFoodKey('')
+    setSmartDiet(null)
+    setSmartError('')
+
+    setShowAddModal(true)
   }
 
   const checkFoodSafety = async food => {
@@ -450,9 +551,11 @@ export default function DietPage() {
       foodName: '',
       amountG: '',
       fedAt: getLocalDateTime(),
+      mealType: inferMealType(),
       notes: ''
     })
 
+    setEditingRecord(null)
     setSelectedFood(null)
 
     setInputMode('manual')
@@ -493,6 +596,7 @@ export default function DietPage() {
       foodName: food.name,
       amountG: option.amountG ? String(option.amountG) : '',
       fedAt: getLocalDateTime(),
+      mealType: meal.key,
       notes: `依飲食計畫（${meal.label}）`
     }))
 
@@ -502,16 +606,96 @@ export default function DietPage() {
     })
   }
 
+  // 依計畫餵食：沒有需要確認的警訊時，直接建立「一筆」餵食紀錄。
+  // 有阻擋型警訊或需要調整份量時，才開啟原本的確認視窗。
+  const feedFromPlan = async (meal, option) => {
+    if (!selectedPet || !option?.foodId) return
+
+    const food = foods.find(f => String(f.id) === String(option.foodId))
+
+    if (!food || !option.amountG) {
+      openPlanMeal(meal, option)
+      return
+    }
+
+    setFeedingKey(meal.key)
+
+    try {
+      const safety = await checkFoodSafety({
+        ...food,
+        food_name: food.name
+      })
+
+      if (!safety) return
+
+      const blocking = (safety.warnings || []).filter(
+        warning => warning.requireAck !== false
+      )
+
+      if (blocking.length > 0) {
+        await openPlanMeal(meal, option)
+        return
+      }
+
+      const nutrition = calcNutrition(food, option.amountG)
+
+      await addRecord.mutateAsync({
+        petId: selectedPet.id,
+        foodItemId: food.id,
+        foodName: food.name,
+        amountG: option.amountG,
+        calories: nutrition.calories ?? option.kcal ?? null,
+        proteinG: nutrition.proteinG,
+        fatG: nutrition.fatG,
+        carbG: nutrition.carbG,
+        fedAt: getLocalDateTime(),
+        mealType: meal.key,
+        notes: `依飲食計畫（${meal.label}）`
+      })
+    } catch (err) {
+      console.error('依計畫餵食失敗：', err)
+
+      const message =
+        err.response?.data?.error ||
+        err.message ||
+        '無法建立餵食紀錄'
+
+      setSmartError(message)
+      alert(message)
+    } finally {
+      setFeedingKey('')
+    }
+  }
+
+  const invalidateFeedingQueries = () => {
+    qc.invalidateQueries({ queryKey: ['feeding'] })
+    qc.invalidateQueries({ queryKey: ['feeding-stats'] })
+    qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
+    qc.invalidateQueries({ queryKey: ['feeding-trends'] })
+    qc.invalidateQueries({ queryKey: ['meal-plan'] })
+  }
+
   const addRecord = useMutation({
     mutationFn: payload => api.post('/feeding', payload),
 
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['feeding'] })
-      qc.invalidateQueries({ queryKey: ['feeding-stats'] })
-      qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
-      qc.invalidateQueries({ queryKey: ['meal-plan'] })
+      invalidateFeedingQueries()
 
       setShowAddModal(false)
+      setEditingRecord(null)
+
+      resetAddForm()
+    }
+  })
+
+  const updateRecord = useMutation({
+    mutationFn: ({ id, payload }) => api.put(`/feeding/${id}`, payload),
+
+    onSuccess: () => {
+      invalidateFeedingQueries()
+
+      setShowAddModal(false)
+      setEditingRecord(null)
 
       resetAddForm()
     }
@@ -521,10 +705,7 @@ export default function DietPage() {
     mutationFn: id => api.delete(`/feeding/${id}`),
 
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['feeding'] })
-      qc.invalidateQueries({ queryKey: ['feeding-stats'] })
-      qc.invalidateQueries({ queryKey: ['feeding-alerts'] })
-      qc.invalidateQueries({ queryKey: ['meal-plan'] })
+      invalidateFeedingQueries()
     }
   })
 
@@ -748,6 +929,30 @@ export default function DietPage() {
     try {
       let foodForSave = selectedFood
 
+      // 編輯紀錄時，若只改餐次、時間、份量或備註，
+      // 直接用紀錄當下儲存的營養數值回推，避免重新 AI 分析或清空營養。
+      const foodUnchanged = Boolean(
+        editingRecord &&
+          form.foodName.trim() ===
+            String(editingRecord.food_name || '').trim()
+      )
+
+      if (!foodForSave && foodUnchanged && amount > 0) {
+        const per100 = value =>
+          Number.isFinite(Number(value)) && Number(value) > 0
+            ? (Number(value) / amount) * 100
+            : null
+
+        foodForSave = {
+          name: editingRecord.food_name,
+          food_name: editingRecord.food_name,
+          calories_per_100g: per100(editingRecord.calories),
+          protein_pct: per100(editingRecord.protein_g),
+          fat_pct: per100(editingRecord.fat_g),
+          carb_pct: per100(editingRecord.carb_g)
+        }
+      }
+
       // 使用者只有輸入文字、還沒按 AI 時，儲存前也會自動分析
       if (!foodForSave) {
         setAiAnalyzing(true)
@@ -774,7 +979,7 @@ export default function DietPage() {
         .toLowerCase()
 
       // 食物內容改過、或還沒檢查時，儲存前一定再檢查一次
-      if (checkedFoodKey !== currentFoodKey) {
+      if (!foodUnchanged && checkedFoodKey !== currentFoodKey) {
         const safety = await checkFoodSafety({
           ...foodForSave,
           food_name:
@@ -798,7 +1003,7 @@ export default function DietPage() {
         amount
       )
 
-      addRecord.mutate({
+      const payload = {
         petId: selectedPet.id,
         foodItemId: form.foodItemId || null,
         foodName: form.foodName,
@@ -808,8 +1013,18 @@ export default function DietPage() {
         fatG: nutrition.fatG,
         carbG: nutrition.carbG,
         fedAt: form.fedAt,
+        mealType: form.mealType,
         notes: form.notes
-      })
+      }
+
+      if (editingRecord) {
+        updateRecord.mutate({
+          id: editingRecord.id,
+          payload
+        })
+      } else {
+        addRecord.mutate(payload)
+      }
     } catch (err) {
       console.error('新增餵食前分析失敗：', err)
 
@@ -850,12 +1065,22 @@ export default function DietPage() {
     return d === today ? '今日' : d
   }
 
-  const getAdvice = async () => {
+  // AI 飲食建議：question 有值時是「追加提問」，
+  // 後端會沿用同一份寵物資料、當日飲食與健康狀況回答
+  const runAdvice = async (question = '') => {
     if (!selectedPet) return
 
-    setLoadingAdvice(true)
-    setAdviceError('')
-    setDietAdvice('')
+    const isFollowup = Boolean(question)
+
+    if (isFollowup) {
+      setSendingQuestion(true)
+    } else {
+      setLoadingAdvice(true)
+      setAdviceError('')
+      setDietAdvice('')
+      setAdviceSources([])
+      setAdviceFollowups([])
+    }
 
     try {
       const recentMeals =
@@ -868,7 +1093,13 @@ export default function DietPage() {
         {
           pet: buildPetPayload(),
           healthSummary: buildHealthSummary(),
-          recentMeals
+          recentMeals,
+          // 頁面上顯示的那一天的飲食紀錄（含攝取量）
+          dayMeals: records.map(mapRecordToMeal),
+          dayLabel: formatDate(selectedDate),
+          nutritionTarget: selectedTarget,
+          dayStatus: selectedStatus,
+          question
         }
       )
 
@@ -878,15 +1109,20 @@ export default function DietPage() {
         )
       }
 
-      setDietAdvice(data.data.advice)
+      if (isFollowup) {
+        setAdviceFollowups(prev => [
+          ...prev,
+          {
+            question,
+            answer: data.data.advice,
+            sources: data.data.sources || []
+          }
+        ])
 
-      if (data.data.recommendation) {
-        setSmartDiet(prev => ({
-          ...(prev || {}),
-          history: data.data.history || prev?.history,
-          recommendation: data.data.recommendation,
-          recentMeals
-        }))
+        setAdviceQuestion('')
+      } else {
+        setDietAdvice(data.data.advice)
+        setAdviceSources(data.data.sources || [])
       }
     } catch (err) {
       console.error('取得飲食建議失敗：', err)
@@ -897,8 +1133,24 @@ export default function DietPage() {
           '無法取得建議，請稍後再試'
       )
     } finally {
-      setLoadingAdvice(false)
+      if (isFollowup) {
+        setSendingQuestion(false)
+      } else {
+        setLoadingAdvice(false)
+      }
     }
+  }
+
+  const getAdvice = () => runAdvice('')
+
+  const askAdvice = () => {
+    const question = adviceQuestion.trim()
+
+    if (!question || sendingQuestion || loadingAdvice) {
+      return
+    }
+
+    runAdvice(question)
   }
 
   const todayCalories = records.reduce(
@@ -907,27 +1159,68 @@ export default function DietPage() {
     0
   )
 
-  const todayProtein = records.reduce(
-    (s, r) =>
-      s + Number(r.protein_g || 0),
-    0
-  )
+  const hasDayData = records.length > 0
 
-  const todayFat = records.reduce(
-    (s, r) =>
-      s + Number(r.fat_g || 0),
-    0
-  )
+  const trendDays = trendData?.days || []
 
-  const recommended =
-    getRecommendedCalories(selectedPet)
+  const trendDay = trendDays.find(day => day.date === selectedDate)
 
-  const caloriePct = recommended
-    ? Math.min(
-        (todayCalories / recommended) * 100,
-        100
-      )
-    : 0
+  const planTarget =
+    mealPlan?.target?.kcal && Number(mealPlan.target.kcal) > 0
+      ? {
+          targetKcal: Number(mealPlan.target.kcal),
+          minKcal: mealPlan.target.minKcal,
+          maxKcal: mealPlan.target.maxKcal,
+          basis: mealPlan.target.basis || null,
+          formulaVersion: mealPlan.target.formulaVersion || null
+        }
+      : null
+
+  const trendTarget =
+    trendDay?.targetKcal && Number(trendDay.targetKcal) > 0
+      ? {
+          targetKcal: Number(trendDay.targetKcal),
+          minKcal: trendDay.minKcal,
+          maxKcal: trendDay.maxKcal,
+          basis: trendDay.basis || null,
+          formulaVersion: trendDay.formulaVersion || null
+        }
+      : null
+
+  const selectedTarget =
+    selectedDate === today
+      ? planTarget || trendTarget
+      : trendTarget
+
+  const selectedStatus = !hasDayData
+    ? 'no_data'
+    : !selectedTarget ||
+        !Number.isFinite(Number(selectedTarget.minKcal)) ||
+        !Number.isFinite(Number(selectedTarget.maxKcal))
+      ? 'no_target'
+      : todayCalories < Number(selectedTarget.minKcal)
+        ? 'under'
+        : todayCalories > Number(selectedTarget.maxKcal)
+          ? 'over'
+          : 'in_range'
+
+  const STATUS_LABEL = {
+    no_data: '這一天尚無餵食紀錄',
+    no_target: '資料不足，無法估算建議範圍',
+    under: '低於建議範圍',
+    in_range: '在建議範圍內',
+    over: '超出建議範圍'
+  }
+
+  const selectedStatusLabel = STATUS_LABEL[selectedStatus] || ''
+
+  const MEAL_LABEL = {
+    breakfast: '早餐',
+    lunch: '午餐',
+    dinner: '晚餐',
+    late: '宵夜',
+    snack: '點心'
+  }
 
   const previewNutrition =
     selectedFood && form.amountG
@@ -936,98 +1229,6 @@ export default function DietPage() {
           Number(form.amountG)
         )
       : null
-
-  const suggestedFood = (() => {
-    const recommendationType =
-      smartDiet?.recommendation?.type
-
-    if (
-      !recommendationType ||
-      recommendationType === 'no_data' ||
-      foods.length === 0
-    ) {
-      return null
-    }
-
-    const species = String(
-      selectedPet?.species || ''
-    ).toLowerCase()
-
-    const candidates = foods.filter(food => {
-      const name = String(food.name || '')
-
-      if (
-        species === 'dog' ||
-        species.includes('狗') ||
-        species.includes('犬')
-      ) {
-        return !name.includes('貓')
-      }
-
-      if (
-        species === 'cat' ||
-        species.includes('貓')
-      ) {
-        return !name.includes('犬') && !name.includes('狗')
-      }
-
-      return true
-    })
-
-    const mainFoods = candidates.filter(
-      food => food.category !== 'snack'
-    )
-
-    const pool =
-      mainFoods.length > 0
-        ? mainFoods
-        : candidates
-
-    if (pool.length === 0) return null
-
-    if (
-      recommendationType === 'high_fat' ||
-      recommendationType === 'high_fat_low_fiber'
-    ) {
-      return [...pool].sort((a, b) => {
-        const fatDiff =
-          Number(a.fat_pct || 999) -
-          Number(b.fat_pct || 999)
-
-        if (fatDiff !== 0) return fatDiff
-
-        return (
-          Number(b.fiber_pct || 0) -
-          Number(a.fiber_pct || 0)
-        )
-      })[0]
-    }
-
-    if (recommendationType === 'low_fiber') {
-      return [...pool].sort((a, b) => {
-        const fiberDiff =
-          Number(b.fiber_pct || 0) -
-          Number(a.fiber_pct || 0)
-
-        if (fiberDiff !== 0) return fiberDiff
-
-        return (
-          Number(a.fat_pct || 999) -
-          Number(b.fat_pct || 999)
-        )
-      })[0]
-    }
-
-    if (recommendationType === 'high_calories') {
-      return [...pool].sort(
-        (a, b) =>
-          Number(a.calories_per_100g || 9999) -
-          Number(b.calories_per_100g || 9999)
-      )[0]
-    }
-
-    return null
-  })()
 
   const inputCls =
     'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all'
@@ -1053,6 +1254,9 @@ export default function DietPage() {
                 setSelectedPet(pet)
                 setDietAdvice('')
                 setAdviceError('')
+                setAdviceSources([])
+                setAdviceFollowups([])
+                setAdviceQuestion('')
                 setPetOpen(false)
               }}
               className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
@@ -1199,18 +1403,17 @@ export default function DietPage() {
             </div>
 
 
-            {/* 分頁：今日建議／健康提醒／餵食紀錄／AI 建議 */}
-            <div className="flex items-center gap-1.5 border-b border-gray-100 mb-6 overflow-x-auto overflow-y-hidden">
+            {/* 分頁：今天／趨勢／AI 建議 */}
+            <div className="flex items-center gap-1 border-b border-gray-100 mb-5 overflow-x-auto overflow-y-hidden">
 
               {[
-                { key: 'today', label: '🍽️ 今日建議' },
                 {
-                  key: 'alerts',
-                  label: '⚠️ 健康提醒',
+                  key: 'today',
+                  label: '今天',
                   count: healthAlertCount
                 },
-                { key: 'records', label: '📋 餵食紀錄' },
-                { key: 'advice', label: '🤖 AI 建議' }
+                { key: 'trends', label: '趨勢' },
+                { key: 'advice', label: 'AI 建議' }
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -1235,736 +1438,68 @@ export default function DietPage() {
             </div>
 
             {activeTab === 'today' && (
-              <>
-            {/* 今天要餵什麼：A. 依照飲食計畫／B. 自己選擇 */}
-            <MealPlanSection
-              key={selectedPet.id}
-              pet={selectedPet}
-              onUseMeal={openPlanMeal}
-              onOpenManual={openAddModal}
-              onEditPreferences={() => setShowPrefs(true)}
-            />
-
-              </>
+              <DietTodayTab
+                dateLabel={formatDate(selectedDate)}
+                selectedDate={selectedDate}
+                today={today}
+                plan={mealPlan}
+                planLoading={planLoading}
+                planError={planError}
+                refetchPlan={refetchPlan}
+                target={selectedTarget}
+                actualKcal={todayCalories}
+                hasData={hasDayData}
+                status={selectedStatus}
+                records={records}
+                activeHealthEvents={activeHealthEvents}
+                pastHealthEvents={pastHealthEvents}
+                showPastHealthEvents={showPastHealthEvents}
+                onTogglePastHealthEvents={() =>
+                  setShowPastHealthEvents(value => !value)
+                }
+                dietAlerts={dietAlerts}
+                onFeedMeal={feedFromPlan}
+                onAdjustMeal={openPlanMeal}
+                onOpenManual={openAddModal}
+                onEditPreferences={() => setShowPrefs(true)}
+                feedingKey={feedingKey}
+                onOpenAdd={openAddModal}
+                onEditRecord={openEditModal}
+                onDeleteRecord={id => deleteRecord.mutate(id)}
+              />
             )}
 
-            {activeTab === 'alerts' && (
-              <>
-            {/* 近期健康事件與飲食注意 */}
-            {dietHealthEvents.length > 0 && (
-              <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6">
-
-                <div className="flex items-center justify-between mb-3">
-
-                  <h2 className="text-sm font-bold text-gray-800">
-                    🩺 近期健康事件與飲食注意
-                  </h2>
-
-                  <Link
-                    to="/health-consult"
-                    className="text-xs text-green-500 hover:underline font-medium"
-                  >
-                    前往健康諮詢 →
-                  </Link>
-
-                </div>
-
-                <div className="space-y-3">
-
-                  {visibleHealthEvents.map(event => {
-                    const info = event.diet_info || {}
-                    const severity =
-                      HEALTH_SEVERITY[event.severity]
-
-                    return (
-                      <div
-                        key={event.id}
-                        className={`rounded-lg border p-3 ${
-                          event.is_active
-                            ? 'border-amber-200 bg-amber-50/50'
-                            : 'border-gray-100 bg-gray-50 opacity-70'
-                        }`}
-                      >
-
-                        <div className="flex items-center flex-wrap gap-2">
-
-                          <span className="text-sm font-semibold text-gray-800">
-                            {event.title}
-                          </span>
-
-                          {severity && (
-                            <span
-                              className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${severity.className}`}
-                            >
-                              {severity.label}
-                            </span>
-                          )}
-
-                          <span className="text-xs text-gray-400">
-                            {event.date_str}
-                          </span>
-
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              event.is_active
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-gray-100 text-gray-400'
-                            }`}
-                          >
-                            {event.is_active
-                              ? `注意至 ${event.diet_until_str}`
-                              : '已過注意期'}
-                          </span>
-
-                        </div>
-
-                        {event.description && (
-                          <p className="text-xs text-gray-500 mt-1.5">
-                            {event.description}
-                          </p>
-                        )}
-
-                        {info.dietNotes && (
-                          <p className="text-sm text-gray-700 mt-1.5">
-                            🍽️ {info.dietNotes}
-                          </p>
-                        )}
-
-                        {info.avoidFoods?.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-
-                            <span className="text-xs text-gray-400">
-                              應避免：
-                            </span>
-
-                            {info.avoidFoods.map(food => (
-                              <span
-                                key={food}
-                                className="text-xs bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full"
-                              >
-                                {food}
-                              </span>
-                            ))}
-
-                          </div>
-                        )}
-
-                        {info.dietAdvice?.length > 0 && (
-                          <ul className="mt-2 space-y-0.5">
-                            {info.dietAdvice.map(item => (
-                              <li
-                                key={item}
-                                className="text-xs text-gray-500"
-                              >
-                                • {item}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-
-                      </div>
-                    )
-                  })}
-
-                </div>
-
-                {activeHealthEvents.length === 0 && (
-                  <p className="text-sm text-gray-400">
-                    目前沒有注意期內的健康事件 👍
-                  </p>
-                )}
-
-                {pastHealthEvents.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPastHealthEvents(v => !v)}
-                    className="text-xs text-gray-400 hover:text-gray-600 mt-3"
-                  >
-                    {showPastHealthEvents
-                      ? '收合已過注意期的紀錄 ▲'
-                      : `已過注意期（${pastHealthEvents.length} 筆）▼`}
-                  </button>
-                )}
-
-                <p className="text-xs text-gray-400 mt-3">
-                  AI 記錄僅供參考，不能取代獸醫診斷。
-                  智慧飲食推薦與食物檢查會自動參考這些資訊。
-                </p>
-
-              </div>
-            )}
-
-            {/* 飲食異常警訊 */}
-            {dietAlerts?.alerts?.length > 0 && (
-              <div className="bg-white border border-amber-200 rounded-xl p-4 mb-6">
-
-                <div className="flex items-center justify-between mb-3">
-
-                  <h2 className="text-sm font-bold text-gray-800">
-                    ⚠️ 飲食提醒
-                  </h2>
-
-                  {dietAlerts.basis?.enough && (
-                    <span className="text-xs text-gray-400">
-                      依近 {dietAlerts.basis.windowDays} 天{' '}
-                      {dietAlerts.basis.records} 筆紀錄分析
-                    </span>
-                  )}
-
-                </div>
-
-                <div className="space-y-2.5">
-
-                  {dietAlerts.alerts.map(alert => (
-                    <div
-                      key={alert.id}
-                      className={`rounded-lg border p-3 ${
-                        alert.level === 'warning'
-                          ? 'border-amber-200 bg-amber-50/50'
-                          : 'border-gray-100 bg-gray-50'
-                      }`}
-                    >
-
-                      <p className="text-sm font-semibold text-gray-800">
-                        {alert.level === 'warning' ? '⚠️' : '💡'}{' '}
-                        {alert.title}
-                      </p>
-
-                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                        {alert.message}
-                      </p>
-
-                      {alert.suggestion && (
-                        <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
-                          建議：{alert.suggestion}
-                        </p>
-                      )}
-
-                    </div>
-                  ))}
-
-                </div>
-
-                {dietAlerts.basis?.skipped?.length > 0 && (
-                  <p className="text-xs text-gray-400 mt-3">
-                    {dietAlerts.basis.skipped.join('；')}
-                  </p>
-                )}
-
-                <p className="text-xs text-gray-400 mt-3">
-                  以上是依飲食紀錄推算的提醒與建議，不代表寵物一定有健康問題；
-                  如有疑慮請諮詢獸醫。
-                </p>
-
-              </div>
-            )}
-
-              </>
-            )}
-
-            {activeTab === 'records' && (
-              <>
-            {/* 統計卡片 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-
-                <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">
-                  {formatDate(selectedDate)} 熱量
-                </p>
-
-                <p className="text-2xl font-bold text-gray-800 mt-1">
-                  {todayCalories.toFixed(0)}
-                  <span className="text-sm font-normal text-gray-400">
-                    {' '}kcal
-                  </span>
-                </p>
-
-                {recommended && (
-                  <div className="mt-2">
-
-                    <div className="flex justify-between text-xs text-gray-400 mb-1">
-
-                      <span>
-                        建議 {recommended} kcal
-                      </span>
-
-                      <span>
-                        {caloriePct.toFixed(0)}%
-                      </span>
-
-                    </div>
-
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${caloriePct}%`,
-                          backgroundColor:
-                            caloriePct > 100
-                              ? '#ef4444'
-                              : caloriePct > 80
-                              ? '#f97316'
-                              : '#22c55e'
-                        }}
-                      />
-
-                    </div>
-
-                  </div>
-                )}
-
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-
-                <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">
-                  蛋白質
-                </p>
-
-                <p className="text-2xl font-bold text-blue-500 mt-1">
-                  {todayProtein.toFixed(1)}
-                  <span className="text-sm font-normal text-gray-400">
-                    {' '}g
-                  </span>
-                </p>
-
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-
-                <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">
-                  脂肪
-                </p>
-
-                <p className="text-2xl font-bold text-amber-500 mt-1">
-                  {todayFat.toFixed(1)}
-                  <span className="text-sm font-normal text-gray-400">
-                    {' '}g
-                  </span>
-                </p>
-
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-
-                <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold">
-                  餵食次數
-                </p>
-
-                <p className="text-2xl font-bold text-green-500 mt-1">
-                  {records.length}
-                  <span className="text-sm font-normal text-gray-400">
-                    {' '}次
-                  </span>
-                </p>
-
-              </div>
-
-            </div>
-
-            {/* 餵食紀錄 */}
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-
-              <div className="px-5 py-4 border-b border-gray-100">
-
-                <h2 className="text-sm font-bold text-gray-800">
-                  {formatDate(selectedDate)} 餵食紀錄
-                </h2>
-
-              </div>
-
-              {records.length === 0 ? (
-                <div className="py-16 text-center">
-
-                  <p className="text-4xl mb-3">
-                    🍽️
-                  </p>
-
-                  <p className="text-gray-400 text-sm mb-4">
-                    這天還沒有餵食紀錄
-                  </p>
-
-                  {selectedDate === today && (
-                    <button
-                      onClick={openAddModal}
-                      className="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
-                    >
-                      新增第一筆
-                    </button>
-                  )}
-
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-50">
-
-                  {records.map(record => (
-                    <div
-                      key={record.id}
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors"
-                    >
-
-                      <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-xl shrink-0">
-                        {record.food_name?.includes('乾')
-                          ? '🥣'
-                          : record.food_name?.includes('罐') ||
-                            record.food_name?.includes('濕')
-                          ? '🥫'
-                          : '🍖'}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-
-                        <p className="text-sm font-semibold text-gray-800">
-                          {record.food_name}
-                        </p>
-
-                        <p className="text-xs text-gray-400 mt-0.5">
-
-                          {record.amount_g}g
-
-                          {record.calories
-                            ? ` · ${Number(record.calories).toFixed(0)} kcal`
-                            : ''}
-
-                          {record.protein_g
-                            ? ` · 蛋白質 ${Number(record.protein_g).toFixed(1)}g`
-                            : ''}
-
-                          {' · '}
-
-                          {new Date(
-                            record.fed_at
-                          ).toLocaleTimeString(
-                            'zh-TW',
-                            {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }
-                          )}
-
-                        </p>
-
-                        {record.notes && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            注：{record.notes}
-                          </p>
-                        )}
-
-                      </div>
-
-                      {record.calories && (
-                        <p className="text-sm font-bold text-gray-700 shrink-0">
-                          {Number(record.calories).toFixed(0)} kcal
-                        </p>
-                      )}
-
-                      <button
-                        onClick={() => {
-                          if (confirm('確定刪除？')) {
-                            deleteRecord.mutate(
-                              record.id
-                            )
-                          }
-                        }}
-                        className="text-gray-300 hover:text-red-400 transition-colors shrink-0"
-                      >
-                        🗑️
-                      </button>
-
-                    </div>
-                  ))}
-
-                </div>
-              )}
-
-            </div>
-
-            {/* 近期熱量趨勢 */}
-            {dailyStats.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-xl p-5 mt-4">
-
-                <h2 className="text-sm font-bold text-gray-800 mb-4">
-                  近期熱量趨勢
-                </h2>
-
-                <div
-                  style={{
-                    height: '140px',
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    gap: '8px'
-                  }}
-                >
-
-                  {dailyStats
-                    .slice(0, 7)
-                    .reverse()
-                    .map((stat, i) => {
-
-                      const max = Math.max(
-                        ...dailyStats
-                          .slice(0, 7)
-                          .map(s =>
-                            Number(
-                              s.total_calories || 0
-                            )
-                          )
-                      )
-
-                      const cal = Number(
-                        stat.total_calories || 0
-                      )
-
-                      const barHeight =
-                        max > 0
-                          ? Math.max(
-                              (cal / max) * 100,
-                              10
-                            )
-                          : 10
-
-                      const dateStr = (() => {
-                        const value = String(
-                          stat.date
-                        )
-
-                        if (
-                          value.includes('T') &&
-                          value.endsWith('Z')
-                        ) {
-                          const d =
-                            new Date(value)
-
-                          return (
-                            `${d.getFullYear()}-` +
-                            `${String(
-                              d.getMonth() + 1
-                            ).padStart(2, '0')}-` +
-                            `${String(
-                              d.getDate()
-                            ).padStart(2, '0')}`
-                          )
-                        }
-
-                        return value.slice(0, 10)
-                      })()
-
-                      const isSelected =
-                        dateStr === selectedDate
-
-                      return (
-                        <div
-                          key={i}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() =>
-                            setSelectedDate(
-                              dateStr
-                            )
-                          }
-                        >
-
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              color: '#9ca3af',
-                              height: '16px',
-                              lineHeight: '16px'
-                            }}
-                          >
-                            {cal > 0
-                              ? cal.toFixed(0)
-                              : ''}
-                          </span>
-
-                          <div
-                            style={{
-                              width: '100%',
-                              height: `${barHeight}px`,
-                              maxHeight: '100px',
-                              backgroundColor:
-                                isSelected
-                                  ? '#1D9E75'
-                                  : '#9FE1CB',
-                              borderRadius:
-                                '4px 4px 0 0',
-                              minHeight: '8px',
-                              transition:
-                                'background-color 0.2s'
-                            }}
-                          />
-
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              color: isSelected
-                                ? '#1D9E75'
-                                : '#9ca3af',
-                              fontWeight:
-                                isSelected
-                                  ? '600'
-                                  : '400'
-                            }}
-                          >
-                            {dateStr.slice(5)}
-                          </span>
-
-                        </div>
-                      )
-                    })}
-
-                </div>
-
-                {recommended && (
-                  <p className="text-xs text-gray-400 mt-3 text-center">
-                    建議每日熱量：
-                    {recommended} kcal
-                    （根據體重 {selectedPet.weight} kg 估算）
-                  </p>
-                )}
-
-              </div>
-            )}
-
-              </>
+            {activeTab === 'trends' && (
+              <DietTrendTab
+                days={trendDays}
+                isLoading={trendLoading}
+                isError={trendError}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                rangeRule={trendData?.rangeRule}
+              />
             )}
 
             {activeTab === 'advice' && (
-              <>
-            {/* AI 飲食建議 */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 mt-4">
-
-              <div className="flex items-center justify-between mb-3">
-
-                <div className="flex items-center gap-2">
-
-                  <span className="text-lg">
-                    🤖
-                  </span>
-
-                  <h2 className="text-sm font-bold text-gray-800">
-                    AI 個人化飲食建議
-                  </h2>
-
-                  <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">
-                    Powered by Groq
-                  </span>
-
-                </div>
-
-                <button
-                  onClick={getAdvice}
-                  disabled={loadingAdvice}
-                  className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                >
-                  {loadingAdvice
-                    ? '分析中...'
-                    : '✨ 取得建議'}
-                </button>
-
-              </div>
-
-              {!dietAdvice &&
-                !loadingAdvice &&
-                !adviceError && (
-                  <div className="bg-gray-50 rounded-xl p-4 text-center">
-
-                    <p className="text-xs text-gray-400">
-                      點擊「取得建議」，AI 將根據{' '}
-                      <span className="text-green-600 font-medium">
-                        {selectedPet?.name}
-                      </span>{' '}
-                      的健康紀錄與近期飲食，提供個人化飲食建議
-                    </p>
-
-                    {consultations.length > 0 && (
-                      <p className="text-xs text-green-500 mt-1">
-                        已找到 {consultations.length} 筆健康諮詢紀錄
-                      </p>
-                    )}
-
-                  </div>
-                )}
-
-              {loadingAdvice && (
-                <div className="bg-gray-50 rounded-xl p-6 text-center">
-
-                  <div className="flex gap-1.5 justify-center mb-2">
-
-                    {[0, 1, 2].map(i => (
-                      <div
-                        key={i}
-                        className="w-2 h-2 bg-green-400 rounded-full animate-bounce"
-                        style={{
-                          animationDelay: `${i * 0.15}s`
-                        }}
-                      />
-                    ))}
-
-                  </div>
-
-                  <p className="text-xs text-gray-400">
-                    AI 正在分析健康與近期飲食紀錄...
-                  </p>
-
-                </div>
-              )}
-
-              {adviceError && (
-                <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-                  <p className="text-xs text-red-500">
-                    {adviceError}
-                  </p>
-                </div>
-              )}
-
-              {dietAdvice && (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-
-                  <div
-                    className="text-sm text-gray-700 leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: dietAdvice
-                        .replace(
-                          /\*\*(.*?)\*\*/g,
-                          '<strong>$1</strong>'
-                        )
-                        .replace(
-                          /\n/g,
-                          '<br/>'
-                        )
-                    }}
-                  />
-
-                  <div className="mt-3 pt-3 border-t border-green-200 flex items-center justify-between">
-
-                    <p className="text-xs text-gray-400">
-                      ⚠️ 此建議僅供參考，請諮詢專業獸醫
-                    </p>
-
-                    <button
-                      onClick={getAdvice}
-                      className="text-xs text-green-500 hover:underline font-medium"
-                    >
-                      重新分析
-                    </button>
-
-                  </div>
-
-                </div>
-              )}
-
-            </div>
-
-              </>
+              <DietAdviceTab
+                pet={selectedPet}
+                dateLabel={formatDate(selectedDate)}
+                target={selectedTarget}
+                actualKcal={todayCalories}
+                hasData={hasDayData}
+                statusLabel={selectedStatusLabel}
+                dietAdvice={dietAdvice}
+                loadingAdvice={loadingAdvice}
+                adviceError={adviceError}
+                adviceSources={adviceSources}
+                adviceQuestion={adviceQuestion}
+                setAdviceQuestion={setAdviceQuestion}
+                adviceFollowups={adviceFollowups}
+                sendingQuestion={sendingQuestion}
+                onAnalyze={getAdvice}
+                onAsk={askAdvice}
+                consultationsCount={consultations.length}
+              />
             )}
 
           </div>
@@ -1993,11 +1528,13 @@ export default function DietPage() {
 
                 <div>
                   <h2 className="text-base font-bold text-gray-800">
-                    新增餵食紀錄
+                    {editingRecord ? '編輯餵食紀錄' : '新增餵食紀錄'}
                   </h2>
 
                   <p className="text-xs text-gray-400 mt-1">
-                    可以使用圖片辨識或手動輸入
+                    {editingRecord
+                      ? '修改後會更新同一筆紀錄，不會重複新增'
+                      : '可以使用圖片辨識或手動輸入'}
                   </p>
                 </div>
 
@@ -2021,7 +1558,7 @@ export default function DietPage() {
                       ✨ 正在分析最近飲食...
                     </p>
                     <p className="text-xs text-green-500 mt-1">
-                      系統會參考近期餵食、營養與健康紀錄
+                      系統會參考近期餵食、熱量與健康紀錄
                     </p>
                   </div>
                 )}
@@ -2059,40 +1596,11 @@ export default function DietPage() {
                         </p>
 
                         {smartDiet.history?.hasData && (
-                          <div className="flex flex-wrap gap-1.5 mt-3">
-                            <span className={`text-[11px] px-2 py-1 rounded-full ${
-                              smartDiet.history.fatStatus === '正常'
-                                ? 'bg-white text-green-600'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              脂肪：{smartDiet.history.fatStatus}
-                            </span>
-
-                            <span className={`text-[11px] px-2 py-1 rounded-full ${
-                              smartDiet.history.fiberStatus === '正常'
-                                ? 'bg-white text-green-600'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              纖維：{smartDiet.history.fiberStatus}
-                            </span>
-
-                            <span className="text-[11px] px-2 py-1 rounded-full bg-white text-gray-500">
-                              已分析 {smartDiet.history.mealCount} 筆
-                            </span>
-                          </div>
+                          <p className="text-[11px] text-gray-400 mt-3">
+                            已分析 {smartDiet.history.mealCount} 筆近期餵食紀錄
+                          </p>
                         )}
 
-                        {suggestedFood && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleFoodSelect(String(suggestedFood.id))
-                            }
-                            className="mt-3 w-full bg-green-500 hover:bg-green-600 text-white rounded-lg py-2 text-xs font-semibold transition-colors"
-                          >
-                            ✓ 採用推薦：{suggestedFood.name}
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -2493,74 +2001,6 @@ export default function DietPage() {
 
                     </div>
 
-                    {selectedFood && (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-
-                        <p className="text-xs font-semibold text-green-700 mb-2">
-                          {selectedFood.notes
-                            ? '🤖 AI 估算結果'
-                            : '📋 資料庫資料'}
-                        </p>
-
-                        <div className="grid grid-cols-4 gap-2 text-center">
-
-                          {[
-                            [
-                              '熱量',
-                              selectedFood.calories_per_100g,
-                              'kcal/100g'
-                            ],
-                            [
-                              '蛋白質',
-                              selectedFood.protein_pct,
-                              '%'
-                            ],
-                            [
-                              '脂肪',
-                              selectedFood.fat_pct,
-                              '%'
-                            ],
-                            [
-                              '碳水',
-                              selectedFood.carb_pct,
-                              '%'
-                            ]
-                          ].map(
-                            ([label, val, unit]) => (
-                              <div
-                                key={label}
-                                className="bg-white rounded-lg p-2"
-                              >
-
-                                <p className="text-xs text-gray-400">
-                                  {label}
-                                </p>
-
-                                <p className="text-sm font-bold text-gray-700">
-                                  {val
-                                    ? `${val}`
-                                    : '—'}
-                                </p>
-
-                                <p className="text-xs text-gray-400">
-                                  {unit}
-                                </p>
-
-                              </div>
-                            )
-                          )}
-
-                        </div>
-
-                        {selectedFood.notes && (
-                          <p className="text-xs text-green-600 mt-2">
-                            注：{selectedFood.notes}
-                          </p>
-                        )}
-
-                      </div>
-                    )}
-
                   </>
                 )}
 
@@ -2740,16 +2180,46 @@ export default function DietPage() {
 
                 </div>
 
+                {/* 餐次 */}
+                <div>
+
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                    餐次
+                  </label>
+
+                  <select
+                    value={form.mealType}
+                    onChange={e =>
+                      setForm(f => ({
+                        ...f,
+                        mealType: e.target.value
+                      }))
+                    }
+                    className={inputCls}
+                  >
+                    {Object.entries(MEAL_LABEL).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+
+                    {form.mealType && !MEAL_LABEL[form.mealType] && (
+                      <option value={form.mealType}>自訂餐次</option>
+                    )}
+                  </select>
+
+                </div>
+
                 {/* 營養結果 */}
                 {previewNutrition?.calories != null && (
                   <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
 
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1.5">
 
                       <p className="text-xs text-gray-500">
                         {aiResult
-                          ? '🤖 AI 估算這餐營養'
-                          : '📋 這餐營養'}
+                          ? '🤖 AI 估算這餐熱量'
+                          : '📋 這餐熱量'}
                       </p>
 
                       {aiResult && (
@@ -2760,57 +2230,9 @@ export default function DietPage() {
 
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
-
-                      <div className="text-center">
-                        <p className="text-xs text-gray-400">
-                          熱量
-                        </p>
-                        <p className="text-sm font-bold text-green-600">
-                          {previewNutrition.calories}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          kcal
-                        </p>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-xs text-gray-400">
-                          蛋白質
-                        </p>
-                        <p className="text-sm font-bold text-blue-500">
-                          {previewNutrition.proteinG ?? '—'}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          g
-                        </p>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-xs text-gray-400">
-                          脂肪
-                        </p>
-                        <p className="text-sm font-bold text-amber-500">
-                          {previewNutrition.fatG ?? '—'}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          g
-                        </p>
-                      </div>
-
-                      <div className="text-center">
-                        <p className="text-xs text-gray-400">
-                          碳水
-                        </p>
-                        <p className="text-sm font-bold text-purple-500">
-                          {previewNutrition.carbG ?? '—'}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          g
-                        </p>
-                      </div>
-
-                    </div>
+                    <p className="text-xl font-bold text-green-600">
+                      約 {previewNutrition.calories} kcal
+                    </p>
 
                   </div>
                 )}
@@ -2854,6 +2276,7 @@ export default function DietPage() {
                     type="submit"
                     disabled={
                       addRecord.isPending ||
+                      updateRecord.isPending ||
                       aiAnalyzing ||
                       checkingFood ||
                       !form.foodName ||
@@ -2862,12 +2285,16 @@ export default function DietPage() {
                     }
                     className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
                   >
-                    {addRecord.isPending
-                      ? '新增中...'
+                    {addRecord.isPending || updateRecord.isPending
+                      ? editingRecord
+                        ? '儲存中...'
+                        : '新增中...'
                       : checkingFood
                       ? '檢查中...'
                       : warningAccepted
                       ? '⚠️ 確認儲存'
+                      : editingRecord
+                      ? '儲存修改'
                       : '新增餵食紀錄'}
                   </button>
 

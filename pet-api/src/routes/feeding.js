@@ -5,9 +5,15 @@ const multer = require('multer')
 const { GoogleGenerativeAI } = require('@google/generative-ai')
 const { ownsPet, getDietAlerts } = require('../services/dietInsights')
 const { sanitizePreferences } = require('../services/mealPlan')
+const {
+  getTargetsForDates,
+  rangeStatus
+} = require('../services/nutritionTargets')
 const { createNotification } = require('../services/notifications')
 
 router.use(requireAuth)
+
+const DIET_TZ = process.env.APP_TIMEZONE || 'Asia/Taipei'
 
 // 圖片上傳設定
 const upload = multer({
@@ -87,6 +93,110 @@ router.get('/pet/:petId/daily-stats', async (req, res) => {
       success: false,
       error: '伺服器錯誤'
     })
+  }
+})
+
+// ================================
+// 一週熱量趨勢
+// GET /feeding/pet/:petId/trends?days=7
+//
+// 回傳每一天的實際攝取與「當天」的建議範圍。
+// 沒有紀錄的日子 hasData=false、actualKcal=null，
+// 不會被當成攝取 0 kcal。
+// ================================
+router.get('/pet/:petId/trends', async (req, res) => {
+  try {
+    if (!(await ownsPet(req.params.petId, req.userId))) {
+      return res.status(404).json({ success: false, error: '找不到寵物' })
+    }
+
+    const days = Math.min(
+      Math.max(Number(req.query.days) || 7, 3),
+      30
+    )
+
+    const clock = await pool.query(
+      `SELECT to_char((NOW() AT TIME ZONE $1::text)::date, 'YYYY-MM-DD') AS today`,
+      [DIET_TZ]
+    )
+
+    const today = clock.rows[0].today
+
+    const datesResult = await pool.query(
+      `
+      SELECT to_char(d, 'YYYY-MM-DD') AS date
+      FROM generate_series(
+        $1::date - ($2::int - 1),
+        $1::date,
+        interval '1 day'
+      ) AS d
+      ORDER BY d ASC
+      `,
+      [today, days]
+    )
+
+    const dates = datesResult.rows.map(row => row.date)
+    const startDate = dates[0]
+
+    const actualResult = await pool.query(
+      `
+      SELECT
+        to_char(DATE(fed_at), 'YYYY-MM-DD') AS date,
+        SUM(calories)::float AS actual_kcal,
+        COUNT(*)::int AS meal_count
+      FROM feeding_records
+      WHERE pet_id = $1
+        AND DATE(fed_at) >= $2::date
+        AND DATE(fed_at) <= $3::date
+      GROUP BY DATE(fed_at)
+      `,
+      [req.params.petId, startDate, today]
+    )
+
+    const actualByDate = {}
+    for (const row of actualResult.rows) {
+      actualByDate[row.date] = row
+    }
+
+    const targets = await getTargetsForDates(
+      req.params.petId,
+      dates,
+      { updateDate: today }
+    )
+
+    const trendDays = dates.map(date => {
+      const actual = actualByDate[date]
+      const hasData = Boolean(actual && Number(actual.meal_count) > 0)
+      const target = targets[date] || null
+      const actualKcal = hasData
+        ? Math.round(Number(actual.actual_kcal || 0))
+        : null
+
+      return {
+        date,
+        hasData,
+        actualKcal,
+        mealCount: hasData ? Number(actual.meal_count) : 0,
+        targetKcal: target?.targetKcal ?? null,
+        minKcal: target?.minKcal ?? null,
+        maxKcal: target?.maxKcal ?? null,
+        formulaVersion: target?.formulaVersion || null,
+        basis: target?.basis || null,
+        status: rangeStatus(actualKcal, target)
+      }
+    })
+
+    res.json({
+      success: true,
+      data: {
+        days: trendDays,
+        rangeRule: '建議範圍為每日估算需求（DER）的 -20%～+10%',
+        timezone: DIET_TZ
+      }
+    })
+  } catch (err) {
+    console.error('取得熱量趨勢失敗：', err)
+    res.status(500).json({ success: false, error: '伺服器錯誤' })
   }
 })
 
@@ -264,6 +374,7 @@ router.post('/', async (req, res) => {
     fatG,
     carbG,
     fedAt,
+    mealType,
     notes
   } = req.body
 
@@ -272,22 +383,31 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ success: false, error: '找不到寵物' })
     }
 
+    if (!String(foodName || '').trim()) {
+      return res.status(400).json({ success: false, error: '請輸入食物名稱' })
+    }
+
+    if (!(Number(amountG) > 0)) {
+      return res.status(400).json({ success: false, error: '請輸入有效的份量' })
+    }
+
     const result = await pool.query(
       `INSERT INTO feeding_records
        (pet_id, food_item_id, food_name, amount_g, calories,
-        protein_g, fat_g, carb_g, fed_at, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        protein_g, fat_g, carb_g, fed_at, meal_type, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
       [
         petId,
         foodItemId || null,
-        foodName,
+        String(foodName).trim(),
         amountG,
         calories || null,
         proteinG || null,
         fatG || null,
         carbG || null,
         fedAt || new Date().toISOString(),
+        mealType || null,
         notes || null
       ]
     )
@@ -320,6 +440,81 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error(err)
 
+    res.status(500).json({
+      success: false,
+      error: '伺服器錯誤'
+    })
+  }
+})
+
+// 修改餵食紀錄
+router.put('/:id', async (req, res) => {
+  const {
+    foodItemId,
+    foodName,
+    amountG,
+    calories,
+    proteinG,
+    fatG,
+    carbG,
+    fedAt,
+    mealType,
+    notes
+  } = req.body
+
+  try {
+    if (!String(foodName || '').trim()) {
+      return res.status(400).json({ success: false, error: '請輸入食物名稱' })
+    }
+
+    if (!(Number(amountG) > 0)) {
+      return res.status(400).json({ success: false, error: '請輸入有效的份量' })
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE feeding_records
+      SET
+        food_item_id = $3,
+        food_name = $4,
+        amount_g = $5,
+        calories = $6,
+        protein_g = $7,
+        fat_g = $8,
+        carb_g = $9,
+        fed_at = $10,
+        meal_type = $11,
+        notes = $12
+      WHERE id = $1
+        AND pet_id IN (SELECT id FROM pets WHERE owner_id = $2)
+      RETURNING *
+      `,
+      [
+        req.params.id,
+        req.userId,
+        foodItemId || null,
+        String(foodName).trim(),
+        amountG,
+        calories || null,
+        proteinG || null,
+        fatG || null,
+        carbG || null,
+        fedAt || new Date().toISOString(),
+        mealType || null,
+        notes || null
+      ]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: '找不到餵食紀錄' })
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    })
+  } catch (err) {
+    console.error(err)
     res.status(500).json({
       success: false,
       error: '伺服器錯誤'

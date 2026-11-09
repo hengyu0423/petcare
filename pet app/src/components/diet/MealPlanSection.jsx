@@ -1,51 +1,44 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../../lib/api'
 
 // ======================================================
-// 今日飲食
+// 今日飲食計畫（精簡版）
 //
-//   A. 依照飲食計畫：系統依品種、貓／狗、年齡、體重、目前健康狀況、
-//      過往健康紀錄、飼主偏好，產生今天的建議餵食。
-//   B. 自己選擇：從食物資料庫自己挑。
-//
-// 不管選 A 或 B，按下餵食後都會進入同一個「餵食前檢查」流程。
+// 一般飼主只需要看到「這一餐吃什麼、吃多少、按下去記錄」。
+// 因此：
+//   - 不再放 A/B 模式切換，手動新增改成右上角小連結
+//   - 不再重複顯示今日熱量進度（總覽已經有）
+//   - 推薦原因、已排除食物收在需要時再展開
+//   - 每一餐只有一個主要動作：餵食並記錄
 // ======================================================
 
 const MEAL_ICON = {
   breakfast: '🌅',
   lunch: '☀️',
   dinner: '🌙',
-  late: '🌃'
+  late: '🌃',
+  snack: '🍪'
 }
 
-const SPECIES_TEXT = { cat: '貓', dog: '狗' }
-const STAGE_TEXT = { young: '幼年', adult: '成年', senior: '高齡' }
+function formatKcal(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number.toLocaleString('zh-TW') : '—'
+}
 
 export default function MealPlanSection({
-  pet,
-  onUseMeal,
+  plan,
+  isLoading,
+  isError,
+  refetch,
+  onFeedMeal,
+  onAdjustMeal,
   onOpenManual,
-  onEditPreferences
+  onEditPreferences,
+  onOpenHealthDetails,
+  feedingKey
 }) {
-  const [mode, setMode] = useState('plan')
   const [choice, setChoice] = useState({})
+  const [showWhy, setShowWhy] = useState(false)
   const [showExcluded, setShowExcluded] = useState(false)
-
-  const { data: plan, isLoading, isError, refetch } = useQuery({
-    queryKey: ['meal-plan', pet.id],
-    queryFn: () =>
-      api.get(`/food/meal-plan/${pet.id}`).then(r => r.data.data),
-    enabled: !!pet?.id,
-    staleTime: 30_000
-  })
-
-  const tabCls = active =>
-    `px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-      active
-        ? 'bg-green-500 text-white shadow-sm'
-        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-    }`
 
   const cycle = meal => {
     setChoice(prev => ({
@@ -54,333 +47,319 @@ export default function MealPlanSection({
     }))
   }
 
-  const progress =
-    plan?.today?.targetKcal
-      ? plan.today.loggedKcal / plan.today.targetKcal
-      : null
+  const notices = plan?.notices || []
+
+  // 健康相關的提醒不在這裡重複顯示，
+  // 改成一顆按鈕，點了跳出「健康提醒」視窗
+  const healthNotices = notices.filter(notice => notice.kind === 'health')
+  const otherNotices = notices.filter(notice => notice.kind !== 'health')
+
+  const warningNotices = otherNotices.filter(n => n.level === 'warning')
+  const infoNotices = otherNotices.filter(n => n.level !== 'warning')
 
   return (
-    <div className="bg-white border border-green-200 rounded-xl p-4 mb-6">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
 
-      {/* 標題與 A / B 切換 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
 
-        <h2 className="text-sm font-bold text-gray-800">
-          🍽️ 今天要餵什麼？
-        </h2>
+        <div>
+          <h2 className="text-sm font-bold text-gray-800">
+            🍽️ 今天要餵什麼？
+          </h2>
 
-        <div className="flex gap-2">
+          {plan?.today?.remainingKcal != null && !plan?.overBudget && (
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              今天還可以吃：約 {formatKcal(plan.today.remainingKcal)} kcal
+            </p>
+          )}
+
+          {plan?.overBudget && (
+            <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+              今天已達建議上限，剩餘餐次建議跳過
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setMode('plan')}
-            className={tabCls(mode === 'plan')}
+            onClick={onEditPreferences}
+            className="text-xs text-gray-400 hover:text-green-600"
           >
-            🗓️ 依照飲食計畫
+            ⚙️ 計畫設定
           </button>
 
           <button
             type="button"
-            onClick={() => setMode('manual')}
-            className={tabCls(mode === 'manual')}
+            onClick={onOpenManual}
+            className="text-xs text-gray-400 hover:text-green-600"
           >
-            🔍 自己選擇
+            ＋ 手動新增
           </button>
         </div>
 
       </div>
 
-      {/* B. 自己選擇 */}
-      {mode === 'manual' && (
-        <div className="text-center py-6">
-
-          <p className="text-sm text-gray-700 font-medium">
-            自己從食物資料庫挑選食物
-          </p>
-
-          <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
-            選好之後，系統一樣會依序檢查
-            <br />
-            健康歷史 → 近期飲食 → 營養與安全，再讓你確認餵食。
-          </p>
-
-          <button
-            type="button"
-            onClick={onOpenManual}
-            className="mt-4 bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors"
-          >
-            開啟食物資料庫
-          </button>
-
+      {isLoading && (
+        <div className="space-y-2">
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="h-16 rounded-lg bg-gray-50 animate-pulse"
+            />
+          ))}
         </div>
       )}
 
-      {/* A. 依照飲食計畫 */}
-      {mode === 'plan' && (
+      {isError && (
+        <div className="text-center py-6">
+          <p className="text-sm text-gray-500">
+            暫時無法產生飲食計畫。
+          </p>
+
+          <div className="flex justify-center gap-4 mt-3">
+            <button
+              type="button"
+              onClick={() => refetch?.()}
+              className="text-sm text-green-600 font-semibold hover:underline"
+            >
+              重試
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenManual}
+              className="text-sm text-gray-500 hover:underline"
+            >
+              手動新增
+            </button>
+          </div>
+        </div>
+      )}
+
+      {plan && (
         <div>
 
-          {isLoading && (
-            <div className="space-y-3">
-              {[0, 1, 2].map(i => (
-                <div
-                  key={i}
-                  className="h-20 rounded-xl bg-gray-50 animate-pulse"
-                />
+          {/* 健康警示：點了跳出健康提醒視窗，不在這裡重複顯示全文 */}
+          {healthNotices.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onOpenHealthDetails?.()}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors mb-2 text-left"
+            >
+              <span className="shrink-0">🩺</span>
+              <span className="flex-1 text-xs font-semibold">
+                有 {healthNotices.length} 則健康注意事項影響這份計畫
+              </span>
+              <span className="text-xs font-semibold shrink-0">
+                點擊查看 →
+              </span>
+            </button>
+          )}
+
+          {warningNotices.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              {warningNotices.map((notice, index) => (
+                <p
+                  key={index}
+                  className="text-xs leading-relaxed rounded-lg px-3 py-2 bg-amber-50 text-amber-700"
+                >
+                  ⚠️ {notice.text}
+                </p>
               ))}
             </div>
           )}
 
-          {isError && (
-            <div className="text-center py-6">
-              <p className="text-sm text-gray-500">
-                暫時無法產生飲食計畫。
+          <div className="space-y-2.5">
+
+            {plan.meals.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-6">
+                目前沒有可推薦的餐次，請手動新增或調整計畫設定。
               </p>
+            )}
 
-              <div className="flex justify-center gap-3 mt-3">
-                <button
-                  type="button"
-                  onClick={() => refetch()}
-                  className="text-sm text-green-600 font-semibold hover:underline"
+            {plan.meals.map(meal => {
+              const index = choice[meal.key] ?? 0
+              const option = meal.options[index]
+              const isFeeding = feedingKey === meal.key
+
+              return (
+                <div
+                  key={meal.key}
+                  className={`rounded-xl border p-3 ${
+                    meal.logged
+                      ? 'border-green-200 bg-green-50/40'
+                      : 'border-gray-100 bg-white'
+                  }`}
                 >
-                  重試
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => setMode('manual')}
-                  className="text-sm text-gray-500 hover:underline"
-                >
-                  改用自己選擇
-                </button>
-              </div>
-            </div>
-          )}
+                  <div className="flex items-center justify-between gap-2">
 
-          {plan && (
-            <div>
-
-              {/* 寵物摘要 */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-
-                <p className="text-xs text-gray-500">
-                  {[
-                    plan.pet.name,
-                    SPECIES_TEXT[plan.pet.species],
-                    plan.pet.breed,
-                    plan.pet.size,
-                    plan.pet.ageText
-                      ? `${plan.pet.ageText}（${STAGE_TEXT[plan.pet.stage]}）`
-                      : null,
-                    plan.pet.weightKg ? `${plan.pet.weightKg} kg` : null
-                  ]
-                    .filter(Boolean)
-                    .join('｜')}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={onEditPreferences}
-                  className="text-xs text-green-600 font-semibold hover:underline"
-                >
-                  ⚙️ 飲食偏好
-                </button>
-
-              </div>
-
-              {/* 今日熱量 */}
-              {plan.target.kcal && (
-                <div className="mt-3">
-
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                    <span>
-                      建議每日約 {plan.target.kcal} kcal
-                    </span>
-                    <span>
-                      今天已記錄 {plan.today.loggedKcal} kcal
-                    </span>
-                  </div>
-
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        progress > 1 ? 'bg-amber-400' : 'bg-green-400'
-                      }`}
-                      style={{
-                        width: `${Math.min(progress * 100, 100)}%`
-                      }}
-                    />
-                  </div>
-
-                </div>
-              )}
-
-              {/* 說明與提醒 */}
-              {plan.notices.length > 0 && (
-                <div className="mt-3 space-y-1.5">
-                  {plan.notices.map((notice, index) => (
-                    <p
-                      key={index}
-                      className={`text-xs leading-relaxed rounded-lg px-3 py-2 ${
-                        notice.level === 'warning'
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-gray-50 text-gray-500'
-                      }`}
-                    >
-                      {notice.level === 'warning' ? '⚠️' : '💡'}{' '}
-                      {notice.text}
+                    <p className="text-sm font-bold text-gray-800">
+                      {MEAL_ICON[meal.key] || '🍽️'} {meal.label}
+                      <span className="ml-2 text-xs font-normal text-gray-400">
+                        {meal.time}
+                      </span>
                     </p>
-                  ))}
-                </div>
-              )}
 
-              {/* 今日建議 */}
-              <div className="mt-4 space-y-3">
+                    {meal.logged ? (
+                      <span className="text-[11px] font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        ✓ 已記錄
+                      </span>
+                    ) : null}
 
-                {plan.meals.map(meal => {
-                  const index = choice[meal.key] ?? 0
-                  const option = meal.options[index]
+                  </div>
 
-                  return (
-                    <div
-                      key={meal.key}
-                      className={`rounded-xl border p-3 ${
-                        meal.logged
-                          ? 'border-green-200 bg-green-50/40'
-                          : 'border-gray-100 bg-white'
-                      }`}
-                    >
+                  {meal.skip ? (
+                    <p className="text-xs leading-relaxed text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mt-2">
+                      ⚠️ 今天已達建議熱量上限，這餐建議跳過；
+                      如需餵食，只給極少量清淡食物。
+                    </p>
+                  ) : !option ? (
+                    <p className="text-xs text-gray-400 mt-2">
+                      目前沒有適合的食物。
+                    </p>
+                  ) : (
+                    <div className="mt-2">
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-sm font-semibold text-gray-800">
+                          {option.name}
+                        </span>
 
-                        <p className="text-sm font-bold text-gray-800">
-                          {MEAL_ICON[meal.key]} {meal.label}
-                          <span className="ml-2 text-xs font-normal text-gray-400">
-                            約 {meal.time}
-                          </span>
-                        </p>
+                        <span className="text-xs text-gray-500">
+                          {option.amountG
+                            ? `${option.amountG} g · ${formatKcal(option.kcal)} kcal`
+                            : '份量請依包裝建議'}
+                        </span>
 
-                        {meal.logged && (
-                          <span className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                            ✓ 已記錄
-                            {meal.loggedKcal > 0 &&
-                              ` ${meal.loggedKcal} kcal`}
+                        {option.fixed && (
+                          <span className="text-[10px] text-green-600">
+                            固定
                           </span>
                         )}
-
                       </div>
 
-                      {!option && (
-                        <p className="text-xs text-gray-400 mt-2">
-                          目前沒有適合的食物可以推薦。
+                      {meal.adjusted && (
+                        <p className="text-[11px] text-green-600 mt-0.5">
+                          已依今天攝取調整份量
                         </p>
                       )}
 
-                      {option && (
-                        <div className="mt-2">
+                      {option.warnings.length > 0 && (
+                        <div className="mt-1.5 space-y-0.5">
+                          {option.warnings.map(w => (
+                            <p
+                              key={w.title}
+                              className="text-xs text-amber-700"
+                            >
+                              ⚠️ {w.title}
+                            </p>
+                          ))}
+                        </div>
+                      )}
 
-                          <p className="text-sm font-semibold text-gray-800">
-                            {option.name}
-                          </p>
+                      {!meal.logged && (
+                        <div className="flex flex-wrap items-center gap-3 mt-2.5">
 
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {option.amountG
-                              ? `${option.amountG} g · 約 ${option.kcal} kcal${
-                                  option.capped ? '（已達單餐上限）' : ''
-                                }`
-                              : '份量請依包裝建議'}
-                          </p>
+                          <button
+                            type="button"
+                            onClick={() => onFeedMeal(meal, option)}
+                            disabled={!option.amountG || isFeeding}
+                            className="bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+                          >
+                            {isFeeding
+                              ? '記錄中…'
+                              : option.amountG
+                                ? '✓ 餵食並記錄'
+                                : '請先設定份量'}
+                          </button>
 
-                          {option.reasons.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {option.reasons.map(reason => (
-                                <span
-                                  key={reason}
-                                  className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full"
-                                >
-                                  {reason}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => onAdjustMeal(meal, option)}
+                            className="text-xs text-gray-400 hover:text-green-600"
+                          >
+                            調整份量
+                          </button>
 
-                          {option.warnings.length > 0 && (
-                            <div className="mt-2 space-y-0.5">
-                              {option.warnings.map(w => (
-                                <p
-                                  key={w.title}
-                                  className="text-xs text-amber-700"
-                                >
-                                  ⚠️ {w.title}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="flex gap-2 mt-3">
-
+                          {meal.options.length > 1 && (
                             <button
                               type="button"
-                              onClick={() => onUseMeal(meal, option)}
-                              className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2 text-xs font-semibold transition-colors"
+                              onClick={() => cycle(meal)}
+                              className="text-xs text-gray-400 hover:text-green-600"
                             >
-                              依建議餵食
+                              換一款（{index + 1}/{meal.options.length}）
                             </button>
-
-                            {meal.options.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => cycle(meal)}
-                                className="px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
-                              >
-                                換一個 ({index + 1}/{meal.options.length})
-                              </button>
-                            )}
-
-                          </div>
+                          )}
 
                         </div>
                       )}
 
+                      {meal.logged && (
+                        <p className="text-[11px] text-green-600/80 mt-1.5">
+                          這一餐已建立紀錄，可在下方修改，不會重複新增。
+                        </p>
+                      )}
+
                     </div>
-                  )
-                })}
-
-              </div>
-
-              {/* 已排除的食物 */}
-              {plan.excluded.length > 0 && (
-                <div className="mt-3">
-
-                  <button
-                    type="button"
-                    onClick={() => setShowExcluded(v => !v)}
-                    className="text-xs text-gray-400 hover:text-gray-600"
-                  >
-                    {showExcluded ? '▾' : '▸'} 已依你的條件排除{' '}
-                    {plan.excluded.length} 種食物
-                  </button>
-
-                  {showExcluded && (
-                    <ul className="mt-1.5 space-y-0.5">
-                      {plan.excluded.map(item => (
-                        <li
-                          key={item.name}
-                          className="text-xs text-gray-500"
-                        >
-                          • {item.name}：{item.reason}
-                        </li>
-                      ))}
-                    </ul>
                   )}
 
                 </div>
+              )
+            })}
+
+          </div>
+
+          {/* 為什麼這樣建議 */}
+          {infoNotices.length > 0 && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setShowWhy(v => !v)}
+                className="text-[11px] text-gray-400 hover:text-gray-600"
+              >
+                {showWhy ? '收合說明 ▲' : '為什麼這樣建議？▼'}
+              </button>
+
+              {showWhy && (
+                <div className="mt-1.5 space-y-1">
+                  {infoNotices.map((notice, index) => (
+                    <p
+                      key={index}
+                      className="text-[11px] text-gray-500 leading-relaxed"
+                    >
+                      · {notice.text}
+                    </p>
+                  ))}
+                </div>
               )}
+            </div>
+          )}
 
-              <p className="text-xs text-gray-400 mt-4">
-                這是依你的設定與紀錄產生的建議，不是醫療處方。
-                按「依建議餵食」後仍會先做餵食前檢查，由你確認；
-                如有疑慮請諮詢獸醫。
-              </p>
+          {/* 已排除的食物 */}
+          {plan.excluded.length > 0 && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setShowExcluded(v => !v)}
+                className="text-[11px] text-gray-400 hover:text-gray-600"
+              >
+                {showExcluded ? '收合 ▲' : `已排除 ${plan.excluded.length} 種食物 ▼`}
+              </button>
 
+              {showExcluded && (
+                <ul className="mt-1.5 space-y-0.5">
+                  {plan.excluded.map(item => (
+                    <li
+                      key={item.name}
+                      className="text-[11px] text-gray-500"
+                    >
+                      · {item.name}：{item.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 

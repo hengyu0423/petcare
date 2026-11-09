@@ -1,4 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  buildTimelineWithGaps,
+  deriveMonitorState,
+  noDataText
+} from '../lib/cameraTimeline'
 
 const CAMERA_API = import.meta.env.VITE_CAMERA_API_URL || 'http://localhost:8000'
 const API = '/api'
@@ -32,6 +37,10 @@ export default function PetCam({ cameraId = 'cam_1' }) {
   })
 
   const [cameraError, setCameraError] = useState(false)
+
+  // 前端連不連得到 Python 攝影機服務（連不到時，畫面上的狀態可能是舊的）
+  const [serviceReachable, setServiceReachable] = useState(true)
+  const [statusLoaded, setStatusLoaded] = useState(false)
   const [range, setRange] = useState('20m')
   const [timeline, setTimeline] = useState([])
   const [timelineLoading, setTimelineLoading] = useState(false)
@@ -45,8 +54,11 @@ export default function PetCam({ cameraId = 'cam_1' }) {
         const res = await fetch(`${CAMERA_API}/status`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         setStatus(await res.json())
+        setServiceReachable(true)
+        setStatusLoaded(true)
       } catch (err) {
         console.error('取得攝影機狀態失敗：', err)
+        setServiceReachable(false)
       }
     }
 
@@ -190,6 +202,48 @@ export default function PetCam({ cameraId = 'cam_1' }) {
     return 'bg-gray-100 text-gray-600'
   }
 
+  // ==============================
+  // 監控狀態（攝影機是否運作 ≠ 寵物是否在鏡頭中）
+  // ==============================
+  const monitor = deriveMonitorState({
+    serviceReachable,
+    loaded: statusLoaded,
+    status
+  })
+
+  // 只有「攝影機運作中且偵測到寵物」時，即時的行為與數值才有意義
+  const liveAvailable = monitor.key === 'present'
+
+  const formatGapDuration = minutes => {
+    if (minutes < 60) return `${minutes} 分鐘`
+
+    const hours = Math.floor(minutes / 60)
+    const remain = minutes % 60
+
+    return remain ? `${hours} 小時 ${remain} 分鐘` : `${hours} 小時`
+  }
+
+  // 把沒有紀錄的時段補成「無資料」，時間軸才不會直接跳過那段時間
+  const displayTimeline = useMemo(() => {
+    const config = ranges[range]
+    const now = new Date()
+
+    const rangeStart =
+      range === 'today'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        : new Date(now.getTime() - config.minutes * 60000)
+
+    return buildTimelineWithGaps({
+      groups: timeline,
+      rangeStart,
+      rangeEnd: now,
+      bucketMinutes: config.bucket,
+      currentBucketIsGap: monitor.key === 'absent'
+    })
+  }, [timeline, range, monitor.key])
+
+  const hasGap = displayTimeline.some(item => item.type === 'gap')
+
   return (
     <div className="w-full min-h-full bg-gray-50 px-4 py-6">
       <div className="w-full max-w-[900px] mx-auto flex flex-col gap-5">
@@ -232,12 +286,16 @@ export default function PetCam({ cameraId = 'cam_1' }) {
         {/* 是否在鏡頭內 */}
         <div
           className={`rounded-2xl border p-5 ${
-            status.detected
+            monitor.key === 'present'
               ? 'bg-green-50 border-green-100'
-              : 'bg-orange-50 border-orange-100'
+              : monitor.key === 'absent'
+                ? 'bg-orange-50 border-orange-100'
+                : monitor.key === 'camera_down'
+                  ? 'bg-red-50 border-red-100'
+                  : 'bg-gray-50 border-gray-200'
           }`}
         >
-          {status.detected ? (
+          {monitor.key === 'present' ? (
             <>
               <p className="font-bold text-green-700">
                 {status.detectedType === 'cat' ? '🐱 偵測到貓咪在鏡頭中' : status.detectedType === 'dog' ? '🐶 偵測到狗狗在鏡頭中' : '🐾 目前畫面中有偵測到目標'}
@@ -247,10 +305,14 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                 最後偵測：{formatTime(status.lastSeenAt)}
               </p>
             </>
-          ) : (
+          ) : monitor.key === 'absent' ? (
             <>
               <p className="font-bold text-orange-700">
-                📷 目前鏡頭範圍內未偵測到畫面動態
+                📷 目前鏡頭範圍內未偵測到寵物
+              </p>
+
+              <p className="text-xs text-orange-600 mt-2">
+                ✅ 攝影機運作中，只是畫面中沒有偵測到寵物或動態
               </p>
 
               <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2">
@@ -275,6 +337,22 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                 </div>
               )}
             </>
+          ) : (
+            <>
+              <p
+                className={`font-bold ${
+                  monitor.key === 'camera_down'
+                    ? 'text-red-700'
+                    : 'text-gray-600'
+                }`}
+              >
+                📷 {monitor.label}
+              </p>
+
+              {monitor.detail && (
+                <p className="text-xs text-gray-500 mt-2">{monitor.detail}</p>
+              )}
+            </>
           )}
         </div>
 
@@ -282,8 +360,12 @@ export default function PetCam({ cameraId = 'cam_1' }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-sky-50 border border-sky-100 rounded-2xl p-5">
             <p className="text-xs font-semibold text-sky-600">當前行為</p>
-            <p className="text-lg font-bold text-gray-800 mt-2">
-              {status.behavior}
+            <p
+              className={`text-lg font-bold mt-2 ${
+                liveAvailable ? 'text-gray-800' : 'text-gray-400'
+              }`}
+            >
+              {liveAvailable ? status.behavior : noDataText(monitor.key)}
             </p>
           </div>
 
@@ -292,8 +374,14 @@ export default function PetCam({ cameraId = 'cam_1' }) {
               推測活動狀態
             </p>
 
-            <p className="text-lg font-bold text-gray-800 mt-2">
-              {moodEmoji(status.mood)} {status.mood}
+            <p
+              className={`text-lg font-bold mt-2 ${
+                liveAvailable ? 'text-gray-800' : 'text-gray-400'
+              }`}
+            >
+              {liveAvailable
+                ? `${moodEmoji(status.mood)} ${status.mood}`
+                : noDataText(monitor.key)}
             </p>
 
             <p className="text-[11px] text-gray-400 mt-2">
@@ -303,7 +391,7 @@ export default function PetCam({ cameraId = 'cam_1' }) {
         </div>
 
         {/* 數值 */}
-        {status.detected && (
+        {liveAvailable && (
           <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3">
             <p className="text-xs text-gray-400 text-center">
               辨識信心度：{status.confidence}%　|　
@@ -345,7 +433,7 @@ export default function PetCam({ cameraId = 'cam_1' }) {
             <p className="text-center text-xs text-gray-400 py-10">
               載入行為紀錄中...
             </p>
-          ) : timeline.length === 0 ? (
+          ) : displayTimeline.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-sm text-gray-400">
                 目前沒有這段時間的行為資料
@@ -358,34 +446,60 @@ export default function PetCam({ cameraId = 'cam_1' }) {
           ) : (
             <div className="overflow-x-auto pb-2">
               <div className="flex min-w-max">
-                {timeline.map((item, index) => (
+                {displayTimeline.map((item, index) => (
                   <div
                     key={`${item.time}-${index}`}
                     className="relative w-[130px] text-center"
                   >
-                    <p className="text-[11px] text-gray-400">
-                      {formatTime(item.time)}
-                    </p>
+                    {item.type === 'gap' ? (
+                      <>
+                        <p className="text-[11px] text-gray-400">
+                          {formatTime(item.time)}–{formatTime(item.endTime)}
+                        </p>
 
-                    <div
-                      className={`w-11 h-11 rounded-full flex items-center justify-center text-lg mx-auto my-2 ${moodColor(item.mood)}`}
-                    >
-                      {moodEmoji(item.mood)}
-                    </div>
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg mx-auto my-2 bg-gray-50 border-2 border-dashed border-gray-300 text-gray-400">
+                          ∅
+                        </div>
 
-                    <p className="text-xs font-semibold text-gray-700">
-                      {item.mood}
-                    </p>
+                        <p className="text-xs font-semibold text-gray-400">
+                          無資料
+                        </p>
 
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      {item.behavior}
-                    </p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {formatGapDuration(item.minutes)}
+                        </p>
 
-                    <p className="text-[10px] text-gray-300 mt-1">
-                      活動量 {item.movement}
-                    </p>
+                        <p className="text-[10px] text-gray-300 mt-1">
+                          未偵測到寵物
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-gray-400">
+                          {formatTime(item.time)}
+                        </p>
 
-                    {index < timeline.length - 1 && (
+                        <div
+                          className={`w-11 h-11 rounded-full flex items-center justify-center text-lg mx-auto my-2 ${moodColor(item.mood)}`}
+                        >
+                          {moodEmoji(item.mood)}
+                        </div>
+
+                        <p className="text-xs font-semibold text-gray-700">
+                          {item.mood}
+                        </p>
+
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {item.behavior}
+                        </p>
+
+                        <p className="text-[10px] text-gray-300 mt-1">
+                          活動量 {item.movement}
+                        </p>
+                      </>
+                    )}
+
+                    {index < displayTimeline.length - 1 && (
                       <div className="absolute top-[39px] left-[87px] w-[86px] h-[2px] bg-gray-200 -z-0" />
                     )}
                   </div>
@@ -393,22 +507,36 @@ export default function PetCam({ cameraId = 'cam_1' }) {
               </div>
             </div>
           )}
+
+          {hasGap && (
+            <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+              「無資料」表示該時段沒有偵測到寵物（例如不在鏡頭範圍內）。
+              攝影機目前是否運作，請看鏡頭下方的狀態卡片；
+              若攝影機或服務中斷，該時段同樣會顯示無資料。
+            </p>
+          )}
         </div>
 
         {/* 攝影機連線 */}
         <div className="flex items-center justify-center gap-2 pb-3">
           <span
             className={`w-2 h-2 rounded-full ${
-              status.cameraConnected
+              monitor.key === 'present' || monitor.key === 'absent'
                 ? 'bg-green-500'
-                : 'bg-red-500'
+                : monitor.key === 'camera_down'
+                  ? 'bg-red-500'
+                  : 'bg-gray-400'
             }`}
           />
 
           <span className="text-xs text-gray-400">
-            {status.cameraConnected
+            {monitor.key === 'present' || monitor.key === 'absent'
               ? '攝影機連線正常'
-              : '攝影機未連線'}
+              : monitor.key === 'camera_down'
+                ? '攝影機未連線'
+                : monitor.key === 'service_down'
+                  ? '無法連線到攝影機服務'
+                  : '連線中…'}
           </span>
         </div>
       </div>

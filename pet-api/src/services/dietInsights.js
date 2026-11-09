@@ -723,62 +723,8 @@ function analyzeFeedingPattern({
     }
   }
 
-  // ---------- 3. 營養比例（使用已存的 protein_g / fat_g / carb_g）----------
-  const withMacro = valid.filter(r => r.proteinG !== null && r.fatG !== null)
-  const macroDays = new Set(withMacro.map(r => r.day))
-
-  if (withMacro.length >= CFG.minMacroRecords && macroDays.size >= CFG.minDays) {
-    const P = withMacro.reduce((s, r) => s + r.proteinG * 4, 0)
-    const F = withMacro.reduce((s, r) => s + r.fatG * 9, 0)
-    const C = withMacro.reduce((s, r) => s + (r.carbG ?? 0) * 4, 0)
-    const T = P + F + C
-
-    if (T > 0) {
-      const share = { protein: P / T, fat: F / T, carb: C / T }
-
-      basis.macroShare = {
-        protein: pct(share.protein),
-        fat: pct(share.fat),
-        carb: pct(share.carb)
-      }
-
-      const ratioText =
-        `（蛋白質 ${pct(share.protein)}%、脂肪 ${pct(share.fat)}%、碳水 ${pct(share.carb)}%）`
-
-      if (share.fat >= CFG.fatShareHigh) {
-        alerts.push({
-          id: 'fat_ratio_high',
-          level: 'warning',
-          title: '脂肪比例偏高',
-          message: `近期營養熱量中，脂肪約佔 ${pct(share.fat)}%${ratioText}。`,
-          suggestion: '建議留意脂肪來源，可搭配較低脂的食物。'
-        })
-      }
-
-      const proteinLow =
-        CFG.proteinShareLow[sKey] ?? CFG.proteinShareLow.default
-
-      if (share.protein < proteinLow) {
-        alerts.push({
-          id: 'protein_ratio_low',
-          level: 'info',
-          title: '蛋白質比例偏低',
-          message: `近期營養熱量中，蛋白質約佔 ${pct(share.protein)}%${ratioText}。`,
-          suggestion: '建議確認食物是否含有足夠的優質蛋白質來源。'
-        })
-      }
-
-      if (share.carb >= CFG.carbShareHigh) {
-        alerts.push({
-          id: 'carb_ratio_high',
-          level: 'info',
-          title: '碳水化合物比例偏高',
-          message: `近期營養熱量中，碳水約佔 ${pct(share.carb)}%${ratioText}。`,
-          suggestion: '可以留意澱粉類食物的份量，並搭配足夠的蛋白質。'
-        })
-      }
-    }
-  }
+  // 一般只關注熱量：固定飼料已包含蛋白質／脂肪等營養，
+  // 不再用「營養比例」產生提醒，避免噪音。
 
   // warning 排在 info 前面（同等級維持原順序）
   alerts.sort(

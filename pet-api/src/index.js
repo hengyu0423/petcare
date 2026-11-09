@@ -80,6 +80,30 @@ const initDB = async () => {
       notes TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    -- 餐次（早餐／午餐／晚餐／宵夜／自訂），讓餵食紀錄能對應每日餵食計畫
+    ALTER TABLE feeding_records
+      ADD COLUMN IF NOT EXISTS meal_type VARCHAR(30);
+
+    -- 每日熱量建議範圍：每次估算都留下當天的計算基準，
+    -- 之後體重更新只會影響今天，不會改寫過去的判斷。
+    CREATE TABLE IF NOT EXISTS nutrition_targets (
+      id SERIAL PRIMARY KEY,
+      pet_id INTEGER NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+      target_date DATE NOT NULL,
+      weight_kg DECIMAL(6,2),
+      target_kcal INTEGER NOT NULL,
+      min_kcal INTEGER NOT NULL,
+      max_kcal INTEGER NOT NULL,
+      formula_version VARCHAR(40) NOT NULL DEFAULT 'pawcare-der-v1',
+      basis JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (pet_id, target_date)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_nutrition_targets_pet_date
+    ON nutrition_targets(pet_id, target_date DESC);
     CREATE TABLE IF NOT EXISTS health_consultations (
       id SERIAL PRIMARY KEY,
       pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
