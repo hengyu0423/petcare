@@ -431,7 +431,39 @@ function mergeUnique(a = [], b = [], max) {
 // 同一隻寵物、同一天、同一種事件，只會保留一筆（更新而不是重複新增），
 // 避免飼主連續追問時產生一堆重複紀錄。
 // ------------------------------------------------------
-async function saveHealthEvent({ petId, event, severity }) {
+// consultation_ids 欄位（見 sql/2026-11-consultation-link.sql）。
+// 資料庫還沒套用時，退回不綁定提問的舊行為，AI 健康紀錄不會因此寫不進去。
+let linkColumnReady = false
+
+async function hasLinkColumn(db = pool) {
+  if (linkColumnReady) return true
+
+  const result = await db.query(
+    `
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'health_records'
+      AND column_name = 'consultation_ids'
+    `
+  )
+
+  linkColumnReady = result.rows.length > 0
+
+  if (!linkColumnReady) {
+    console.warn(
+      '⚠️ health_records 沒有 consultation_ids 欄位：' +
+      '刪除提問時只能用時間區間推測健康紀錄，' +
+      '請執行 pet-api/sql/2026-11-consultation-link.sql'
+    )
+  }
+
+  return linkColumnReady
+}
+
+async function saveHealthEvent({ petId, event, severity, consultationId }) {
+  const linked =
+    Number.isInteger(consultationId) && (await hasLinkColumn())
+
   const dietInfo = {
     symptoms: event.symptoms,
     dietNotes: event.dietNotes,
@@ -484,6 +516,12 @@ async function saveHealthEvent({ petId, event, severity }) {
           diet_until,
           (NOW() AT TIME ZONE $7::text)::date + $8::int
         )
+        ${linked
+          ? `, consultation_ids = CASE
+               WHEN $9::int = ANY(consultation_ids) THEN consultation_ids
+               ELSE array_append(consultation_ids, $9::int)
+             END`
+          : ''}
       WHERE id = $1
       RETURNING *
       `,
@@ -495,7 +533,8 @@ async function saveHealthEvent({ petId, event, severity }) {
         event.dietRelevant,
         JSON.stringify(mergedInfo),
         APP_TIMEZONE,
-        event.durationDays
+        event.durationDays,
+        ...(linked ? [consultationId] : [])
       ]
     )
 
@@ -507,13 +546,15 @@ async function saveHealthEvent({ petId, event, severity }) {
     `
     INSERT INTO health_records
       (pet_id, type, title, description, date,
-       source, severity, diet_relevant, diet_info, diet_until)
+       source, severity, diet_relevant, diet_info, diet_until
+       ${linked ? ', consultation_ids' : ''})
     VALUES
       (
         $1, $2, $3, $4,
         (NOW() AT TIME ZONE $5::text)::date,
         'ai_consult', $6, $7, $8::jsonb,
         (NOW() AT TIME ZONE $5::text)::date + $9::int
+        ${linked ? ', ARRAY[$10::int]' : ''}
       )
     RETURNING *
     `,
@@ -526,7 +567,8 @@ async function saveHealthEvent({ petId, event, severity }) {
       severity,
       event.dietRelevant,
       JSON.stringify(dietInfo),
-      event.durationDays
+      event.durationDays,
+      ...(linked ? [consultationId] : [])
     ]
   )
 
@@ -584,6 +626,11 @@ router.post('/ai', async (req, res) => {
       messages,
       petId
     } = req.body
+
+    // 這次提問在 health_consultations 的 id；用來把產生的健康事件綁到這則提問
+    const consultationId = Number.isInteger(req.body.consultationId)
+      ? req.body.consultationId
+      : null
 
 
     // ==================================================
@@ -1135,7 +1182,8 @@ healthEvent 欄位：
             petId,
             event,
             severity:
-              finalSeverity
+              finalSeverity,
+            consultationId
           })
 
         savedEvent = {
@@ -1305,7 +1353,22 @@ healthEvent 欄位：
 // ======================================================
 // 儲存一則對話訊息
 // POST /consultations
+//
+// afterId（選填，只對 assistant 有效）：
+//   把這則回覆排在指定提問的正後方（時間 = 提問 + 1 毫秒）。
+//   找不到那則提問時，就用現在的時間。
 // ======================================================
+
+const CREATED_AT_SQL = `COALESCE(
+  (
+    SELECT created_at + INTERVAL '1 millisecond'
+    FROM health_consultations
+    WHERE id = $6::int
+      AND pet_id = $1
+      AND role = 'user'
+  ),
+  NOW()
+)`
 
 router.post('/', async (req, res) => {
   const {
@@ -1315,6 +1378,11 @@ router.post('/', async (req, res) => {
     severity,
     sources
   } = req.body
+
+  // 重新編寫提問後，新的 AI 回覆要接在那則提問的正下方，而不是跑到對話最後面
+  const afterId = Number.isInteger(req.body.afterId)
+    ? req.body.afterId
+    : null
 
   console.log('📥 收到要儲存的訊息：', {
     petId,
@@ -1375,10 +1443,11 @@ router.post('/', async (req, res) => {
             role,
             content,
             severity,
-            sources
+            sources,
+            created_at
           )
         VALUES
-          ($1, $2, $3, $4, $5::jsonb)
+          ($1, $2, $3, $4, $5::jsonb, ${CREATED_AT_SQL})
         RETURNING *
         `,
         [
@@ -1386,7 +1455,8 @@ router.post('/', async (req, res) => {
           role,
           content,
           finalSeverity,
-          sourcesJson
+          sourcesJson,
+          role === 'assistant' ? afterId : null
         ]
       )
     } catch (insertErr) {
@@ -1405,17 +1475,19 @@ router.post('/', async (req, res) => {
             pet_id,
             role,
             content,
-            severity
+            severity,
+            created_at
           )
         VALUES
-          ($1, $2, $3, $4)
+          ($1, $2, $3, $4, ${CREATED_AT_SQL.replace('$6', '$5')})
         RETURNING *
         `,
         [
           petId,
           role,
           content,
-          finalSeverity
+          finalSeverity,
+          role === 'assistant' ? afterId : null
         ]
       )
     }
@@ -1440,6 +1512,309 @@ router.post('/', async (req, res) => {
       success: false,
       error: '無法儲存對話訊息'
     })
+  }
+})
+
+
+// ======================================================
+// 刪除／重新編寫「一則提問」
+//
+// 一則提問 = 飼主的問題 + 緊接在後的 AI 回覆（到下一個問題之前）。
+// 兩個動作都會一併清掉由這則提問產生的資料，
+// 讓飲食管理、週報、通知、小助理不再看到它：
+//   - 提問與 AI 回覆（health_consultations）
+//   - AI 依這則提問記錄的健康事件（health_records）
+//   - 那筆健康事件的提醒通知（notifications）
+//
+// 若同一天同類型的事件，也被其他提問合併過，
+// 只會移除這一則提問的綁定，健康事件本身會留給其他提問。
+// ======================================================
+
+// 取得提問（確認屬於目前使用者的寵物）與它的 AI 回覆
+async function loadQuestionWithReply(db, id, userId) {
+  const questionResult = await db.query(
+    `
+    SELECT c.*
+    FROM health_consultations c
+    JOIN pets p ON p.id = c.pet_id
+    WHERE c.id = $1
+      AND p.owner_id = $2
+    `,
+    [id, userId]
+  )
+
+  const question = questionResult.rows[0]
+
+  if (!question) {
+    return { question: null, reply: null }
+  }
+
+  const replyResult = await db.query(
+    `
+    SELECT a.*
+    FROM health_consultations q
+    JOIN health_consultations a
+      ON a.pet_id = q.pet_id
+     AND a.role = 'assistant'
+     AND (a.created_at, a.id) > (q.created_at, q.id)
+    WHERE q.id = $1
+      AND NOT EXISTS (
+        SELECT 1
+        FROM health_consultations u
+        WHERE u.pet_id = q.pet_id
+          AND u.role = 'user'
+          AND u.id <> q.id
+          AND (u.created_at, u.id) > (q.created_at, q.id)
+          AND (u.created_at, u.id) < (a.created_at, a.id)
+      )
+    ORDER BY a.created_at, a.id
+    LIMIT 1
+    `,
+    [id]
+  )
+
+  return {
+    question,
+    reply: replyResult.rows[0] || null
+  }
+}
+
+// 移除由這則提問產生的健康紀錄與通知；回傳刪掉幾筆健康紀錄
+async function removeDerivedData(db, question, reply) {
+  const linkReady = await hasLinkColumn(db)
+
+  const recordIds = new Set()
+
+  if (linkReady) {
+    // 新紀錄：拿掉這則提問的綁定；沒有其他提問綁著，就整筆刪除
+    const unlinked = await db.query(
+      `
+      UPDATE health_records
+      SET consultation_ids = array_remove(consultation_ids, $1::int)
+      WHERE source = 'ai_consult'
+        AND pet_id = $2
+        AND $1::int = ANY(consultation_ids)
+      RETURNING id, consultation_ids
+      `,
+      [question.id, question.pet_id]
+    )
+
+    for (const row of unlinked.rows) {
+      if (row.consultation_ids.length === 0) {
+        recordIds.add(row.id)
+      }
+    }
+  }
+
+  // 舊紀錄（沒有綁定）：用「這則提問到下一個提問之間」建立的 AI 健康紀錄來比對
+  //
+  // 不能只看到 AI 回覆的時間：重新編寫提問後，新回覆會被排回原提問之後
+  // （+1ms），但健康紀錄是「現在」才建立的，用回覆時間當上界會漏掉它。
+  const legacy = await db.query(
+    `
+    SELECT hr.id
+    FROM health_records hr
+    JOIN health_consultations q ON q.id = $1
+    WHERE hr.source = 'ai_consult'
+      AND hr.pet_id = q.pet_id
+      ${linkReady ? "AND hr.consultation_ids = '{}'" : ''}
+      AND hr.created_at >= q.created_at
+      AND hr.created_at < COALESCE(
+        (
+          SELECT MIN(u.created_at)
+          FROM health_consultations u
+          WHERE u.pet_id = q.pet_id
+            AND u.role = 'user'
+            AND (u.created_at, u.id) > (q.created_at, q.id)
+        ),
+        NOW()
+      )
+      AND hr.created_at <= COALESCE(
+        (SELECT created_at FROM health_consultations WHERE id = $2::int),
+        NOW()
+      )
+    `,
+    [question.id, reply ? reply.id : null]
+  )
+
+  for (const row of legacy.rows) {
+    recordIds.add(row.id)
+  }
+
+  const ids = [...recordIds]
+
+  if (ids.length > 0) {
+    await db.query(
+      `
+      DELETE FROM notifications
+      WHERE type = 'health_alert'
+        AND metadata->>'recordId' = ANY($1::text[])
+      `,
+      [ids.map(String)]
+    )
+
+    await db.query(
+      'DELETE FROM health_records WHERE id = ANY($1::int[])',
+      [ids]
+    )
+  }
+
+  return ids.length
+}
+
+// ------------------------------------------------------
+// DELETE /consultations/:id
+// 刪除一則提問（含 AI 回覆與相關健康紀錄）
+// ------------------------------------------------------
+router.delete('/:id', async (req, res) => {
+  const id = Number(req.params.id)
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({
+      success: false,
+      error: '無效的提問'
+    })
+  }
+
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const { question, reply } =
+      await loadQuestionWithReply(client, id, req.userId)
+
+    if (!question || question.role !== 'user') {
+      await client.query('ROLLBACK')
+
+      return res.status(404).json({
+        success: false,
+        error: '找不到這則提問'
+      })
+    }
+
+    const removedRecords =
+      await removeDerivedData(client, question, reply)
+
+    await client.query(
+      'DELETE FROM health_consultations WHERE id = ANY($1::int[])',
+      [reply ? [question.id, reply.id] : [question.id]]
+    )
+
+    await client.query('COMMIT')
+
+    res.json({
+      success: true,
+      data: {
+        removedMessages: reply ? 2 : 1,
+        removedRecords
+      }
+    })
+
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+
+    console.error('刪除提問失敗：', err)
+
+    res.status(500).json({
+      success: false,
+      error: '無法刪除提問'
+    })
+
+  } finally {
+    client.release()
+  }
+})
+
+
+// ------------------------------------------------------
+// PUT /consultations/:id
+// 重新編寫提問：先清掉舊的 AI 回覆與相關健康紀錄，再換成新的問題文字。
+// 新的 AI 回覆由前端接著呼叫 /ai 產生，
+// 並以 POST / 的 afterId 接在這則提問後面。
+// ------------------------------------------------------
+router.put('/:id', async (req, res) => {
+  const id = Number(req.params.id)
+  const content = String(req.body.content ?? '').trim()
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({
+      success: false,
+      error: '無效的提問'
+    })
+  }
+
+  if (!content) {
+    return res.status(400).json({
+      success: false,
+      error: '提問內容不能是空的'
+    })
+  }
+
+  if (content.length > 2000) {
+    return res.status(400).json({
+      success: false,
+      error: '提問內容太長（最多 2000 字）'
+    })
+  }
+
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const { question, reply } =
+      await loadQuestionWithReply(client, id, req.userId)
+
+    if (!question || question.role !== 'user') {
+      await client.query('ROLLBACK')
+
+      return res.status(404).json({
+        success: false,
+        error: '找不到這則提問'
+      })
+    }
+
+    const removedRecords =
+      await removeDerivedData(client, question, reply)
+
+    if (reply) {
+      await client.query(
+        'DELETE FROM health_consultations WHERE id = $1',
+        [reply.id]
+      )
+    }
+
+    const updated = await client.query(
+      `
+      UPDATE health_consultations
+      SET content = $2
+      WHERE id = $1
+      RETURNING *
+      `,
+      [question.id, content]
+    )
+
+    await client.query('COMMIT')
+
+    res.json({
+      success: true,
+      data: updated.rows[0],
+      removedRecords
+    })
+
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+
+    console.error('編寫提問失敗：', err)
+
+    res.status(500).json({
+      success: false,
+      error: '無法編寫提問'
+    })
+
+  } finally {
+    client.release()
   }
 })
 

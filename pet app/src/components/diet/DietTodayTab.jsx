@@ -85,6 +85,9 @@ export default function DietTodayTab({
           onOpenManual={onOpenManual}
           onEditPreferences={onEditPreferences}
           onOpenHealthDetails={openHealthModal}
+          healthNoticeCount={
+            activeHealthEvents.length + (dietAlerts?.alerts?.length || 0)
+          }
           feedingKey={feedingKey}
         />
       ) : (

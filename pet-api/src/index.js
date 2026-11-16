@@ -186,11 +186,17 @@ const initDB = async () => {
       -- 結構化飲食資訊：{ symptoms, dietNotes, avoidFoods, dietAdvice }
       ADD COLUMN IF NOT EXISTS diet_info JSONB NOT NULL DEFAULT '{}'::jsonb,
       -- 飲食注意事項的有效期限（含當天），過期後視為「已過去」
-      ADD COLUMN IF NOT EXISTS diet_until DATE;
+      ADD COLUMN IF NOT EXISTS diet_until DATE,
+      -- 由哪幾則健康諮詢提問產生的紀錄：
+      -- 刪除／重新編寫提問時，用來連帶清掉飲食管理、週報、通知裡的提醒
+      ADD COLUMN IF NOT EXISTS consultation_ids INTEGER[] NOT NULL DEFAULT '{}';
 
     CREATE INDEX IF NOT EXISTS idx_health_records_pet_diet
     ON health_records(pet_id, date DESC)
     WHERE diet_relevant = TRUE;
+
+    CREATE INDEX IF NOT EXISTS idx_health_records_consultation_ids
+    ON health_records USING GIN (consultation_ids);
 
     -- 飼主的飲食偏好（用餐次數、主食類型、目標、避免的食物…），
     -- 存在既有的 pets 資料表，不另建資料表
