@@ -269,6 +269,47 @@ const initDB = async () => {
     ALTER TABLE pet_mood_records ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
     ALTER TABLE pet_mood_records ADD COLUMN IF NOT EXISTS camera_id VARCHAR(50) DEFAULT 'cam_1';
     ALTER TABLE pet_mood_records ADD COLUMN IF NOT EXISTS detected_type VARCHAR(20) DEFAULT 'pet';
+
+    -- ======================================================
+    -- 貓砂盆進出紀錄
+    --
+    -- pet-camtwo.py 偵測到寵物進入畫面時建立一筆（exited_at 為 NULL），
+    -- 離開時補上 exited_at 與停留秒數。
+    -- 次數與停留時間都直接由這張表統計，重新啟動服務不會消失。
+    -- ======================================================
+    CREATE TABLE IF NOT EXISTS litter_box_visits (
+      id               BIGSERIAL PRIMARY KEY,
+      camera_id        VARCHAR(50) NOT NULL DEFAULT 'cam2',
+      pet_type         VARCHAR(20) NOT NULL DEFAULT 'cat',
+      entered_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      exited_at        TIMESTAMPTZ,
+      -- 停留秒數：離開時才寫入
+      duration_seconds INTEGER,
+      -- urine = 尿尿、poop = 排便
+      -- 相機分不出來，由停留時間推估（預設 < 45 秒 = 尿尿），可手動修正
+      visit_type       VARCHAR(10),
+      -- auto = 依停留時間推估、manual = 使用者手動指定
+      type_source      VARCHAR(10) NOT NULL DEFAULT 'auto',
+      -- 以台灣時間計算的日期，方便每日統計與跨日歸零
+      date             DATE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Asia/Taipei')::date,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE litter_box_visits
+      ADD COLUMN IF NOT EXISTS visit_type VARCHAR(10),
+      ADD COLUMN IF NOT EXISTS type_source VARCHAR(10) NOT NULL DEFAULT 'auto';
+
+    -- 舊資料補上推估類型（停留 < 45 秒視為尿尿）
+    UPDATE litter_box_visits
+    SET visit_type = CASE
+      WHEN duration_seconds < 45 THEN 'urine'
+      ELSE 'poop'
+    END
+    WHERE visit_type IS NULL
+      AND duration_seconds IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_litter_box_visits_cam_date
+    ON litter_box_visits(camera_id, entered_at DESC);
   `)
   console.log('✅ 資料表準備完成')
 }
@@ -289,7 +330,11 @@ app.use('/api/camera-records', require('./routes/cameraRecords'))
 app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/pet-emotion', require('./routes/petEmotion'))
 app.use('/api/assistant', require('./routes/assistant'))
-app.use('/api/cat-count', require('./routes/catCount'))
+
+// 貓砂盆進出紀錄（次數、停留時間）
+// 舊的 /api/cat-count 也指向同一支 router，petCam 頁面不用改
+app.use('/api/litter-box', require('./routes/litterBox'))
+app.use('/api/cat-count', require('./routes/litterBox'))
 
 app.get('/api/ping', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')

@@ -1,6 +1,9 @@
 import os
+import queue
 import time
 import threading
+from datetime import datetime
+
 import cv2
 import requests
 from ultralytics import YOLO
@@ -22,43 +25,114 @@ CONF_THRESHOLD = 0.45
 
 # Node.js 後端 API 網址與防誤判冷卻秒數
 PET_API_URL = os.environ.get("PET_API_URL", "http://localhost:4000")
+CAMERA_ID = os.environ.get("PET_CAM_ID", "cam2")
 ABSENCE_COOLDOWN = 5.0  # 貓離開畫面超過 5 秒後，下次再進入才算新的一次
+STATS_REFRESH_SECONDS = 10  # 多久跟後端同步一次今日統計
 
 # ==========================================
-# 2. 後端同步與日期工具函式
+# 2. 後端同步
+#
+# 進入 → POST /api/litter-box/enter   （後端建立一筆紀錄）
+# 離開 → POST /api/litter-box/leave   （後端補上離開時間與停留秒數）
+#
+# 用單一 worker + queue 依序送出，確保 enter 一定比 leave 先到後端。
 # ==========================================
-def get_today_str():
-    return time.strftime("%Y-%m-%d")
 
-def send_cat_count_to_backend(count, is_present, date_str):
-    def _post():
+_request_queue = queue.Queue()
+
+
+def _worker():
+    while True:
+        path, payload = _request_queue.get()
         try:
             requests.post(
-                f"{PET_API_URL}/api/cat-count",
-                json={
-                    "camera": "cam2",
-                    "catCount": count,
-                    "isPresent": is_present,
-                    "date": date_str,
-                    "timestamp": time.strftime("%H:%M:%S")
-                },
-                timeout=1.5
+                f"{PET_API_URL}{path}",
+                json=payload,
+                timeout=2.0
             )
         except Exception:
             # 後端尚未開啟時略過錯誤，確保監控視窗不卡頓
             pass
+        finally:
+            _request_queue.task_done()
 
-    threading.Thread(target=_post, daemon=True).start()
 
-def fetch_initial_count(today_str):
+threading.Thread(target=_worker, daemon=True).start()
+
+
+def now_iso():
+    # 帶時區的 ISO 時間，後端直接存進 timestamptz，不會有時差問題
+    return datetime.now().astimezone().isoformat()
+
+
+def post_enter():
+    _request_queue.put((
+        "/api/litter-box/enter",
+        {
+            "cameraId": CAMERA_ID,
+            "petType": "cat",
+            "enteredAt": now_iso()
+        }
+    ))
+
+
+def post_leave():
+    _request_queue.put((
+        "/api/litter-box/leave",
+        {
+            "cameraId": CAMERA_ID,
+            "exitedAt": now_iso()
+        }
+    ))
+
+
+# 今日統計（由背景執行緒定期更新，只拿來顯示）
+today_stats = {
+    "catCount": 0,
+    "urine24h": 0,
+    "poop24h": 0,
+    "isPresent": False,
+    "level": "unknown"
+}
+stats_lock = threading.Lock()
+
+
+def refresh_stats():
     try:
-        res = requests.get(f"{PET_API_URL}/api/cat-count", timeout=1.5)
+        res = requests.get(
+            f"{PET_API_URL}/api/litter-box",
+            params={"cameraId": CAMERA_ID},
+            timeout=1.5
+        )
         data = res.json()
-        if data.get("date") == today_str:
-            return data.get("catCount", 0)
+        assessment = data.get("assessment") or {}
+        with stats_lock:
+            today_stats["catCount"] = data.get("catCount", 0)
+            today_stats["urine24h"] = data.get("urine24h", 0)
+            today_stats["poop24h"] = data.get("poop24h", 0)
+            today_stats["isPresent"] = data.get("isPresent", False)
+            today_stats["level"] = assessment.get("label", "unknown")
     except Exception:
         pass
-    return 0
+
+
+def stats_loop():
+    while True:
+        refresh_stats()
+        time.sleep(STATS_REFRESH_SECONDS)
+
+
+def send_leave_sync():
+    # 離開程式時同步送出一次，避免資料庫留下一筆永遠開著的紀錄
+    try:
+        requests.post(
+            f"{PET_API_URL}/api/litter-box/leave",
+            json={"cameraId": CAMERA_ID, "exitedAt": now_iso()},
+            timeout=2.0
+        )
+    except Exception:
+        pass
+
 
 # ==========================================
 # 3. 載入 YOLO 模型與初始化今日計數
@@ -66,18 +140,19 @@ def fetch_initial_count(today_str):
 print("正在載入 YOLO 模型...")
 print(f"模型載入完成！執行裝置：{model.device}")
 
-current_date = get_today_str()
-cat_count = fetch_initial_count(current_date)
+current_date = time.strftime("%Y-%m-%d")
 cat_present = False
 last_seen_time = 0.0
 
-# 啟動時先與後端同步一次今日狀態
-send_cat_count_to_backend(cat_count, False, current_date)
+# 啟動時先跟後端拿今天的次數與停留時間（資料庫統計，重啟不會歸零）
+refresh_stats()
+threading.Thread(target=stats_loop, daemon=True).start()
 
 # ==========================================
 # 4. 連線攝影機並開啟即時辨識視窗
 # ==========================================
-window_name = "Tapo C210 (Q: Quit | R: Reset)"
+window_name = "Tapo C210 (Q: Quit | R: Refresh)"
+
 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 cv2.resizeWindow(window_name, 960, 540)
 
@@ -85,17 +160,18 @@ cap = cv2.VideoCapture(CAMERA_SOURCE, cv2.CAP_FFMPEG)
 # 減少緩衝區延遲，讓畫面更即時
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-print(f"正在連線至 Tapo C210 串流...（日期：{current_date}｜今日累計：{cat_count} 次）")
+print(
+    f"正在連線至 Tapo C210 串流...（日期：{current_date}｜"
+    f"今日累計：{today_stats['catCount']} 次）"
+)
 
 while True:
-    # 檢查是否跨日（過午夜 00:00 自動重置計數）
-    today = get_today_str()
+    # 檢查是否跨日（過午夜 00:00 顯示自動歸零；資料庫以日期分開統計）
+    today = time.strftime("%Y-%m-%d")
     if today != current_date:
         current_date = today
-        cat_count = 0
         cat_present = False
-        print(f"新的一天 ({current_date})，寵物進出次數已自動歸零！")
-        send_cat_count_to_backend(cat_count, False, current_date)
+        print(f"新的一天 ({current_date})，今日統計重新開始！")
 
     ret, frame = cap.read()
 
@@ -125,21 +201,31 @@ while True:
         last_seen_time = current_time
         if not cat_present:
             cat_present = True
-            cat_count += 1
-            print(f"[{current_date}] 偵測到貓咪進入！今日累計次數：{cat_count}")
-            send_cat_count_to_backend(cat_count, True, current_date)
+            print(f"[{current_date}] 偵測到貓咪進入！")
+            post_enter()
     else:
         if cat_present and (current_time - last_seen_time > ABSENCE_COOLDOWN):
             cat_present = False
             print("貓咪已離開鏡頭範圍")
-            send_cat_count_to_backend(cat_count, False, current_date)
+            post_leave()
 
     # 將辨識結果（框框、類別名稱、信心度）畫在畫面上
     annotated_frame = results[0].plot()
 
-    # 在畫面左上角顯示今日日期與累計次數
-    status_text = f"[{current_date}] Cat Count: {cat_count} | {'In View' if cat_present else 'Away'}"
-    cv2.rectangle(annotated_frame, (10, 10), (500, 50), (0, 0, 0), -1)
+    # 在畫面左上角顯示今日次數（尿尿／大便分開）與目前的評估
+    with stats_lock:
+        count = today_stats["catCount"]
+        urine = today_stats["urine24h"]
+        poop = today_stats["poop24h"]
+        level = today_stats["level"]
+
+    status_text = (
+        f"[{current_date}] Count: {count} | "
+        f"Pee: {urine} | Poop: {poop} | "
+        f"{'In View' if cat_present else 'Away'}"
+    )
+
+    cv2.rectangle(annotated_frame, (10, 10), (760, 50), (0, 0, 0), -1)
     cv2.putText(
         annotated_frame,
         status_text,
@@ -150,19 +236,35 @@ while True:
         2
     )
 
+    cv2.putText(
+        annotated_frame,
+        f"Excretion: {level}",
+        (20, 78),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 200, 255),
+        2
+    )
+
     # 顯示在視窗中
     cv2.imshow(window_name, annotated_frame)
 
-    # 按鍵控制：'q' / 'ESC' 結束程式，'r' 手動歸零次數
+    # 按鍵控制：'q' / 'ESC' 結束程式，'r' 重新整理今日統計
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q") or key == 27:
+        # 貓還在畫面裡就離開程式時，補送一次 leave，避免留下開著的紀錄
+        if cat_present:
+            send_leave_sync()
         print("結束監控程式")
         break
     elif key == ord("r"):
-        cat_count = 0
-        cat_present = False
-        send_cat_count_to_backend(cat_count, False, current_date)
-        print("今日次數已手動歸零")
+        refresh_stats()
+        with stats_lock:
+            print(
+                f"已重新整理：尿尿 {today_stats['urine24h']} 次、"
+                f"大便 {today_stats['poop24h']} 次，"
+                f"排泄狀況：{today_stats['level']}"
+            )
 
 cap.release()
 cv2.destroyAllWindows()

@@ -11,6 +11,10 @@ dist/
 labels.cache
 *.cache
 
+# Python
+__pycache__/
+*.pyc
+
 # Environment
 pet-api/.env
 pet app/.env
