@@ -29,15 +29,6 @@ const formatVisitSeconds = seconds => {
   return `${(value / 60).toFixed(1)} 分`
 }
 
-// 排泄狀況評估的顏色
-const ASSESSMENT_TONE = {
-  ok: 'bg-green-50 border-green-100 text-green-700',
-  watch: 'bg-amber-50 border-amber-100 text-amber-700',
-  warning: 'bg-orange-50 border-orange-200 text-orange-700',
-  urgent: 'bg-red-50 border-red-200 text-red-700',
-  unknown: 'bg-gray-50 border-gray-100 text-gray-500'
-}
-
 export default function PetCam({ cameraId = 'cam_1' }) {
   const [status, setStatus] = useState({
     cameraId: 'cam_1',
@@ -96,7 +87,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
     poopCount: 0,
     avgUrineSeconds: null,
     avgPoopSeconds: null,
-    assessment: null,
   })
 
   useEffect(() => {
@@ -113,7 +103,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
           poopCount: data.poopCount ?? 0,
           avgUrineSeconds: data.avgUrineSeconds ?? null,
           avgPoopSeconds: data.avgPoopSeconds ?? null,
-          assessment: data.assessment || null,
         })
       } catch {
         // 後端尚未連線時維持原數值
@@ -302,6 +291,16 @@ export default function PetCam({ cameraId = 'cam_1' }) {
 
   const hasGap = displayTimeline.some(item => item.type === 'gap')
 
+  // 尿尿與大便合併為「如廁次數」，並以次數加權算出整體平均如廁時間
+  const totalVisitCount = catStats.urineCount + catStats.poopCount
+
+  const totalVisitSeconds =
+    (catStats.avgUrineSeconds ?? 0) * catStats.urineCount +
+    (catStats.avgPoopSeconds ?? 0) * catStats.poopCount
+
+  const avgVisitSeconds =
+    totalVisitCount > 0 ? totalVisitSeconds / totalVisitCount : null
+
   return (
     <div className="w-full min-h-full bg-gray-50 px-4 py-6">
       <div className="w-full max-w-[900px] mx-auto flex flex-col gap-5">
@@ -413,88 +412,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
             </>
           )}
         </div>
-{/* 今日貓砂盆使用：次數（尿尿／大便分開）＋ 平均上廁所時間 */}
-        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🚽</span>
-              <span className="font-bold text-sm text-gray-700">
-                今日貓砂盆使用
-              </span>
-              {catStats.isPresent && (
-                <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
-                  目前在內
-                </span>
-              )}
-            </div>
-
-            <span className="text-[11px] text-gray-400">
-              影像推估：停留 &lt; 45 秒 = 尿尿
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mt-3">
-
-            <div className="rounded-xl bg-sky-50 border border-sky-100 px-3 py-2.5">
-              <p className="text-xs font-semibold text-sky-600">💧 尿尿</p>
-
-              <p className="mt-0.5">
-                <span className="text-xl font-bold text-gray-800">
-                  {catStats.urineCount}
-                </span>
-                <span className="text-xs text-gray-500 ml-1">次</span>
-              </p>
-
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                平均 {formatVisitSeconds(catStats.avgUrineSeconds)}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5">
-              <p className="text-xs font-semibold text-amber-600">💩 大便</p>
-
-              <p className="mt-0.5">
-                <span className="text-xl font-bold text-gray-800">
-                  {catStats.poopCount}
-                </span>
-                <span className="text-xs text-gray-500 ml-1">次</span>
-              </p>
-
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                平均 {formatVisitSeconds(catStats.avgPoopSeconds)}
-              </p>
-            </div>
-
-          </div>
-
-          {catStats.assessment && (
-            <div
-              className={`mt-3 rounded-xl border px-3 py-2 ${
-                ASSESSMENT_TONE[catStats.assessment.level] ||
-                ASSESSMENT_TONE.unknown
-              }`}
-            >
-              <p className="text-xs font-bold">
-                排泄狀況：{catStats.assessment.label}
-              </p>
-
-              <div className="mt-1 space-y-1">
-                {catStats.assessment.items.slice(0, 3).map((item, index) => (
-                  <p key={index} className="text-[11px] leading-relaxed">
-                    · <span className="font-semibold">{item.title}</span>
-                    {item.text ? `：${item.text}` : ''}
-                  </p>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <p className="text-[10px] text-gray-400 mt-2">
-            次數與時間為影像推估，僅供參考，不能取代獸醫診斷。
-          </p>
-        </div>
-
         {/* 當前行為 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-sky-50 border border-sky-100 rounded-2xl p-5">
@@ -526,6 +443,52 @@ export default function PetCam({ cameraId = 'cam_1' }) {
             <p className="text-[11px] text-gray-400 mt-2">
               此結果依攝影機偵測到的姿態與活動量推測，不代表寵物實際心理或醫療狀態。
             </p>
+          </div>
+        </div>
+
+        {/* 今日貓砂盆使用：如廁次數與如廁時間分開展示 */}
+        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🚽</span>
+              <span className="font-bold text-sm text-gray-700">
+                今日貓砂盆使用
+              </span>
+              {catStats.isPresent && (
+                <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                  目前在內
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-3">
+
+            <div className="rounded-xl bg-sky-50 border border-sky-100 px-3 py-2.5">
+              <p className="text-xs font-semibold text-sky-600">🚽 如廁次數</p>
+
+              <p className="mt-0.5">
+                <span className="text-xl font-bold text-gray-800">
+                  {totalVisitCount}
+                </span>
+                <span className="text-xs text-gray-500 ml-1">次</span>
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5">
+              <p className="text-xs font-semibold text-indigo-600">
+                ⏱️ 如廁時間
+              </p>
+
+              <p className="mt-0.5">
+                <span className="text-xl font-bold text-gray-800">
+                  {formatVisitSeconds(avgVisitSeconds)}
+                </span>
+                <span className="text-xs text-gray-500 ml-1">平均</span>
+              </p>
+            </div>
+
           </div>
         </div>
 
