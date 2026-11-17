@@ -66,6 +66,35 @@ export default function PetCam({ cameraId = 'cam_1' }) {
     const timer = setInterval(fetchStatus, 1000)
     return () => clearInterval(timer)
   }, [])
+  // ==========================================
+  // 今日寵物進出貓砂次數
+  // ==========================================
+  const [catStats, setCatStats] = useState({
+    catCount: 0,
+    isPresent: false,
+    lastSeen: null,
+  })
+
+  useEffect(() => {
+    const fetchCatCount = async () => {
+      try {
+        const res = await fetch(`${API}/cat-count`)
+        if (!res.ok) return
+        const data = await res.json()
+        setCatStats({
+          catCount: data.catCount ?? 0,
+          isPresent: data.isPresent ?? false,
+          lastSeen: data.lastSeen || null,
+        })
+      } catch {
+        // 後端尚未連線時維持原數值
+      }
+    }
+
+    fetchCatCount()
+    const timer = setInterval(fetchCatCount, 2000)
+    return () => clearInterval(timer)
+  }, [])
 
   // ==============================
   // 攝影機歷史紀錄（以 cameraId 運作，不依賴 petId）
@@ -354,6 +383,20 @@ export default function PetCam({ cameraId = 'cam_1' }) {
               )}
             </>
           )}
+        </div>
+{/* 今日寵物進出貓砂次數 */}
+        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🐱</span>
+            <span className="font-bold text-sm text-gray-700">
+              今日寵物進出貓砂次數
+            </span>
+          </div>
+
+          <div className="font-bold text-gray-800 text-lg">
+            {catStats.catCount}{' '}
+            <span className="text-xs font-normal text-gray-500">次</span>
+          </div>
         </div>
 
         {/* 當前行為 */}

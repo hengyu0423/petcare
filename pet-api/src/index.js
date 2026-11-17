@@ -289,6 +289,7 @@ app.use('/api/camera-records', require('./routes/cameraRecords'))
 app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/pet-emotion', require('./routes/petEmotion'))
 app.use('/api/assistant', require('./routes/assistant'))
+app.use('/api/cat-count', require('./routes/catCount'))
 
 app.get('/api/ping', async (_req, res) => {
   const result = await pool.query('SELECT NOW()')
