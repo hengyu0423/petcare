@@ -224,8 +224,12 @@ async function getTodayStats(cameraId) {
     urine24h: recentRow.urine,
     poop24h: recentRow.poop,
 
-    hoursSinceUrine: round(hoursSinceUrine * 10) / 10,
-    hoursSincePoop: round(hoursSincePoop * 10) / 10,
+    // 沒有紀錄時要保留 null（不能寫成 round(x * 10) / 10，
+    // 因為 null * 10 會變成 0，變成「0 小時前剛上過」的錯誤訊息）
+    hoursSinceUrine:
+      hoursSinceUrine == null ? null : round(hoursSinceUrine * 10) / 10,
+    hoursSincePoop:
+      hoursSincePoop == null ? null : round(hoursSincePoop * 10) / 10,
 
     // 推估門檻（< 45 秒 = 尿尿）
     peeMaxSeconds: PEE_MAX_SECONDS,
@@ -514,3 +518,6 @@ router.get('/visits', async (req, res) => {
 })
 
 module.exports = router
+
+// 讓健康諮詢可以取得同一份統計與評估（與貓砂盆頁面一致）
+module.exports.getTodayStats = getTodayStats

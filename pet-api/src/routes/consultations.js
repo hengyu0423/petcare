@@ -9,6 +9,7 @@ const {
   resolveSourceSlugs
 } = require('../services/knowledge')
 const { addFastingNotice } = require('../services/replyGuards')
+const { buildLitterBoxBlock } = require('../services/litterBoxContext')
 const { buildFollowups } = require('../services/followups')
 
 const groq = new Groq({
@@ -749,6 +750,17 @@ router.post('/ai', async (req, res) => {
 
     const knowledgeBlock = formatKnowledgeForPrompt(knowledge)
 
+    // 貓 + 問到尿尿／排便／貓砂盆時，帶入攝影機的貓砂盆統計（失敗只會略過）
+    const latestUserText =
+      [...cleanMessages].reverse().find(msg => msg.role === 'user')
+        ?.content || ''
+
+    const litterBoxBlock = await buildLitterBoxBlock({
+      petId,
+      species: petSpecies,
+      question: latestUserText
+    })
+
 
     // ==================================================
     // 建立安全判斷用完整文字
@@ -780,6 +792,7 @@ router.post('/ai', async (req, res) => {
     const instructionPrompt = `
 ${systemPrompt}
 ${knowledgeBlock}
+${litterBoxBlock}
 你是一位寵物健康諮詢與分級助手。
 
 你必須根據寵物目前症狀，先判斷嚴重程度。
