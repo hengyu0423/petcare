@@ -11,12 +11,38 @@ import { useState } from 'react'
 //   - 每一餐只有一個主要動作：餵食並記錄
 // ======================================================
 
-const MEAL_ICON = {
-  breakfast: '🌅',
-  lunch: '☀️',
-  dinner: '🌙',
-  late: '🌃',
-  snack: '🍪'
+const ICON = {
+  breakfast: <><path d="M3 18h18" /><path d="M7 18a5 5 0 0 1 10 0" /><path d="M12 3v2M5 6l1.5 1.5M19 6l-1.5 1.5M2 12h2M20 12h2" /></>,
+  lunch: <><circle cx="12" cy="12" r="4.5" /><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" /></>,
+  dinner: <path d="M20 15.5A8 8 0 0 1 9 4.5a8 8 0 1 0 11 11Z" />,
+  late: <><path d="M19 15A7 7 0 0 1 10 5.2 7 7 0 1 0 19 15Z" /><path d="M17 3l.6 1.4L19 5l-1.4.6L17 7l-.6-1.4L15 5l1.4-.6L17 3Z" /></>,
+  snack: <><circle cx="12" cy="12" r="8" /><circle cx="9.5" cy="10" r="1" fill="currentColor" stroke="none" /><circle cx="14.5" cy="9.5" r="1" fill="currentColor" stroke="none" /><circle cx="11.5" cy="14.5" r="1" fill="currentColor" stroke="none" /></>,
+  plate: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="5" /></>,
+  stethoscope: <><path d="M6 4v5a4 4 0 0 0 8 0V4" /><path d="M10 13v2.5a4.5 4.5 0 0 0 9 0V13" /><circle cx="19" cy="12" r="1.8" /></>,
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M12 2.5l1 2 2.2-.5 1.1 2-1.4 1.8 1.4 1.8-1.1 2-2.2-.5-1 2h-2l-1-2-2.2.5-1.1-2 1.4-1.8-1.4-1.8 1.1-2 2.2.5 1-2h2Z" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  alert: <><path d="M12 4.5 21 19.5H3L12 4.5Z" /><path d="M12 10v4M12 17h.01" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  chevron: <path d="M6 9l6 6 6-6" />
+}
+
+function LineIcon({ name, size = 16, className = '' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={`shrink-0 ${className}`}
+    >
+      {ICON[name] || ICON.plate}
+    </svg>
+  )
 }
 
 function formatKcal(value) {
@@ -49,32 +75,29 @@ export default function MealPlanSection({
 
   const notices = plan?.notices || []
 
-  // 健康相關的提醒不在這裡重複顯示，
-  // 改成一顆按鈕，點了跳出「健康提醒」視窗
+  // 健康相關的提醒不在這裡重複顯示，改成一顆按鈕，點了跳出「健康提醒」視窗
   const healthNotices = notices.filter(notice => notice.kind === 'health')
   const otherNotices = notices.filter(notice => notice.kind !== 'health')
-
   const warningNotices = otherNotices.filter(n => n.level === 'warning')
   const infoNotices = otherNotices.filter(n => n.level !== 'warning')
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-
-        <div>
-          <h2 className="text-sm font-bold text-gray-800">
-            🍽️ 今天要餵什麼？
+    <div className="rounded-3xl border border-[#f3e3cd] bg-plate p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-pine-900">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff3d6] text-[#c96f2e]">
+              <LineIcon name="plate" size={17} />
+            </span>
+            今天要餵什麼？
           </h2>
-
           {plan?.today?.remainingKcal != null && !plan?.overBudget && (
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <p className="mt-1 text-[11px] font-medium text-ink-soft">
               今天還可以吃：約 {formatKcal(plan.today.remainingKcal)} kcal
             </p>
           )}
-
           {plan?.overBudget && (
-            <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+            <p className="mt-1 text-[11px] font-bold text-[#a5681c]">
               今天已達建議上限，剩餘餐次建議跳過
             </p>
           )}
@@ -84,52 +107,45 @@ export default function MealPlanSection({
           <button
             type="button"
             onClick={onEditPreferences}
-            className="text-xs text-gray-400 hover:text-green-600"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft transition-colors hover:text-pine-700"
           >
-            ⚙️ 計畫設定
+            <LineIcon name="gear" size={14} />
+            計畫設定
           </button>
-
           <button
             type="button"
             onClick={onOpenManual}
-            className="text-xs text-gray-400 hover:text-green-600"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft transition-colors hover:text-pine-700"
           >
-            ＋ 手動新增
+            <LineIcon name="plus" size={14} />
+            手動新增
           </button>
         </div>
-
       </div>
 
       {isLoading && (
         <div className="space-y-2">
           {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className="h-16 rounded-lg bg-gray-50 animate-pulse"
-            />
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-[#faf7ef]" />
           ))}
         </div>
       )}
 
       {isError && (
-        <div className="text-center py-6">
-          <p className="text-sm text-gray-500">
-            暫時無法產生飲食計畫。
-          </p>
-
-          <div className="flex justify-center gap-4 mt-3">
+        <div className="py-6 text-center">
+          <p className="text-sm text-ink-soft">暫時無法產生飲食計畫。</p>
+          <div className="mt-3 flex justify-center gap-4">
             <button
               type="button"
               onClick={() => refetch?.()}
-              className="text-sm text-green-600 font-semibold hover:underline"
+              className="text-sm font-bold text-pine-700 hover:underline"
             >
               重試
             </button>
-
             <button
               type="button"
               onClick={onOpenManual}
-              className="text-sm text-gray-500 hover:underline"
+              className="text-sm text-ink-soft hover:underline"
             >
               手動新增
             </button>
@@ -139,41 +155,40 @@ export default function MealPlanSection({
 
       {plan && (
         <div>
-
           {/* 健康警示：點了跳出健康提醒視窗，不在這裡重複顯示全文 */}
           {healthNotices.length > 0 && (
             <button
               type="button"
               onClick={() => onOpenHealthDetails?.()}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors mb-2 text-left"
+              className="mb-3 flex w-full items-center gap-2.5 rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] px-3 py-2.5 text-left transition-colors hover:bg-[#fdf0d9]"
             >
-              <span className="shrink-0">🩺</span>
-              <span className="flex-1 text-xs font-semibold">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-plate text-[#c96f2e]">
+                <LineIcon name="stethoscope" size={17} />
+              </span>
+              <span className="flex-1 text-xs font-bold text-[#7a5200]">
                 有 {healthNotices.length} 則健康注意事項影響這份計畫
               </span>
-              <span className="text-xs font-semibold shrink-0">
-                點擊查看 →
-              </span>
+              <span className="shrink-0 text-xs font-bold text-[#a5681c]">點擊查看 →</span>
             </button>
           )}
 
           {warningNotices.length > 0 && (
-            <div className="space-y-1.5 mb-3">
+            <div className="mb-3 space-y-1.5">
               {warningNotices.map((notice, index) => (
                 <p
                   key={index}
-                  className="text-xs leading-relaxed rounded-lg px-3 py-2 bg-amber-50 text-amber-700"
+                  className="flex items-start gap-1.5 rounded-xl bg-[#fff8e9] px-3 py-2 text-xs leading-relaxed text-[#7a5200]"
                 >
-                  ⚠️ {notice.text}
+                  <LineIcon name="alert" size={13} className="mt-0.5" />
+                  {notice.text}
                 </p>
               ))}
             </div>
           )}
 
           <div className="space-y-2.5">
-
             {plan.meals.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6">
+              <p className="py-6 text-center text-sm text-ink-soft">
                 目前沒有可推薦的餐次，請手動新增或調整計畫設定。
               </p>
             )}
@@ -186,149 +201,122 @@ export default function MealPlanSection({
               return (
                 <div
                   key={meal.key}
-                  className={`rounded-xl border p-3 ${
+                  className={`rounded-2xl border p-3.5 ${
                     meal.logged
-                      ? 'border-green-200 bg-green-50/40'
-                      : 'border-gray-100 bg-white'
+                      ? 'border-pine-100 bg-pine-50/60'
+                      : 'border-[#eae6d8] bg-[#faf7ef]'
                   }`}
                 >
-
                   <div className="flex items-center justify-between gap-2">
-
-                    <p className="text-sm font-bold text-gray-800">
-                      {MEAL_ICON[meal.key] || '🍽️'} {meal.label}
-                      <span className="ml-2 text-xs font-normal text-gray-400">
-                        {meal.time}
+                    <p className="flex items-center gap-2 text-sm font-bold text-pine-900">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-plate text-pine-700">
+                        <LineIcon name={meal.key} size={17} />
                       </span>
+                      {meal.label}
+                      <span className="text-xs font-medium text-ink-soft">{meal.time}</span>
                     </p>
-
-                    {meal.logged ? (
-                      <span className="text-[11px] font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-                        ✓ 已記錄
+                    {meal.logged && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-pine-100 px-2 py-0.5 text-[11px] font-bold text-pine-700">
+                        <LineIcon name="check" size={12} />
+                        已記錄
                       </span>
-                    ) : null}
-
+                    )}
                   </div>
 
                   {meal.skip ? (
-                    <p className="text-xs leading-relaxed text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 mt-2">
-                      ⚠️ 今天已達建議熱量上限，這餐建議跳過；
-                      如需餵食，只給極少量清淡食物。
+                    <p className="mt-2 flex items-start gap-1.5 rounded-xl border border-[#f0d9b5] bg-[#fff8e9] px-3 py-2.5 text-xs leading-relaxed text-[#7a5200]">
+                      <LineIcon name="alert" size={14} className="mt-0.5" />
+                      今天已達建議熱量上限，這餐建議跳過；如需餵食，只給極少量清淡食物。
                     </p>
                   ) : !option ? (
-                    <p className="text-xs text-gray-400 mt-2">
-                      目前沒有適合的食物。
-                    </p>
+                    <p className="mt-2 text-xs text-ink-soft">目前沒有適合的食物。</p>
                   ) : (
-                    <div className="mt-2">
-
+                    <div className="mt-2.5">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="text-sm font-semibold text-gray-800">
-                          {option.name}
-                        </span>
-
-                        <span className="text-xs text-gray-500">
+                        <span className="text-sm font-bold text-pine-900">{option.name}</span>
+                        <span className="text-xs text-ink-soft">
                           {option.amountG
                             ? `${option.amountG} g · ${formatKcal(option.kcal)} kcal`
                             : '份量請依包裝建議'}
                         </span>
-
                         {option.fixed && (
-                          <span className="text-[10px] text-green-600">
-                            固定
-                          </span>
+                          <span className="rounded-full bg-pine-50 px-1.5 py-0.5 text-[10px] font-bold text-pine-700">固定</span>
                         )}
                       </div>
 
                       {meal.adjusted && (
-                        <p className="text-[11px] text-green-600 mt-0.5">
-                          已依今天攝取調整份量
-                        </p>
+                        <p className="mt-1 text-[11px] font-semibold text-pine-700">已依今天攝取調整份量</p>
                       )}
 
                       {option.warnings.length > 0 && (
                         <div className="mt-1.5 space-y-0.5">
                           {option.warnings.map(w => (
-                            <p
-                              key={w.title}
-                              className="text-xs text-amber-700"
-                            >
-                              ⚠️ {w.title}
+                            <p key={w.title} className="flex items-start gap-1 text-xs text-[#a5681c]">
+                              <LineIcon name="alert" size={12} className="mt-0.5" />
+                              {w.title}
                             </p>
                           ))}
                         </div>
                       )}
 
                       {!meal.logged && (
-                        <div className="flex flex-wrap items-center gap-3 mt-2.5">
-
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
                           <button
                             type="button"
                             onClick={() => onFeedMeal(meal, option)}
                             disabled={!option.amountG || isFeeding}
-                            className="bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#f5c04a] px-4 py-2 text-xs font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
                           >
-                            {isFeeding
-                              ? '記錄中…'
-                              : option.amountG
-                                ? '✓ 餵食並記錄'
-                                : '請先設定份量'}
+                            <LineIcon name="check" size={14} />
+                            {isFeeding ? '記錄中…' : option.amountG ? '餵食並記錄' : '請先設定份量'}
                           </button>
-
                           <button
                             type="button"
                             onClick={() => onAdjustMeal(meal, option)}
-                            className="text-xs text-gray-400 hover:text-green-600"
+                            className="text-xs font-semibold text-ink-soft transition-colors hover:text-pine-700"
                           >
                             調整份量
                           </button>
-
                           {meal.options.length > 1 && (
                             <button
                               type="button"
                               onClick={() => cycle(meal)}
-                              className="text-xs text-gray-400 hover:text-green-600"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft transition-colors hover:text-pine-700"
                             >
+                              <LineIcon name="chevron" size={12} />
                               換一款（{index + 1}/{meal.options.length}）
                             </button>
                           )}
-
                         </div>
                       )}
 
                       {meal.logged && (
-                        <p className="text-[11px] text-green-600/80 mt-1.5">
+                        <p className="mt-2 text-[11px] text-pine-700/80">
                           這一餐已建立紀錄，可在下方修改，不會重複新增。
                         </p>
                       )}
-
                     </div>
                   )}
-
                 </div>
               )
             })}
-
           </div>
 
           {/* 為什麼這樣建議 */}
           {infoNotices.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-4">
               <button
                 type="button"
                 onClick={() => setShowWhy(v => !v)}
-                className="text-[11px] text-gray-400 hover:text-gray-600"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-ink-soft transition-colors hover:text-pine-700"
               >
-                {showWhy ? '收合說明 ▲' : '為什麼這樣建議？▼'}
+                <LineIcon name="chevron" size={12} className={showWhy ? 'rotate-180' : ''} />
+                {showWhy ? '收合說明' : '為什麼這樣建議？'}
               </button>
-
               {showWhy && (
-                <div className="mt-1.5 space-y-1">
+                <div className="mt-2 space-y-1">
                   {infoNotices.map((notice, index) => (
-                    <p
-                      key={index}
-                      className="text-[11px] text-gray-500 leading-relaxed"
-                    >
+                    <p key={index} className="text-[11px] leading-relaxed text-ink-soft">
                       · {notice.text}
                     </p>
                   ))}
@@ -343,18 +331,15 @@ export default function MealPlanSection({
               <button
                 type="button"
                 onClick={() => setShowExcluded(v => !v)}
-                className="text-[11px] text-gray-400 hover:text-gray-600"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-ink-soft transition-colors hover:text-pine-700"
               >
-                {showExcluded ? '收合 ▲' : `已排除 ${plan.excluded.length} 種食物 ▼`}
+                <LineIcon name="chevron" size={12} className={showExcluded ? 'rotate-180' : ''} />
+                {showExcluded ? '收合' : `已排除 ${plan.excluded.length} 種食物`}
               </button>
-
               {showExcluded && (
-                <ul className="mt-1.5 space-y-0.5">
+                <ul className="mt-2 space-y-0.5">
                   {plan.excluded.map(item => (
-                    <li
-                      key={item.name}
-                      className="text-[11px] text-gray-500"
-                    >
+                    <li key={item.name} className="text-[11px] text-ink-soft">
                       · {item.name}：{item.reason}
                     </li>
                   ))}
@@ -362,10 +347,8 @@ export default function MealPlanSection({
               )}
             </div>
           )}
-
         </div>
       )}
-
     </div>
   )
 }

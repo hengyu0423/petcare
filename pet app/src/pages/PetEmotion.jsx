@@ -1,5 +1,42 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useAuthStore } from '../store/authStore'
+
+const ICON = {
+  paw: <><ellipse cx="7" cy="8" rx="2" ry="2.4" /><ellipse cx="12" cy="5.8" rx="2" ry="2.4" /><ellipse cx="17" cy="8" rx="2" ry="2.4" /><path d="M12 11c-3 0-5.5 2.2-5.5 4.8 0 1.7 1.4 2.9 3 2.9 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5c1.6 0 3-1.2 3-2.9C17.5 13.2 15 11 12 11Z" /></>,
+  camera: <><path d="M4 8.5h3l1.5-2h7L17 8.5h3v10H4Z" /><circle cx="12" cy="13" r="3.5" /></>,
+  shutter: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /></>,
+  phone: <><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M11 17.5h2" /></>,
+  upload: <><path d="M12 16V4M8 8l4-4 4 4" /><path d="M4.5 15v3.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15" /></>,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
+  spark: <><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3Z" /><path d="M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" /></>,
+  image: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="M4.5 17l4.5-4 3.5 3 3-2.5 4 3.5" /></>,
+  alert: <><path d="M12 4.5 21 19.5H3L12 4.5Z" /><path d="M12 10v4M12 17h.01" /></>
+}
+
+function LineIcon({ name, size = 16, className = '' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={`shrink-0 ${className}`}
+    >
+      {ICON[name] || ICON.paw}
+    </svg>
+  )
+}
+
+const actionClass =
+  'inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#e8d9bd] bg-[#faf7ef] px-4 py-2.5 text-sm font-bold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-[#fdf6ea] disabled:opacity-50'
+
+const primaryClass =
+  'inline-flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-[#f5c04a] px-5 py-3 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50'
 
 export default function PetEmotion({ embedded = false }) {
   const videoRef = useRef(null);
@@ -7,23 +44,20 @@ export default function PetEmotion({ embedded = false }) {
 
   const [cameraOn, setCameraOn] = useState(false);
   const [photo, setPhoto] = useState(null);
-  const [preview, setPreview] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 照片預覽
+  // 照片預覽：用推導產生網址，effect 只負責釋放，避免在 effect 內 setState
+  const preview = useMemo(
+    () => (photo ? URL.createObjectURL(photo) : ""),
+    [photo]
+  );
+
   useEffect(() => {
-    if (!photo) {
-      setPreview("");
-      return;
-    }
-
-    const url = URL.createObjectURL(photo);
-    setPreview(url);
-
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
+    if (!preview) return;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
 
   // 離開頁面時關閉攝影機
   useEffect(() => {
@@ -56,7 +90,7 @@ export default function PetEmotion({ embedded = false }) {
       }
 
       setCameraOn(true);
-    } catch (err) {
+    } catch {
       closeCamera();
       setError("無法開啟攝影機，請檢查攝影機權限或 HTTPS");
     }
@@ -163,7 +197,6 @@ export default function PetEmotion({ embedded = false }) {
       const apiUrl =
         (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
-
       const token = useAuthStore.getState().token
 
       const response = await fetch(
@@ -176,7 +209,6 @@ export default function PetEmotion({ embedded = false }) {
           body: formData
         }
       )
-
 
       if (!response.ok) {
         throw new Error(`API 錯誤：${response.status}`);
@@ -197,62 +229,22 @@ export default function PetEmotion({ embedded = false }) {
     }
   }
 
-  // 共用按鈕樣式
-  const buttonStyle = {
-    padding: "12px 20px",
-    border: "none",
-    borderRadius: "10px",
-    background: "#7799ca",
-    color: "white",
-    cursor: "pointer",
-    fontSize: "15px",
-    fontWeight: "bold"
-  };
-
-  const uploadStyle = {
-    ...buttonStyle,
-    display: "inline-block",
-    textAlign: "center"
-  };
-
   return (
-    <div style={embedded ? {
-      // 放在健康諮詢頁右側時：高度跟著內容、背景交給外層，不要再自己撐滿整個畫面
-      padding: "20px 15px",
-      fontFamily: "inherit"
-    } : {
-      minHeight: "100vh",
-      background: "#f5f7fb",
-      padding: "30px 15px",
-      fontFamily: "Arial, sans-serif"
-    }}>
-      <div style={{
-        maxWidth: "750px",
-        margin: "auto",
-        background: "white",
-        padding: "30px 20px",
-        borderRadius: "20px",
-        boxShadow: "0 4px 15px rgba(0,0,0,0.08)"
-      }}>
-
+    <div className={embedded ? 'p-5 sm:p-6' : 'min-h-screen bg-paper p-4 font-sans sm:p-6'}>
+      <div className="mx-auto max-w-3xl rounded-3xl border border-[#f3e3cd] bg-plate p-5 shadow-[0_20px_50px_-30px_rgba(87,54,17,0.45)] sm:p-6">
         {/* 放在健康諮詢頁時，上方已經有標題列，這裡就不重複 */}
         {!embedded && (
-          <>
-            <h1 style={{
-              textAlign: "center",
-              color: "#45618a"
-            }}>
-              🐾 AI 寵物心情辨識
+          <div className="mb-6 text-center">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-pine-800 text-[#f5c04a]">
+              <LineIcon name="paw" size={24} />
+            </span>
+            <h1 className="mt-3 font-brand text-xl font-extrabold text-pine-900">
+              AI 寵物心情辨識
             </h1>
-
-            <p style={{
-              textAlign: "center",
-              color: "#777"
-            }}>
-              拍攝或上傳寵物照片，
-              讓 AI 分析牠可能的心情
+            <p className="mt-1 text-sm text-ink-soft">
+              拍攝或上傳寵物照片，讓 AI 分析牠可能的心情
             </p>
-          </>
+          </div>
         )}
 
         {/* 電腦攝影機畫面 */}
@@ -261,166 +253,125 @@ export default function PetEmotion({ embedded = false }) {
           autoPlay
           muted
           playsInline
-          style={{
-            display: cameraOn ? "block" : "none",
-            width: "100%",
-            maxWidth: "550px",
-            margin: "20px auto",
-            borderRadius: "15px",
-            background: "#222"
-          }}
+          className={`mx-auto w-full max-w-xl rounded-2xl bg-pine-900 ${cameraOn ? 'block' : 'hidden'}`}
         />
 
         {/* 拍照及上傳功能 */}
-        <div style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: "12px",
-          marginTop: "25px"
-        }}>
-
-          {/* 電腦攝影機 */}
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
           {!cameraOn ? (
             <button
-              style={buttonStyle}
+              type="button"
+              className={actionClass}
               onClick={openCamera}
               disabled={loading}
             >
-              💻 開啟攝影機
+              <LineIcon name="camera" size={16} />
+              開啟攝影機
             </button>
           ) : (
             <>
               <button
-                style={buttonStyle}
+                type="button"
+                className={actionClass}
                 onClick={takePhoto}
               >
-                📸 拍照
+                <LineIcon name="shutter" size={16} />
+                拍照
               </button>
 
               <button
-                style={{
-                  ...buttonStyle,
-                  background: "#999"
-                }}
+                type="button"
+                className={actionClass}
                 onClick={closeCamera}
               >
+                <LineIcon name="close" size={15} />
                 關閉攝影機
               </button>
             </>
           )}
 
-          {/* 手機拍照 */}
-          <label style={uploadStyle}>
-            📱 手機拍照
+          <label className={actionClass}>
+            <LineIcon name="phone" size={15} />
+            手機拍照
             <input
               type="file"
               accept="image/*"
               capture="environment"
               onChange={uploadPhoto}
               disabled={loading}
-              style={{ display: "none" }}
+              className="hidden"
             />
           </label>
 
-          {/* 上傳圖片 */}
-          <label style={uploadStyle}>
-            📁 上傳照片
+          <label className={actionClass}>
+            <LineIcon name="upload" size={15} />
+            上傳照片
             <input
               type="file"
               accept="image/*"
               onChange={uploadPhoto}
               disabled={loading}
-              style={{ display: "none" }}
+              className="hidden"
             />
           </label>
         </div>
 
         {/* 照片預覽 */}
         {preview && (
-          <div style={{
-            textAlign: "center",
-            marginTop: "25px"
-          }}>
-            <h3>📷 寵物照片</h3>
+          <div className="mt-6 text-center">
+            <p className="mb-2 flex items-center justify-center gap-1.5 text-sm font-bold text-pine-900">
+              <LineIcon name="image" size={15} />
+              寵物照片
+            </p>
 
             <img
               src={preview}
               alt="寵物照片"
-              style={{
-                width: "100%",
-                maxWidth: "450px",
-                borderRadius: "15px"
-              }}
+              className="mx-auto w-full max-w-md rounded-2xl border border-[#f0e6d2]"
             />
           </div>
         )}
 
         {/* AI 分析按鈕 */}
-        <div style={{
-          textAlign: "center",
-          marginTop: "25px"
-        }}>
+        <div className="mt-6 flex justify-center">
           <button
+            type="button"
             onClick={analyze}
             disabled={loading || !photo}
-            style={{
-              ...buttonStyle,
-              background: loading ? "#aaa" : "#667fc0",
-              width: "100%",
-              maxWidth: "450px",
-              opacity: !photo ? 0.5 : 1
-            }}
+            className={primaryClass}
           >
-            {loading
-              ? "🤖 AI 正在分析..."
-              : "✨ 開始 AI 心情分析"}
+            <LineIcon name={loading ? 'camera' : 'spark'} size={17} />
+            {loading ? 'AI 正在分析…' : '開始 AI 心情分析'}
           </button>
         </div>
 
         {/* 錯誤訊息 */}
         {error && (
-          <p style={{
-            color: "#d9534f",
-            textAlign: "center",
-            marginTop: "20px"
-          }}>
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold text-[#b4552f]">
+            <LineIcon name="alert" size={14} />
             {error}
           </p>
         )}
 
         {/* AI 分析結果 */}
         {result && (
-          <div style={{
-            background: "#edf4ff",
-            padding: "25px",
-            borderRadius: "15px",
-            marginTop: "30px",
-            textAlign: "left"
-          }}>
-            <h2 style={{ color: "#45618a" }}>
-              🐾 AI 心情分析結果
+          <div className="mt-6 rounded-2xl border border-pine-100 bg-pine-50/60 p-5 text-left">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-pine-900">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-plate text-pine-700">
+                <LineIcon name="paw" size={17} />
+              </span>
+              AI 心情分析結果
             </h2>
 
-            <p style={{
-              lineHeight: "1.9",
-              whiteSpace: "pre-wrap",
-              color: "#333"
-            }}>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink">
               {result}
             </p>
 
-            <p style={{
-              color: "#777",
-              fontSize: "13px",
-              marginTop: "20px"
-            }}>
-              提醒：AI 僅根據照片中的外觀與姿勢推測，
-              無法確定寵物的真實情緒。
+            <p className="mt-4 text-xs text-ink-soft">
+              提醒：AI 僅根據照片中的外觀與姿勢推測，無法確定寵物的真實情緒。
             </p>
           </div>
         )}
-
       </div>
     </div>
   );

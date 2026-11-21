@@ -18,8 +18,12 @@ export default function FollowupSuggestions({
 
   return (
     <div className="mb-3">
-      <p className="text-xs text-gray-400 mb-1.5">
-        💡 接下來可以問
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-pine-700">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+          <path d="M9 17.5h6M10 20h4" />
+          <path d="M8 13a5 5 0 1 1 8 0c-.9 1-1.5 1.8-1.5 3h-5c0-1.2-.6-2-1.5-3Z" />
+        </svg>
+        接下來可以問
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -29,7 +33,7 @@ export default function FollowupSuggestions({
             type="button"
             onClick={() => onSelect(text)}
             disabled={disabled}
-            className="text-xs text-left bg-green-50 border border-green-200 text-green-700 rounded-full px-3 py-1.5 hover:bg-green-100 transition-all disabled:opacity-50"
+            className="rounded-full border border-[#f0d9b5] bg-[#fff8e9] px-3 py-1.5 text-left text-xs font-semibold text-[#7a5200] transition-colors hover:bg-[#fdf0d9] disabled:opacity-50"
           >
             {text}
           </button>

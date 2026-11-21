@@ -247,7 +247,7 @@ export default function Layout() {
           <NotificationBell />
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className="legacy-skin flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>

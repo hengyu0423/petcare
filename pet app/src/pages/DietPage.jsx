@@ -1,22 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
+import PetIcon from '../components/brand/PetIcon'
 import DietPreferencesModal from '../components/diet/DietPreferencesModal'
 import FoodCheckSteps from '../components/diet/FoodCheckSteps'
 import DietTodayTab from '../components/diet/DietTodayTab'
 import DietTrendTab from '../components/diet/DietTrendTab'
 import DietAdviceTab from '../components/diet/DietAdviceTab'
-
-const EMOJI = {
-  dog: '🐶',
-  cat: '🐱',
-  bird: '🐦',
-  rabbit: '🐰',
-  fish: '🐟',
-  other: '🐾'
-}
 
 // 健康事件嚴重程度（與健康諮詢頁一致）
 const HEALTH_SEVERITY = {
@@ -96,7 +88,7 @@ export default function DietPage() {
 
   const today = getLocalDate()
 
-  const [selectedPet, setSelectedPet] = useState(null)
+  const [chosenPet, setChosenPet] = useState(null)
   const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
   const [showPastHealthEvents, setShowPastHealthEvents] = useState(false) // 展開已過注意期的健康事件
   const [selectedDate, setSelectedDate] = useState(today)
@@ -159,11 +151,8 @@ export default function DietPage() {
     queryFn: () => api.get('/pets').then(r => r.data.data)
   })
 
-  useEffect(() => {
-    if (pets.length > 0 && !selectedPet) {
-      setSelectedPet(pets[0])
-    }
-  }, [pets])
+  // 沒手動挑選時，直接以第一隻寵物為目前對象（用推導取代 effect 內 setState）
+  const selectedPet = chosenPet || pets[0] || null
 
   const { data: foods = [] } = useQuery({
     queryKey: ['foods'],
@@ -1239,19 +1228,17 @@ export default function DietPage() {
       {/* 左側：選擇寵物 */}
       <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-52">
 
-        <div className="px-4 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-bold text-gray-800">
-            選擇寵物
-          </h2>
+        <div className="border-b border-[#f0e6d2] px-4 py-5">
+          <h2 className="text-sm font-bold text-pine-900">選擇寵物</h2>
+          <p className="mt-1 text-xs text-ink-soft">查看飲食紀錄</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {pets.map(pet => (
             <button
               key={pet.id}
               onClick={() => {
-                setSelectedPet(pet)
+                setChosenPet(pet)
                 setDietAdvice('')
                 setAdviceError('')
                 setAdviceSources([])
@@ -1259,159 +1246,140 @@ export default function DietPage() {
                 setAdviceQuestion('')
                 setPetOpen(false)
               }}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                 selectedPet?.id === pet.id
-                  ? 'bg-green-50 border-green-300'
-                  : 'bg-gray-50 border-gray-100 hover:border-green-200'
+                  ? 'border-pine-700/35 bg-pine-50'
+                  : 'border-[#eae6d8] bg-[#faf7ef] hover:border-pine-700/30 hover:bg-[#fdf6ea]'
               }`}
             >
-              <span className="text-xl">
-                {EMOJI[pet.species] || '🐾'}
-              </span>
-
+              <PetIcon species={pet.species} size={40} className="h-10 w-10 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">
-                  {pet.name}
-                </p>
-
-                <p className="text-xs text-gray-400">
-                  {pet.weight
-                    ? `${pet.weight}kg`
-                    : pet.species}
+                <p className="truncate text-sm font-bold text-pine-900">{pet.name}</p>
+                <p className="truncate text-xs text-ink-soft">
+                  {pet.weight ? `${pet.weight}kg` : pet.species}
                 </p>
               </div>
             </button>
           ))}
-
         </div>
 
-        <div className="p-3 border-t border-gray-100">
-  <Link
-    to="/food-database"
-    className="group block w-full rounded-xl border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-3 hover:border-green-300 hover:shadow-sm transition-all"
-  >
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-white border border-green-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
-        🗄️
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-gray-700 group-hover:text-green-600 transition-colors">
-          食物資料庫
-        </p>
-        <p className="text-[11px] text-gray-400 mt-0.5">
-          查看食物營養資訊
-        </p>
-      </div>
-      <span className="text-green-500 group-hover:translate-x-0.5 transition-transform">
-        →
-      </span>
-    </div>
-  </Link>
-</div>
+        <div className="border-t border-[#f0e6d2] p-3">
+          <Link
+            to="/food-database"
+            className="group flex w-full items-center gap-3 rounded-2xl border border-[#f3e3cd] bg-[#fff8e9] p-3 transition-colors hover:border-pine-700/30"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-plate text-pine-700">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="4" y="4.5" width="16" height="4" rx="1" />
+                <path d="M5.5 8.5V19h13V8.5" />
+                <path d="M10 12h4" />
+              </svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-pine-900">食物資料庫</span>
+              <span className="mt-0.5 block text-[11px] text-ink-soft">查看食物營養資訊</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-pine-700 transition-transform group-hover:translate-x-0.5">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </Link>
+        </div>
       </PetDrawer>
 
       {/* 右側主要內容 */}
       <div className="flex-1 min-w-0 overflow-y-auto">
 
         <PetPickerBar
-          emoji={selectedPet ? (EMOJI[selectedPet.species] || '🐾') : ''}
+          icon={selectedPet ? <PetIcon species={selectedPet.species} size={28} className="h-7 w-7 shrink-0" /> : null}
           name={selectedPet?.name}
           sub={selectedPet ? (selectedPet.weight ? `${selectedPet.weight}kg` : selectedPet.species) : ''}
           onOpen={() => setPetOpen(true)}
         />
 
         {!selectedPet ? (
-          <div className="flex items-center justify-center h-full flex-col gap-3 text-gray-400">
-
-            <span className="text-5xl">
-              🍽️
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fdf6ea] text-pine-700">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 3v7a2.5 2.5 0 0 0 5 0V3M6.5 3v18M17 21V3c-2.5 1.4-3.5 4-3.5 7.5h3.5" />
+              </svg>
             </span>
-
-            <p className="text-gray-500 font-semibold">
-              請選擇寵物
-            </p>
-
+            <p className="font-bold text-pine-900">請選擇寵物</p>
+            <p className="text-sm text-ink-soft">從左邊清單挑一隻，開始記錄今天的飲食</p>
           </div>
         ) : (
           <div className="p-4 sm:p-6 max-w-4xl">
 
             {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-
-              <div>
-                <h1 className="text-xl font-bold text-gray-800">
-                  {EMOJI[selectedPet.species]}{' '}
-                  {selectedPet.name} 的飲食管理
-                </h1>
-
-                <p className="text-sm text-gray-400 mt-0.5">
-                  記錄和分析每日餵食狀況
-                </p>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-pine-800 text-[#f5c04a]">
+                  <PetIcon species={selectedPet.species} size={30} className="h-[30px] w-[30px]" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="font-brand text-xl font-extrabold text-pine-900">
+                    {selectedPet.name} 的飲食管理
+                  </h1>
+                  <p className="mt-0.5 text-sm text-ink-soft">記錄和分析每日餵食狀況</p>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-
                 <div className="flex items-center gap-1.5">
-
                   <button
                     onClick={() => goDay(-1)}
-                    className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors text-lg"
+                    aria-label="前一天"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#eae6d8] bg-plate text-pine-700 transition-colors hover:bg-[#fdf6ea]"
                   >
-                    ‹
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M15 6l-6 6 6 6" />
+                    </svg>
                   </button>
 
                   <input
                     type="date"
                     value={selectedDate}
-                    onChange={e =>
-                      setSelectedDate(
-                        e.target.value
-                      )
-                    }
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="rounded-xl border border-[#eae6d8] bg-[#faf7ef] px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
                   />
 
                   <button
                     onClick={() => goDay(1)}
                     disabled={selectedDate >= today}
-                    className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30 text-lg"
+                    aria-label="後一天"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#eae6d8] bg-plate text-pine-700 transition-colors hover:bg-[#fdf6ea] disabled:opacity-30"
                   >
-                    ›
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
                   </button>
 
                   {selectedDate !== today && (
                     <button
-                      onClick={() =>
-                        setSelectedDate(today)
-                      }
-                      className="text-xs text-green-500 hover:underline font-medium px-1"
+                      onClick={() => setSelectedDate(today)}
+                      className="rounded-full bg-[#fdf6ea] px-2.5 py-1 text-xs font-bold text-pine-700 transition-colors hover:bg-[#f5e6cd]"
                     >
                       今天
                     </button>
                   )}
-
                 </div>
 
                 <button
                   onClick={openAddModal}
-                  className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#f5c04a] px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none"
                 >
-                  ＋ 新增餵食
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  新增餵食
                 </button>
-
               </div>
             </div>
 
 
             {/* 分頁：今天／趨勢／AI 建議 */}
-            <div className="flex items-center gap-1 border-b border-gray-100 mb-5 overflow-x-auto overflow-y-hidden">
-
+            <div className="mb-5 flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-[#eae6d8] bg-[#faf7ef] p-1">
               {[
-                {
-                  key: 'today',
-                  label: '今天',
-                  count: healthAlertCount
-                },
+                { key: 'today', label: '今天', count: healthAlertCount },
                 { key: 'trends', label: '趨勢' },
                 { key: 'advice', label: 'AI 建議' }
               ].map(tab => (
@@ -1419,22 +1387,24 @@ export default function DietPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`relative flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition-colors ${
                     activeTab === tab.key
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-400 hover:text-gray-600'
+                      ? 'bg-pine-800 text-[#fdf8ec] shadow-sm'
+                      : 'text-ink-soft hover:bg-plate hover:text-pine-900'
                   }`}
                 >
                   {tab.label}
-
                   {tab.count > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                    <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                      activeTab === tab.key
+                        ? 'bg-[#f5c04a] text-pine-900'
+                        : 'bg-[#fff3d6] text-[#a5681c]'
+                    }`}>
                       {tab.count}
                     </span>
                   )}
                 </button>
               ))}
-
             </div>
 
             {activeTab === 'today' && (

@@ -11,11 +11,11 @@ const HEIGHT = 240
 const PAD = { top: 18, right: 16, bottom: 34, left: 52 }
 
 const STATUS_COLOR = {
-  under: '#f59e0b',
-  in_range: '#22c55e',
-  over: '#ef4444',
-  no_data: '#9ca3af',
-  no_target: '#9ca3af'
+  under: '#c96f2e',
+  in_range: '#2c5a43',
+  over: '#b4552f',
+  no_data: '#8e978d',
+  no_target: '#8e978d'
 }
 
 function niceMax(value) {
@@ -34,7 +34,7 @@ export default function CalorieTrendChart({
 }) {
   if (days.length === 0) {
     return (
-      <div className="py-16 text-center text-sm text-gray-400">
+      <div className="py-16 text-center text-sm text-ink-soft">
         目前沒有可顯示的趨勢資料。
       </div>
     )
@@ -121,7 +121,7 @@ export default function CalorieTrendChart({
                   y1={yy}
                   x2={WIDTH - PAD.right}
                   y2={yy}
-                  stroke="#eef2f1"
+                  stroke="#f1ede2"
                   strokeWidth="1"
                 />
                 <text
@@ -129,7 +129,7 @@ export default function CalorieTrendChart({
                   y={yy + 3}
                   textAnchor="end"
                   fontSize="9"
-                  fill="#9ca3af"
+                  fill="#8e978d"
                 >
                   {value.toLocaleString('zh-TW')}
                 </text>
@@ -152,7 +152,7 @@ export default function CalorieTrendChart({
               <polygon
                 key={`range-${runIndex}`}
                 points={`${top} ${bottom}`}
-                fill="#d1fae5"
+                fill="#dde8dc"
                 opacity="0.8"
               />
             )
@@ -167,7 +167,7 @@ export default function CalorieTrendChart({
                 y1={y(run[0].maxKcal)}
                 x2={x(run[0].index) + 7}
                 y2={y(run[0].maxKcal)}
-                stroke="#86efac"
+                stroke="#b8d0bb"
                 strokeWidth="2"
               />
             ) : null
@@ -180,7 +180,7 @@ export default function CalorieTrendChart({
               y1={PAD.top}
               x2={x(selectedIndex)}
               y2={HEIGHT - PAD.bottom}
-              stroke="#1D9E75"
+              stroke="#2c5a43"
               strokeDasharray="4 4"
               strokeWidth="1"
               opacity="0.45"
@@ -200,7 +200,7 @@ export default function CalorieTrendChart({
                 key={`line-${runIndex}`}
                 points={points}
                 fill="none"
-                stroke="#1D9E75"
+                stroke="#2c5a43"
                 strokeWidth="2.5"
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -222,8 +222,8 @@ export default function CalorieTrendChart({
                   cx={x(index)}
                   cy={y(day.actualKcal)}
                   r="5"
-                  fill="#ffffff"
-                  stroke={STATUS_COLOR[day.status] || '#1D9E75'}
+                  fill="#fffdf6"
+                  stroke={STATUS_COLOR[day.status] || '#2c5a43'}
                   strokeWidth="2.5"
                 >
                   <title>
@@ -239,7 +239,7 @@ export default function CalorieTrendChart({
                   textAnchor="middle"
                   fontSize="9.5"
                   fontWeight="600"
-                  fill="#374151"
+                  fill="#1e241f"
                 >
                   {Math.round(day.actualKcal)}
                 </text>
@@ -256,7 +256,7 @@ export default function CalorieTrendChart({
                 y={HEIGHT - PAD.bottom - 6}
                 textAnchor="middle"
                 fontSize="9"
-                fill="#cbd5e1"
+                fill="#ddd8c8"
               >
                 無紀錄
               </text>
@@ -272,7 +272,7 @@ export default function CalorieTrendChart({
               textAnchor="middle"
               fontSize="9.5"
               fontWeight={day.date === selectedDate ? '700' : '400'}
-              fill={day.date === selectedDate ? '#1D9E75' : '#9ca3af'}
+              fill={day.date === selectedDate ? '#2c5a43' : '#8e978d'}
               onClick={() => onSelectDate?.(day.date)}
               className="cursor-pointer"
             >
@@ -283,9 +283,9 @@ export default function CalorieTrendChart({
         </svg>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 text-[11px] text-gray-500 mt-2 px-1">
+      <div className="flex flex-wrap items-center gap-4 text-[11px] text-ink-soft mt-2 px-1">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-4 h-0.5 bg-[#1D9E75] rounded-full" />
+          <span className="w-4 h-0.5 bg-[#2c5a43] rounded-full" />
           實際攝取
         </span>
 
@@ -295,7 +295,7 @@ export default function CalorieTrendChart({
         </span>
 
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-gray-300" />
+          <span className="w-2 h-2 rounded-full bg-line" />
           沒有紀錄（不視為 0）
         </span>
       </div>
