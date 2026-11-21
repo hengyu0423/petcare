@@ -440,7 +440,15 @@ function buildMealPlan({
     notices.push({ level: 'info', text: '已依你設定的「增重」目標提高約 20% 熱量。' })
   }
 
-  for (const e of activeEvents.slice(0, 3)) {
+  const isSerious = e =>
+    e.severity === 'urgent' || e.severity === 'emergency'
+
+  const shownEvents = activeEvents.slice(0, 3)
+
+  // 一個健康事件只產生一則提醒：
+  // 「建議儘快就醫」併進該事件的文字，不再另外加一則，
+  // 否則畫面（與健康提醒數量）會把同一件事算成兩則。
+  for (const e of shownEvents) {
     const info = e.diet_info || {}
     const until = e.diet_until_str ? `（注意期至 ${e.diet_until_str}）` : ''
 
@@ -449,7 +457,10 @@ function buildMealPlan({
       kind: 'health',
       text:
         `近期有「${e.title}」紀錄${until}。` +
-        (info.dietNotes ? `${info.dietNotes}。` : '')
+        (info.dietNotes ? `${info.dietNotes}。` : '') +
+        (isSerious(e)
+          ? '此事件屬於「建議儘快就醫」等級，這份計畫僅供參考，請先諮詢獸醫。'
+          : '')
     })
   }
 
@@ -460,7 +471,8 @@ function buildMealPlan({
     })
   }
 
-  if (seriousEvent) {
+  // 超過 3 筆、且緊急的事件沒被列出來時，才需要單獨提醒一次
+  if (seriousEvent && !shownEvents.some(isSerious)) {
     notices.push({
       level: 'warning',
       kind: 'health',

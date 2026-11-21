@@ -11,6 +11,15 @@ dist/
 labels.cache
 *.cache
 
+# 貓砂盆相機的本機檔案：截圖樣品會一直增加，貓砂盆範圍是用 b 鍵框出來的結果
+# （要固定帶到別的電腦就把 litter_box_roi.json 那行拿掉，改成 commit 起來）
+pet cam/snapshots/
+pet cam/litter_box_roi.json
+
+# Python
+__pycache__/
+*.pyc
+
 # Environment
 pet-api/.env
 pet app/.env

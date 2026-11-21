@@ -79,6 +79,7 @@ const ICON = {
   camera: <><path d="M4 8.5h3l1.5-2h7L17 8.5h3v10H4Z" /><circle cx="12" cy="13" r="3.5" /></>,
   stethoscope: <><path d="M6 4v5a4 4 0 0 0 8 0V4" /><path d="M10 13v2.5a4.5 4.5 0 0 0 9 0V13" /><circle cx="19" cy="12" r="1.8" /></>,
   trash: <><path d="M4.5 7h15" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.8 12h9.4l.8-12" /><path d="M10 10.5v5M14 10.5v5" /></>,
+  edit: <><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3Z" /><path d="M15 5l4 4" /></>,
   send: <path d="M4 12h15M13 6l6 6-6 6" />,
   alert: <><path d="M12 4.5 21 19.5H3L12 4.5Z" /><path d="M12 10v4M12 17h.01" /></>,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
@@ -261,6 +262,211 @@ export default function HealthConsultPage() {
 
 
   // ===================================================
+  // 刪除／重新編寫「我問過的問題」
+  //
+  // 兩個動作都會連同 AI 回覆、以及依這則提問記錄的健康事件
+  // （飲食管理、週報、通知）一起清掉，由後端在同一個交易裡完成。
+  // ===================================================
+
+  // 正在編寫的提問：{ id, text }
+  const [editing, setEditing] =
+    useState(null)
+
+  // 正在重新產生回覆的提問 id
+  const [regeneratingId, setRegeneratingId] =
+    useState(null)
+
+  // 健康紀錄有變動，所有讀取它的畫面都要重新取得
+  const refreshAfterQuestionChange = petId => {
+    [
+      ['consultations', petId],
+      ['diet-health-events', petId],
+      ['meal-plan', petId],
+      ['pet-health', petId],
+      ['feeding-alerts', petId],
+      ['assistant-briefing'],
+      ['notifications']
+    ].forEach(queryKey =>
+      queryClient.invalidateQueries({ queryKey })
+    )
+  }
+
+  const deleteQuestion = useMutation({
+    mutationFn: id =>
+      api.delete(`/consultations/${id}`),
+
+    onSuccess: () => {
+      setFollowups({ petId: null, items: [] })
+      refreshAfterQuestionChange(selectedPet?.id)
+    },
+
+    onError: err => {
+      window.alert(
+        err.response?.data?.error ||
+        '刪除失敗，請稍後再試'
+      )
+    }
+  })
+
+  const handleDeleteQuestion = msg => {
+    if (
+      loading ||
+      regeneratingId !== null ||
+      deleteQuestion.isPending
+    ) {
+      return
+    }
+
+    const ok = window.confirm(
+      '要刪除這則提問嗎？\n\n' +
+      'AI 的回覆，以及依這則提問記錄的健康事件' +
+      '（飲食管理、週報、通知）也會一併移除。'
+    )
+
+    if (ok) {
+      deleteQuestion.mutate(msg.id)
+    }
+  }
+
+  const submitEdit = async () => {
+    if (!editing || !selectedPet || loading) {
+      return
+    }
+
+    const content = editing.text.trim()
+    const questionId = editing.id
+
+    if (!content) {
+      return
+    }
+
+    const original =
+      messages.find(m => m.id === questionId)
+
+    // 沒有改動就不重問
+    if (original && original.content === content) {
+      setEditing(null)
+      return
+    }
+
+    const pet = selectedPet
+
+    // 這則提問「之前」的對話當作 AI 的上下文（不含它原本的回覆）
+    const index =
+      messages.findIndex(m => m.id === questionId)
+
+    const context =
+      messages
+        .slice(Math.max(0, index - 6), Math.max(0, index))
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content
+        }))
+
+    setLoading(true)
+    setFollowups({ petId: null, items: [] })
+
+    // 1. 刪掉舊的 AI 回覆與舊的健康事件，換成新的問題文字
+    try {
+      await api.put(
+        `/consultations/${questionId}`,
+        { content }
+      )
+    } catch (err) {
+      // 什麼都還沒改動，留在編輯畫面讓使用者重試
+      window.alert(
+        err.response?.data?.error ||
+        '無法更新提問，請稍後再試'
+      )
+
+      setLoading(false)
+      return
+    }
+
+    setEditing(null)
+    setRegeneratingId(questionId)
+
+    queryClient.invalidateQueries({
+      queryKey: ['consultations', pet.id]
+    })
+
+    // 2. 依新的問題產生新的回覆，接在這則提問的正下方
+    try {
+      const response =
+        await api.post(
+          '/consultations/ai',
+          {
+            systemPrompt: buildSystemPrompt(pet),
+            petId: pet.id,
+            consultationId: questionId,
+            messages: [
+              ...context,
+              { role: 'user', content }
+            ]
+          }
+        )
+
+      const data = response.data?.data
+      const aiText = data?.content
+
+      if (!aiText) {
+        throw new Error('沒有收到 AI 回覆內容')
+      }
+
+      await api.post(
+        '/consultations',
+        {
+          petId: pet.id,
+          role: 'assistant',
+          content: aiText,
+          severity: data?.severity ?? null,
+          sources:
+            (data?.sources || [])
+              .map(source => source.slug)
+              .filter(Boolean),
+          afterId: questionId
+        }
+      )
+
+      if (data?.healthEvent) {
+        setSavedNotice({
+          ...data.healthEvent,
+          petId: pet.id
+        })
+      }
+
+    } catch (err) {
+      console.error('重新產生 AI 回覆失敗：', err)
+
+      const errorMessage =
+        err.response?.data?.error ||
+        err.message ||
+        'AI 回覆失敗'
+
+      try {
+        await api.post(
+          '/consultations',
+          {
+            petId: pet.id,
+            role: 'assistant',
+            content: `❌ ${errorMessage}`,
+            severity: null,
+            afterId: questionId
+          }
+        )
+      } catch (saveError) {
+        console.error('儲存錯誤訊息失敗：', saveError)
+      }
+
+    } finally {
+      setRegeneratingId(null)
+      setLoading(false)
+      refreshAfterQuestionChange(pet.id)
+    }
+  }
+
+
+  // ===================================================
   // 自動滑到底
   // ===================================================
 
@@ -279,6 +485,39 @@ export default function HealthConsultPage() {
   // ===================================================
 
   const getAge = birthDate => petAgeText(birthDate) || '年齡不明'
+
+
+  // 健康諮詢的系統提示（送出新問題、重新編寫提問都用同一份）
+  const buildSystemPrompt = pet => `
+你是一位專業且親切的寵物健康諮詢助手。
+
+目前諮詢的寵物資料：
+
+名字：${pet.name}
+種類：${pet.species}
+品種：${pet.breed || '不明'}
+性別：${pet.gender || '不明'}
+年齡：${getAge(pet.birth_date)}
+體重：${pet.weight
+            ? `${pet.weight} kg`
+            : '不明'
+          }
+
+請根據目前寵物的年齡、種類、症狀與先前對話提供健康建議。
+
+規則：
+
+1. 使用繁體中文。
+2. 只回答寵物健康相關問題。
+3. 不輸出思考過程。
+4. 不輸出 reasoning。
+5. 不輸出 thinking process。
+6. 不重複寵物基本資料。
+7. 不直接斷定疾病。
+8. 回答簡短清楚。
+9. 幼犬、幼貓需特別注意脫水及快速惡化風險。
+10. 有危險症狀時必須明確提醒就醫。
+`
 
 
   // ===================================================
@@ -321,7 +560,7 @@ export default function HealthConsultPage() {
         // 1. 儲存使用者訊息
         // =============================================
 
-        await addMessage.mutateAsync({
+        const savedQuestion = await addMessage.mutateAsync({
           petId:
             selectedPet.id,
 
@@ -334,6 +573,10 @@ export default function HealthConsultPage() {
             null
         })
 
+        // 後端用這個 id 把產生的健康事件綁到這則提問，之後刪除／編寫才能一併清掉
+        const questionId =
+          savedQuestion?.data?.data?.id
+
 
         const pet =
           selectedPet
@@ -343,36 +586,7 @@ export default function HealthConsultPage() {
         // 2. System Prompt
         // =============================================
 
-        const systemPrompt = `
-你是一位專業且親切的寵物健康諮詢助手。
-
-目前諮詢的寵物資料：
-
-名字：${pet.name}
-種類：${pet.species}
-品種：${pet.breed || '不明'}
-性別：${pet.gender || '不明'}
-年齡：${getAge(pet.birth_date)}
-體重：${pet.weight
-            ? `${pet.weight} kg`
-            : '不明'
-          }
-
-請根據目前寵物的年齡、種類、症狀與先前對話提供健康建議。
-
-規則：
-
-1. 使用繁體中文。
-2. 只回答寵物健康相關問題。
-3. 不輸出思考過程。
-4. 不輸出 reasoning。
-5. 不輸出 thinking process。
-6. 不重複寵物基本資料。
-7. 不直接斷定疾病。
-8. 回答簡短清楚。
-9. 幼犬、幼貓需特別注意脫水及快速惡化風險。
-10. 有危險症狀時必須明確提醒就醫。
-`
+        const systemPrompt = buildSystemPrompt(pet)
 
 
         // =============================================
@@ -413,6 +627,9 @@ export default function HealthConsultPage() {
               // ⭐ 讓後端知道要把健康事件綁定到哪隻寵物
               petId:
                 selectedPet.id,
+
+              consultationId:
+                questionId,
 
               messages:
                 recentMessages
@@ -796,33 +1013,122 @@ export default function HealthConsultPage() {
                         ? SEVERITY_CONFIG[msg.severity]
                         : SEVERITY_CONFIG.unknown
 
+                    // 這則提問正在重新編寫中（暫時訊息沒有 id，不能當成編輯中的提問）
+                    const isEditing =
+                      isUser && !!editing && !!msg.id && editing.id === msg.id
+
                     return (
-                      <div key={msg.key || msg.id || `${msg.created_at}-${index}`} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                          isUser ? 'bg-pine-800 text-xs font-bold text-[#fdf8ec]' : 'bg-pine-50 text-pine-700'
-                        }`}>
+                      <div
+                        key={msg.key || msg.id || `${msg.created_at}-${index}`}
+                        className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
+                      >
+                        {/* 頭像 */}
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                            isUser
+                              ? 'bg-pine-800 text-xs font-bold text-[#fdf8ec]'
+                              : 'bg-pine-50 text-pine-700'
+                          }`}
+                        >
                           {isUser ? '我' : <LineIcon name="paw" size={16} />}
                         </div>
+
                         <div className={`flex max-w-lg flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                          <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                            isUser
-                              ? 'rounded-br-sm bg-pine-800 text-[#fdf8ec]'
-                              : 'rounded-bl-sm border border-[#f3e3cd] bg-plate text-ink'
-                          }`}>
-                            {isUser ? msg.content : (
-                              <>
-                                {!msg.content?.startsWith('❌') && (
-                                  <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${severity.className}`}>
-                                    <LineIcon name={severityIconName(severity.label)} size={13} />
-                                    {severity.label}
-                                  </div>
-                                )}
-                                <div dangerouslySetInnerHTML={{ __html: formatAI(msg.content) }} />
-                                {!msg.content?.startsWith('❌') && <KnowledgeSources sources={msg.sources} />}
-                              </>
-                            )}
-                          </div>
-                          {msg.created_at && (
+                          {isEditing && (
+                            <div className="w-full sm:min-w-[22rem]">
+                              <textarea
+                                autoFocus
+                                rows={3}
+                                maxLength={2000}
+                                value={editing.text}
+                                onChange={e => setEditing({ ...editing, text: e.target.value })}
+                                onKeyDown={e => {
+                                  if (e.key === 'Escape') setEditing(null)
+                                }}
+                                className="w-full resize-none rounded-xl border border-[#d5e4ea] bg-[#faf7ef] px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
+                              />
+                              <p className="mt-1 text-xs text-ink-soft">
+                                送出後，原本的 AI 回覆與相關健康紀錄會被刪除，並依新的問題重新回覆。
+                              </p>
+                              <div className="mt-2 flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing(null)}
+                                  disabled={loading}
+                                  className="rounded-lg border border-[#eae6d8] px-3 py-1.5 text-xs text-ink-soft transition-colors hover:bg-[#faf7ef] disabled:opacity-50"
+                                >
+                                  取消
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={submitEdit}
+                                  disabled={loading || !editing.text.trim()}
+                                  className="rounded-lg bg-pine-800 px-3 py-1.5 text-xs font-bold text-[#fdf8ec] transition-colors hover:bg-pine-900 disabled:opacity-50"
+                                >
+                                  重新送出
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {!isEditing && (
+                            <div
+                              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                                isUser
+                                  ? 'rounded-br-sm bg-pine-800 text-[#fdf8ec]'
+                                  : 'rounded-bl-sm border border-[#f3e3cd] bg-plate text-ink'
+                              }`}
+                            >
+                              {isUser ? (
+                                msg.content
+                              ) : (
+                                <>
+                                  {!msg.content?.startsWith('❌') && (
+                                    <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${severity.className}`}>
+                                      <LineIcon name={severityIconName(severity.label)} size={13} />
+                                      {severity.label}
+                                    </div>
+                                  )}
+                                  <div dangerouslySetInnerHTML={{ __html: formatAI(msg.content) }} />
+                                  {!msg.content?.startsWith('❌') && <KnowledgeSources sources={msg.sources} />}
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* 我的提問：重新編寫 / 刪除；AI 回覆：顯示時間 */}
+                          {isUser && msg.id && !isEditing && (
+                            regeneratingId === msg.id ? (
+                              <p className="mt-1 animate-pulse px-1 text-xs text-pine-700">
+                                AI 正在根據新的問題重新回覆…
+                              </p>
+                            ) : (
+                              <div className="mt-1 flex items-center gap-1 px-1">
+                                <button
+                                  type="button"
+                                  title="重新編寫"
+                                  aria-label="重新編寫這則提問"
+                                  disabled={loading || regeneratingId !== null || deleteQuestion.isPending}
+                                  onClick={() => setEditing({ id: msg.id, text: msg.content })}
+                                  className="rounded-md p-1 text-ink-soft transition-colors hover:bg-pine-50 hover:text-pine-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <LineIcon name="edit" size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="刪除"
+                                  aria-label="刪除這則提問"
+                                  disabled={loading || regeneratingId !== null || deleteQuestion.isPending}
+                                  onClick={() => handleDeleteQuestion(msg)}
+                                  className="rounded-md p-1 text-ink-soft transition-colors hover:bg-[#fdf0ec] hover:text-[#b4552f] disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <LineIcon name="trash" size={15} />
+                                </button>
+                              </div>
+                            )
+                          )}
+
+                          {!isUser && msg.created_at && (
                             <p className="mt-1 px-1 text-xs text-ink-soft/80">
                               {new Date(msg.created_at).toLocaleString('zh-TW', {
                                 month: 'numeric',

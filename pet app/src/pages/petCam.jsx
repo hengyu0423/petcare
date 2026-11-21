@@ -122,6 +122,16 @@ const moodColor = mood => {
 
 const cardCls = 'rounded-3xl border border-[#f3e3cd] bg-plate'
 
+// 貓砂盆：平均上廁所時間顯示
+const formatVisitSeconds = seconds => {
+  if (seconds == null) return '—'
+
+  const value = Math.round(seconds)
+
+  if (value < 60) return `${value} 秒`
+  return `${(value / 60).toFixed(1)} 分`
+}
+
 export default function PetCam({ cameraId = 'cam_1' }) {
   const [status, setStatus] = useState({
     cameraId: 'cam_1',
@@ -167,6 +177,43 @@ export default function PetCam({ cameraId = 'cam_1' }) {
 
     fetchStatus()
     const timer = setInterval(fetchStatus, 1000)
+    return () => clearInterval(timer)
+  }, [])
+  // ==========================================
+  // 今日寵物進出貓砂次數
+  // ==========================================
+  const [catStats, setCatStats] = useState({
+    catCount: 0,
+    isPresent: false,
+    lastSeen: null,
+    urineCount: 0,
+    poopCount: 0,
+    avgUrineSeconds: null,
+    avgPoopSeconds: null,
+  })
+
+  useEffect(() => {
+    const fetchCatCount = async () => {
+      try {
+        const res = await fetch(`${API}/cat-count`)
+        if (!res.ok) return
+        const data = await res.json()
+        setCatStats({
+          catCount: data.catCount ?? 0,
+          isPresent: data.isPresent ?? false,
+          lastSeen: data.lastSeen || null,
+          urineCount: data.urineCount ?? 0,
+          poopCount: data.poopCount ?? 0,
+          avgUrineSeconds: data.avgUrineSeconds ?? null,
+          avgPoopSeconds: data.avgPoopSeconds ?? null,
+        })
+      } catch {
+        // 後端尚未連線時維持原數值
+      }
+    }
+
+    fetchCatCount()
+    const timer = setInterval(fetchCatCount, 2000)
     return () => clearInterval(timer)
   }, [])
 
@@ -273,6 +320,16 @@ export default function PetCam({ cameraId = 'cam_1' }) {
 
   const hasGap = displayTimeline.some(item => item.type === 'gap')
 
+  // 尿尿與大便合併為「如廁次數」，並以次數加權算出整體平均如廁時間
+  const totalVisitCount = catStats.urineCount + catStats.poopCount
+
+  const totalVisitSeconds =
+    (catStats.avgUrineSeconds ?? 0) * catStats.urineCount +
+    (catStats.avgPoopSeconds ?? 0) * catStats.poopCount
+
+  const avgVisitSeconds =
+    totalVisitCount > 0 ? totalVisitSeconds / totalVisitCount : null
+
   return (
     <div className="w-full min-h-full bg-paper px-4 py-6">
       <div className="mx-auto flex w-full max-w-[900px] flex-col gap-5">
@@ -369,7 +426,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
             </>
           )}
         </div>
-
         {/* 當前行為 */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-3xl border border-[#d5e4ea] bg-[#eaf1f4] p-5">
@@ -386,6 +442,56 @@ export default function PetCam({ cameraId = 'cam_1' }) {
             <p className="mt-2 text-[11px] text-[#a5681c]/90">
               此結果依攝影機偵測到的姿態與活動量推測，不代表寵物實際心理或醫療狀態。
             </p>
+          </div>
+        </div>
+
+        {/* 今日貓砂盆使用：如廁次數與如廁時間分開展示 */}
+        <div className={`${cardCls} px-5 py-4`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff3d6] text-[#c96f2e]">
+                <MoodIcon mood="paw" size={17} />
+              </span>
+              <span className="text-sm font-bold text-pine-800">
+                今日貓砂盆使用
+              </span>
+              {catStats.isPresent && (
+                <span className="rounded-full bg-pine-50 px-2 py-0.5 text-[10px] font-bold text-pine-700">
+                  目前在內
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-[#d5e4ea] bg-[#eaf1f4] px-3 py-2.5">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-[#3f6b7a]">
+                <MoodIcon mood="paw" size={14} />
+                如廁次數
+              </p>
+              <p className="mt-0.5">
+                <span className="text-xl font-extrabold text-pine-900">
+                  {totalVisitCount}
+                </span>
+                <span className="ml-1 text-xs text-ink-soft">次</span>
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] px-3 py-2.5">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-[#a5681c]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M12 7.5V12l3 2" />
+                </svg>
+                如廁時間
+              </p>
+              <p className="mt-0.5">
+                <span className="text-xl font-extrabold text-[#7a5200]">
+                  {formatVisitSeconds(avgVisitSeconds)}
+                </span>
+                <span className="ml-1 text-xs text-[#a5681c]">平均</span>
+              </p>
+            </div>
           </div>
         </div>
 

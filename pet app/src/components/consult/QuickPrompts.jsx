@@ -11,6 +11,7 @@ import { getQuickPromptCategories } from './quickPromptData'
 
 const ICON = {
   symptoms: <><path d="M6 4v5a4 4 0 0 0 8 0V4" /><path d="M10 13v2.5a4.5 4.5 0 0 0 9 0V13" /><circle cx="19" cy="12" r="1.8" /></>,
+  urinary: <><path d="M4.5 20V10a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v10" /><path d="M3 20h18" /><path d="M12 11.5s-2.2 2.4-2.2 3.8a2.2 2.2 0 0 0 4.4 0c0-1.4-2.2-3.8-2.2-3.8Z" /></>,
   emergency: <><path d="M12 4.5 21 19.5H3L12 4.5Z" /><path d="M12 10v4M12 17h.01" /></>,
   diet: <><path d="M3.5 11.5h17" /><path d="M5 11.5c0 4.7 3.1 8 7 8s7-3.3 7-8" /><path d="M9 8c0-1.7 1.4-3 3-3s3 1.3 3 3" /></>,
   prevention: <><path d="M12 3.5 5 6v5.5c0 4.2 3 7.5 7 9 4-1.5 7-4.8 7-9V6l-7-2.5Z" /><path d="M9 12l2 2 4-4" /></>,

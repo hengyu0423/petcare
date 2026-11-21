@@ -60,6 +60,7 @@ export default function MealPlanSection({
   onOpenManual,
   onEditPreferences,
   onOpenHealthDetails,
+  healthNoticeCount,
   feedingKey
 }) {
   const [choice, setChoice] = useState({})
@@ -78,6 +79,10 @@ export default function MealPlanSection({
   // 健康相關的提醒不在這裡重複顯示，改成一顆按鈕，點了跳出「健康提醒」視窗
   const healthNotices = notices.filter(notice => notice.kind === 'health')
   const otherNotices = notices.filter(notice => notice.kind !== 'health')
+  // 數字要和「健康提醒」視窗的內容一致（注意期內的健康事件 + 飲食警訊），
+  // 不能直接用 notices 的數量，否則同一件事可能被算成兩則
+  const healthCount = healthNoticeCount ?? healthNotices.length
+
   const warningNotices = otherNotices.filter(n => n.level === 'warning')
   const infoNotices = otherNotices.filter(n => n.level !== 'warning')
 
@@ -156,7 +161,7 @@ export default function MealPlanSection({
       {plan && (
         <div>
           {/* 健康警示：點了跳出健康提醒視窗，不在這裡重複顯示全文 */}
-          {healthNotices.length > 0 && (
+          {healthCount > 0 && (
             <button
               type="button"
               onClick={() => onOpenHealthDetails?.()}
@@ -166,7 +171,7 @@ export default function MealPlanSection({
                 <LineIcon name="stethoscope" size={17} />
               </span>
               <span className="flex-1 text-xs font-bold text-[#7a5200]">
-                有 {healthNotices.length} 則健康注意事項影響這份計畫
+                有 {healthCount} 則健康注意事項影響這份計畫
               </span>
               <span className="shrink-0 text-xs font-bold text-[#a5681c]">點擊查看 →</span>
             </button>
