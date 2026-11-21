@@ -3,15 +3,97 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import NotificationBell from '../notifications/NotificationBell'
 import AssistantWidget from '../assistant/AssistantWidget'
+import MascotCat from '../brand/MascotCat'
+
+/* 自繪單色描邊圖示（stroke = currentColor），與首頁同一套線條語言 */
+const Icon = {
+  home: (
+    <>
+      <path d="M4.5 10.5 12 4l7.5 6.5" />
+      <path d="M6.5 9.5V19a1 1 0 0 0 1 1H10v-4.5h4V20h2.5a1 1 0 0 0 1-1V9.5" />
+    </>
+  ),
+  paw: (
+    <>
+      <ellipse cx="7.6" cy="10" rx="1.9" ry="2.4" />
+      <ellipse cx="12" cy="7.6" rx="1.9" ry="2.4" />
+      <ellipse cx="16.4" cy="10" rx="1.9" ry="2.4" />
+      <ellipse cx="19.4" cy="14" rx="1.8" ry="2.2" />
+      <path d="M12.2 12.4c2.6 0 4.8 2 4.8 4.2 0 1.9-1.7 2.9-4.8 2.9s-4.8-1-4.8-2.9c0-2.2 2.2-4.2 4.8-4.2Z" />
+    </>
+  ),
+  bowl: (
+    <>
+      <path d="M4 12h16" />
+      <path d="M5.5 12a6.5 6.5 0 0 0 13 0" />
+      <path d="M10 18.5h4" />
+    </>
+  ),
+  stethoscope: (
+    <>
+      <path d="M6 4v6a5 5 0 0 0 10 0V4" />
+      <path d="M6 4H4M18 4h-2" />
+      <path d="M11 15v2a4 4 0 0 0 8 0v-1" />
+      <circle cx="19" cy="13" r="1.6" />
+    </>
+  ),
+  clipboard: (
+    <>
+      <rect x="5.5" y="5" width="13" height="16" rx="2" />
+      <path d="M9 5V3.8A.8.8 0 0 1 9.8 3h4.4a.8.8 0 0 1 .8.8V5" />
+      <path d="M9.5 11h5M9.5 15h3.5" />
+    </>
+  ),
+  camera: (
+    <>
+      <rect x="3" y="8" width="13" height="10" rx="2" />
+      <path d="M16 11l5-2.5v9L16 15" />
+    </>
+  ),
+  wallet: (
+    <>
+      <rect x="3.5" y="7" width="17" height="11.5" rx="2" />
+      <path d="M15.5 12.75h.01" />
+      <path d="M3.5 10h17" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M15 5.5H6.5A1.5 1.5 0 0 0 5 7v10a1.5 1.5 0 0 0 1.5 1.5H15" />
+      <path d="M13 12h7M17 8.5 20.5 12 17 15.5" />
+    </>
+  ),
+  close: <path d="M6 6l12 12M18 6L6 18" />,
+  menu: <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+}
+
+function SvgIcon({ children, size = 19, strokeWidth = 1.7 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      {children}
+    </svg>
+  )
+}
 
 const NAV_ITEMS = [
-  { to: '/dashboard',      icon: '🏠', label: '主頁總覽' },
-  { to: '/pets',           icon: '🐶', label: '我的寵物' },
-  { to: '/diet',           icon: '🍽️', label: '飲食管理' },
-  { to: '/health-consult', icon: '🏥', label: '健康諮詢' },
-  { to: '/weekly-report',  icon: '📋', label: '健康週報' },
-  { to: '/pet-cam',        icon: '📹', label: '即時監控' },
-  { to: '/expenses',       icon: '💰', label: '財務管理' },
+  { to: '/dashboard',      icon: Icon.home,        label: '主頁總覽' },
+  { to: '/pets',           icon: Icon.paw,         label: '我的寵物' },
+  { to: '/diet',           icon: Icon.bowl,        label: '飲食管理' },
+  { to: '/health-consult', icon: Icon.stethoscope, label: '健康諮詢' },
+  { to: '/weekly-report',  icon: Icon.clipboard,   label: '健康週報' },
+  { to: '/pet-cam',        icon: Icon.camera,      label: '即時監控' },
+  { to: '/expenses',       icon: Icon.wallet,      label: '財務管理' }
 ]
 
 function Logo({ onClick }) {
@@ -19,12 +101,17 @@ function Logo({ onClick }) {
     <NavLink
       to="/dashboard"
       onClick={onClick}
-      className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+      className="flex items-center gap-2.5 rounded-2xl transition-opacity hover:opacity-85"
     >
-      <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center shadow-sm">
-        <span className="text-white text-base">🐾</span>
-      </div>
-      <span className="font-bold text-base text-gray-800">PawCare</span>
+      <MascotCat size={38} className="h-9 w-9 shrink-0" />
+      <span className="min-w-0">
+        <span className="font-brand block text-[17px] font-extrabold leading-none text-pine-900">
+          PawCare
+        </span>
+        <span className="mt-1 block text-[10px] font-medium leading-none text-ink-soft">
+          毛孩的日常照護
+        </span>
+      </span>
     </NavLink>
   )
 }
@@ -56,20 +143,22 @@ export default function Layout() {
   }, [open])
 
   const linkCls = ({ isActive }) =>
-    `flex items-center gap-2.5 px-3 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-all ${
+    `group flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors ${
       isActive
-        ? 'bg-green-50 text-green-600'
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+        ? 'bg-pine-800 text-[#fdf8ec] shadow-[0_10px_20px_-14px_rgba(24,48,31,0.9)]'
+        : 'text-ink-soft hover:bg-[#fdf6ea] hover:text-pine-900'
     }`
 
+  const initial = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase()
+
   return (
-    <div className="flex h-dvh overflow-hidden bg-gray-50">
+    <div className="flex h-dvh overflow-hidden bg-paper">
 
       {/* 手機：半透明遮罩，點一下關閉 */}
       <div
         onClick={close}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 md:hidden ${
+        className={`fixed inset-0 z-40 bg-pine-900/35 transition-opacity duration-200 md:hidden ${
           open ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
@@ -78,15 +167,15 @@ export default function Layout() {
       <aside
         id="app-sidebar"
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col
+          fixed inset-y-0 left-0 z-50 flex w-[16.5rem] flex-col border-r border-[#eae6d8] bg-plate
           transition-transform duration-200 ease-out
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
-          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+          ${open ? 'translate-x-0 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]' : '-translate-x-full'}
           md:static md:z-auto md:w-56 md:translate-x-0 md:shadow-none md:pt-0 md:pb-0 md:shrink-0
         `}
       >
         {/* Logo 列：通知鈴鐺 + 手機上另有關閉鈕 */}
-        <div className="px-4 py-4 md:py-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 px-4 py-4 md:py-5">
           <Logo onClick={close} />
           <div className="flex items-center gap-1">
             <div className="hidden md:block">
@@ -95,68 +184,62 @@ export default function Layout() {
             <button
               onClick={close}
               aria-label="關閉選單"
-              className="md:hidden p-2 -mr-2 rounded-lg text-gray-500 hover:bg-gray-100"
+              className="rounded-xl p-2 -mr-2 text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900 md:hidden"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
+              <SvgIcon size={18} strokeWidth={2}>{Icon.close}</SvgIcon>
             </button>
           </div>
         </div>
 
-        {/* User card */}
-        <div className="mx-3 mt-3 bg-gray-50 border border-gray-100 rounded-xl p-3">
+        {/* 使用者卡片 */}
+        <div className="mx-3 rounded-2xl border border-[#f0e6d2] bg-[#fdf6ea] p-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-100 to-green-500 flex items-center justify-center text-lg shrink-0">
-              👤
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pine-800 text-[13px] font-extrabold text-[#fdf8ec]">
+              {initial}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">{user?.name}</p>
-              <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-bold text-pine-900">{user?.name}</p>
+              <p className="truncate text-[11px] text-ink-soft">{user?.email}</p>
             </div>
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 mt-4 space-y-0.5 overflow-y-auto">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">
-            主要功能
-          </p>
+        {/* 導覽 */}
+        <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-2">
+          <p className="mb-2 px-2 text-[11px] font-semibold text-ink-soft/80">主要功能</p>
           {NAV_ITEMS.map(item => (
             <NavLink key={item.to} to={item.to} onClick={close} className={linkCls}>
-              <span className="text-base">{item.icon}</span>
+              <SvgIcon>{item.icon}</SvgIcon>
               {item.label}
             </NavLink>
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className="border-t border-gray-100 p-3">
+        {/* 登出 */}
+        <div className="border-t border-[#f0e6d2] p-3">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 md:py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold text-[#b4552f] transition-colors hover:bg-[#fdeee6] hover:text-[#8f3f1f]"
           >
-            <span className="text-base">🚪</span>
+            <SvgIcon>{Icon.logout}</SvgIcon>
             登出
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
 
         {/* 手機頂部列：漢堡鈕 + Logo + 通知鈴鐺（電腦版隱藏） */}
-        <header className="md:hidden shrink-0 flex items-center gap-2 h-14 px-3 bg-white border-b border-gray-200 pt-[env(safe-area-inset-top)] box-content">
+        <header className="box-content flex h-14 shrink-0 items-center gap-2 border-b border-[#eae6d8] bg-plate px-3 pt-[env(safe-area-inset-top)] md:hidden">
           <button
             onClick={() => setOpen(true)}
             aria-label="開啟選單"
             aria-expanded={open}
             aria-controls="app-sidebar"
-            className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 active:bg-gray-200"
+            className="rounded-xl p-2 text-pine-900 transition-colors hover:bg-[#fdf6ea] active:bg-[#f8efdd]"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <SvgIcon size={22} strokeWidth={2}>{Icon.menu}</SvgIcon>
           </button>
           <div className="flex-1">
             <Logo />

@@ -3,16 +3,89 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { todayString } from '../../lib/petInsights'
 import {
-  MANUAL_TYPES, TYPE_LABEL, TYPE_EMOJI, day,
+  MANUAL_TYPES, TYPE_LABEL, day,
   addMonths, upcomingReminders, useHealthRecords
 } from '../../lib/petHealth'
 
 const inputCls =
-  'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all'
+  'w-full border border-[#eae6d8] rounded-xl px-3 py-2 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
 
 const SEVERITY = {
-  emergency: { label: '緊急', cls: 'bg-red-100 text-red-700' },
-  urgent: { label: '建議就醫', cls: 'bg-amber-100 text-amber-800' }
+  emergency: { label: '緊急', cls: 'bg-[#fde3dc] text-[#b4422f]' },
+  urgent: { label: '建議就醫', cls: 'bg-[#fff3d6] text-[#7a5200]' }
+}
+
+/* 紀錄類型圖示：線條風格（取代原本的 emoji） */
+const TYPE_ICON = {
+  vaccine: (
+    <>
+      <path d="M14 4l6 6" />
+      <path d="M17.5 6.5 9 15l-1.5 4.5L12 18l8.5-8.5" />
+      <path d="M4.5 19.5 7 17" />
+      <path d="M13 8.5 15.5 11" />
+    </>
+  ),
+  deworm: (
+    <>
+      <rect x="4.5" y="9.5" width="15" height="5" rx="2.5" transform="rotate(-40 12 12)" />
+      <path d="M9.6 8.9l5.5 5.5" />
+    </>
+  ),
+  checkup: (
+    <>
+      <path d="M6 4v6a5 5 0 0 0 10 0V4" />
+      <path d="M6 4H4M18 4h-2" />
+      <path d="M11 15v2a4 4 0 0 0 8 0v-1" />
+      <circle cx="19" cy="13" r="1.6" />
+    </>
+  ),
+  visit: (
+    <>
+      <path d="M4.5 20V8.5L12 4l7.5 4.5V20" />
+      <path d="M12 10v5M9.5 12.5h5" />
+      <path d="M9 20v-3.5h6V20" />
+    </>
+  ),
+  surgery: (
+    <>
+      <path d="M6 4l7.5 9.5" />
+      <path d="M18 4l-7.5 9.5" />
+      <circle cx="7.5" cy="18" r="2.5" />
+      <circle cx="16.5" cy="18" r="2.5" />
+    </>
+  ),
+  other: (
+    <>
+      <path d="M6.5 4.5h7L18 9v10.5H6.5Z" />
+      <path d="M13 4.5V9h4.5" />
+      <path d="M9.5 13h5M9.5 16h3" />
+    </>
+  ),
+  default: (
+    <>
+      <path d="M18 15.5V11a6 6 0 1 0-12 0v4.5L4.5 18h15L18 15.5Z" />
+      <path d="M10 21h4" />
+    </>
+  )
+}
+
+function TypeIcon({ type, size = 14 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      {TYPE_ICON[type] || TYPE_ICON.default}
+    </svg>
+  )
 }
 
 const PREVIEW = 6
@@ -98,16 +171,19 @@ export default function HealthCard({ petId }) {
   const visible = showAll ? sorted : sorted.slice(0, PREVIEW)
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-5" aria-label="健康紀錄與提醒">
+    <section className="rounded-3xl border border-[#f3e3cd] bg-plate p-5" aria-label="健康紀錄與提醒">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold text-gray-800">健康紀錄與提醒</h2>
+        <h2 className="text-sm font-bold text-pine-900">健康紀錄與提醒</h2>
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
-          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-green-600 transition-colors hover:bg-green-50"
+          className="inline-flex items-center gap-1 rounded-xl border border-[#e8d9bd] bg-[#faf7ef] px-3 py-1.5 text-xs font-bold text-pine-800 transition-colors hover:bg-[#fdf6ea]"
         >
-          {open ? '收起' : '＋ 新增紀錄'}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+            <path d={open ? 'M5 12h14' : 'M12 5v14M5 12h14'} />
+          </svg>
+          {open ? '收起' : '新增紀錄'}
         </button>
       </div>
 
@@ -117,12 +193,14 @@ export default function HealthCard({ petId }) {
           {reminders.slice(0, 3).map(r => (
             <li
               key={r.id}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${r.daysLeft <= 7 ? 'bg-amber-50 text-amber-800' : 'bg-gray-50 text-gray-600'
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs ${r.daysLeft <= 7
+                  ? 'border-[#f0d9b5] bg-[#fff8e9] text-[#7a5200]'
+                  : 'border-[#eae6d8] bg-[#faf7ef] text-ink-soft'
                 }`}
             >
-              <span aria-hidden="true">{TYPE_EMOJI[r.type] || '🔔'}</span>
-              <span className="min-w-0 flex-1 truncate font-medium">{r.title}</span>
-              <span className="shrink-0">
+              <TypeIcon type={r.type} size={14} />
+              <span className="min-w-0 flex-1 truncate font-semibold">{r.title}</span>
+              <span className="shrink-0 tabular-nums opacity-90">
                 {r.daysLeft === 0 ? '今天' : `${r.daysLeft} 天後`}（{r.date}）
               </span>
             </li>
@@ -132,7 +210,7 @@ export default function HealthCard({ petId }) {
 
       {/* 新增紀錄 */}
       {open && (
-        <form onSubmit={submit} className="mt-3 space-y-3 rounded-xl bg-gray-50 p-3">
+        <form onSubmit={submit} className="mt-3 space-y-3 rounded-2xl bg-[#faf7ef] p-3">
           <div role="group" aria-label="紀錄類型" className="flex flex-wrap gap-1.5">
             {MANUAL_TYPES.map(t => (
               <button
@@ -140,19 +218,20 @@ export default function HealthCard({ petId }) {
                 type="button"
                 aria-pressed={form.type === t.value}
                 onClick={() => patchForm({ type: t.value }, 'type')}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${form.type === t.value
-                    ? 'border-green-500 bg-green-500 text-white'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-green-300'
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.type === t.value
+                    ? 'border-pine-700 bg-pine-800 text-[#fdf8ec]'
+                    : 'border-[#eae6d8] bg-plate text-ink-soft hover:border-pine-700/40 hover:text-pine-800'
                   }`}
               >
-                {t.emoji} {t.label}
+                <TypeIcon type={t.value} size={13} />
+                {t.label}
               </button>
             ))}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div className="col-span-2">
-              <label htmlFor="hc-title" className="mb-1 block text-xs font-semibold text-gray-500">名稱</label>
+              <label htmlFor="hc-title" className="mb-1 block text-xs font-semibold text-ink-soft">名稱</label>
               <input
                 id="hc-title"
                 required
@@ -164,7 +243,7 @@ export default function HealthCard({ petId }) {
               />
             </div>
             <div>
-              <label htmlFor="hc-date" className="mb-1 block text-xs font-semibold text-gray-500">日期</label>
+              <label htmlFor="hc-date" className="mb-1 block text-xs font-semibold text-ink-soft">日期</label>
               <input
                 id="hc-date"
                 type="date"
@@ -176,7 +255,7 @@ export default function HealthCard({ petId }) {
               />
             </div>
             <div>
-              <label htmlFor="hc-next" className="mb-1 block text-xs font-semibold text-gray-500">下次提醒日期（選填）</label>
+              <label htmlFor="hc-next" className="mb-1 block text-xs font-semibold text-ink-soft">下次提醒日期（選填）</label>
               <input
                 id="hc-next"
                 type="date"
@@ -187,7 +266,7 @@ export default function HealthCard({ petId }) {
               />
             </div>
             <div>
-              <label htmlFor="hc-clinic" className="mb-1 block text-xs font-semibold text-gray-500">診所（選填）</label>
+              <label htmlFor="hc-clinic" className="mb-1 block text-xs font-semibold text-ink-soft">診所（選填）</label>
               <input
                 id="hc-clinic"
                 value={form.clinic}
@@ -197,7 +276,7 @@ export default function HealthCard({ petId }) {
               />
             </div>
             <div>
-              <label htmlFor="hc-cost" className="mb-1 block text-xs font-semibold text-gray-500">費用（選填）</label>
+              <label htmlFor="hc-cost" className="mb-1 block text-xs font-semibold text-ink-soft">費用（選填）</label>
               <input
                 id="hc-cost"
                 type="number"
@@ -210,7 +289,7 @@ export default function HealthCard({ petId }) {
               />
             </div>
             <div className="col-span-2">
-              <label htmlFor="hc-desc" className="mb-1 block text-xs font-semibold text-gray-500">備註（選填）</label>
+              <label htmlFor="hc-desc" className="mb-1 block text-xs font-semibold text-ink-soft">備註（選填）</label>
               <textarea
                 id="hc-desc"
                 rows={2}
@@ -222,7 +301,7 @@ export default function HealthCard({ petId }) {
           </div>
 
           {addRecord.isError && (
-            <p role="alert" className="text-xs text-red-500">
+            <p role="alert" className="text-xs text-[#b4552f]">
               {addRecord.error?.response?.data?.error || '儲存失敗，請稍後再試'}
             </p>
           )}
@@ -231,14 +310,14 @@ export default function HealthCard({ petId }) {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="flex-1 rounded-lg border border-gray-200 bg-white py-2 text-sm font-medium text-gray-500 hover:bg-gray-50"
+              className="flex-1 rounded-xl border border-line bg-plate py-2 text-sm font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea]"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={addRecord.isPending}
-              className="flex-1 rounded-lg bg-green-500 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-600 disabled:opacity-50"
+              className="flex-1 rounded-xl bg-[#f5c04a] py-2 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
             >
               {addRecord.isPending ? '儲存中…' : '儲存紀錄'}
             </button>
@@ -248,31 +327,34 @@ export default function HealthCard({ petId }) {
 
       {/* 時間軸 */}
       {isLoading ? (
-        <div className="mt-4 h-24 animate-pulse rounded-xl bg-gray-50" />
+        <div className="mt-4 h-24 animate-pulse rounded-2xl bg-[#faf7ef]" />
       ) : sorted.length === 0 ? (
-        <div className="mt-4 rounded-xl bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
-          <p className="mb-1 text-3xl">🩺</p>
-          還沒有健康紀錄。疫苗、驅蟲、看診都可以記在這裡，並設定下次提醒日期。
+        <div className="mt-4 rounded-2xl bg-[#faf7ef] px-4 py-6 text-center text-sm text-ink-soft">
+          <TypeIcon type="checkup" size={28} />
+          <p className="mt-1.5 leading-relaxed">
+            還沒有健康紀錄。疫苗、驅蟲、看診都可以記在這裡，並設定下次提醒日期。
+          </p>
         </div>
       ) : (
         <>
-          <ol className="mt-4 space-y-3 border-l-2 border-gray-100 pl-4">
+          <ol className="mt-4 space-y-3 border-l-2 border-[#f3ead9] pl-4">
             {visible.map(r => {
               const sev = SEVERITY[r.severity]
               return (
                 <li key={r.id} className="relative">
-                  <span className="absolute -left-[1.4rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-400" aria-hidden="true" />
+                  <span className="absolute -left-[1.42rem] top-1 h-2.5 w-2.5 rounded-full border-2 border-plate bg-pine-700" aria-hidden="true" />
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
-                      {TYPE_EMOJI[r.type] ? `${TYPE_EMOJI[r.type]} ` : ''}{TYPE_LABEL[r.type] || r.type}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-pine-50 px-2 py-0.5 text-[11px] font-semibold text-pine-700">
+                      <TypeIcon type={r.type} size={12} />
+                      {TYPE_LABEL[r.type] || r.type}
                     </span>
                     {r.source === 'ai_consult' && (
-                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-600">AI 諮詢</span>
+                      <span className="rounded-full bg-[#f3edfa] px-2 py-0.5 text-[11px] font-semibold text-[#7a5a9e]">AI 諮詢</span>
                     )}
                     {sev && (
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${sev.cls}`}>{sev.label}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${sev.cls}`}>{sev.label}</span>
                     )}
-                    <span className="text-xs text-gray-400">{day(r.date)}</span>
+                    <span className="text-xs tabular-nums text-ink-soft/80">{day(r.date)}</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -280,14 +362,14 @@ export default function HealthCard({ petId }) {
                       }}
                       disabled={removeRecord.isPending}
                       aria-label={`刪除 ${r.title}`}
-                      className="ml-auto rounded-md px-2 py-0.5 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                      className="ml-auto rounded-lg px-2 py-0.5 text-xs text-ink-soft/80 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f] disabled:opacity-50"
                     >
                       刪除
                     </button>
                   </div>
-                  <p className="mt-0.5 text-sm font-semibold text-gray-700">{r.title}</p>
-                  {r.description && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{r.description}</p>}
-                  <p className="mt-0.5 text-[11px] text-gray-400">
+                  <p className="mt-0.5 text-sm font-semibold text-pine-900">{r.title}</p>
+                  {r.description && <p className="mt-0.5 line-clamp-2 text-xs text-ink-soft">{r.description}</p>}
+                  <p className="mt-0.5 text-[11px] text-ink-soft/80">
                     {[
                       r.clinic,
                       r.cost ? `TWD ${Number(r.cost).toLocaleString()}` : null,
@@ -304,13 +386,13 @@ export default function HealthCard({ petId }) {
             <button
               type="button"
               onClick={() => setShowAll(v => !v)}
-              className="mt-3 text-xs font-medium text-green-600 hover:underline"
+              className="mt-3 text-xs font-semibold text-pine-700 hover:underline"
             >
               {showAll ? '收合' : `顯示全部 ${sorted.length} 筆`}
             </button>
           )}
           {removeRecord.isError && (
-            <p role="alert" className="mt-2 text-xs text-red-500">刪除失敗，請稍後再試</p>
+            <p role="alert" className="mt-2 text-xs text-[#b4552f]">刪除失敗，請稍後再試</p>
           )}
         </>
       )}

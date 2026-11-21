@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../../lib/api'
+import MascotCat from '../brand/MascotCat'
 
 // 這些頁面不顯示小助理（健康諮詢頁本身就是 AI 對話）
 const HIDDEN_PATHS = ['/health-consult']
@@ -578,7 +579,7 @@ function ChipRow({ items, disabled, onPick }) {
   }
 
   return (
-    <div className="relative shrink-0 border-t border-gray-100 bg-white">
+    <div className="relative shrink-0 border-t border-[#f3ead9] bg-plate">
       <div
         ref={ref}
         onScroll={updateEdge}
@@ -591,7 +592,7 @@ function ChipRow({ items, disabled, onPick }) {
             key={q}
             onClick={() => onPick(q)}
             disabled={disabled}
-            className="shrink-0 whitespace-nowrap text-xs text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-full px-3 py-1.5 transition-colors disabled:opacity-40 disabled:hover:bg-green-50"
+            className="shrink-0 whitespace-nowrap text-xs font-medium text-pine-700 bg-[#fdf6ea] hover:bg-[#f8eeda] border border-[#f0e6d2] rounded-full px-3 py-1.5 transition-colors disabled:opacity-40 disabled:hover:bg-[#fdf6ea]"
           >
             {q}
           </button>
@@ -601,13 +602,13 @@ function ChipRow({ items, disabled, onPick }) {
       {edge.left && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white to-transparent"
+          className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-plate to-transparent"
         />
       )}
       {edge.right && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-plate to-transparent"
         />
       )}
     </div>
@@ -1106,14 +1107,20 @@ export default function AssistantWidget() {
           onPointerUp={onPointerUp}
           onPointerCancel={() => (dragRef.current = null)}
           style={{ left: pos.x, top: pos.y, width: BALL, height: BALL, touchAction: 'none' }}
-          className={`fixed z-30 rounded-full bg-green-500 text-white text-2xl shadow-lg shadow-green-500/30
+          className={`fixed z-30 rounded-full bg-pine-800 text-[#f5c04a] shadow-[0_16px_30px_-12px_rgba(24,48,31,0.75)]
             flex items-center justify-center select-none cursor-grab active:cursor-grabbing
-            hover:bg-green-600 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600
-            ${open ? 'ring-4 ring-green-200' : ''}`}
+            hover:bg-pine-900 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine-700
+            ${open ? 'ring-4 ring-[#f5c04a]/45' : ''}`}
         >
-          🐾
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <ellipse cx="7.6" cy="10" rx="1.9" ry="2.4" />
+            <ellipse cx="12" cy="7.6" rx="1.9" ry="2.4" />
+            <ellipse cx="16.4" cy="10" rx="1.9" ry="2.4" />
+            <ellipse cx="19.4" cy="14" rx="1.8" ry="2.2" />
+            <path d="M12.2 12.4c2.6 0 4.8 2 4.8 4.2 0 1.9-1.7 2.9-4.8 2.9s-4.8-1-4.8-2.9c0-2.2 2.2-4.2 4.8-4.2Z" />
+          </svg>
           {hasAlert && !open && (
-            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500" />
+            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-plate bg-[#ffb31f]" />
           )}
         </button>
       )}
@@ -1142,18 +1149,18 @@ export default function AssistantWidget() {
             role="dialog"
             aria-label="PawCare 小助理"
             style={panelStyle}
-            className={`fixed z-40 bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden
-              ${isMobile ? 'inset-x-0 bottom-0 h-[80dvh] rounded-t-2xl' : 'rounded-2xl'}`}
+            className={`fixed z-40 bg-plate border border-[#eae6d8] shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)] flex flex-col overflow-hidden
+              ${isMobile ? 'inset-x-0 bottom-0 h-[80dvh] rounded-t-3xl' : 'rounded-3xl'}`}
           >
             {/* 標題列 */}
-            <div className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 bg-white">
-              <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center shadow-sm">
-                <span className="text-white text-base">🐾</span>
+            <div className="shrink-0 flex items-center gap-2.5 px-4 py-3 border-b border-[#f3ead9] bg-plate">
+              <div className="w-8 h-8 rounded-full bg-[#fdf3e3] flex items-center justify-center overflow-hidden">
+                <MascotCat size={30} />
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800">PawCare 小助理</p>
-                <p className="text-[11px] text-gray-400 truncate">
+                <p className="text-sm font-bold text-pine-900">PawCare 小助理</p>
+                <p className="text-[11px] text-ink-soft truncate">
                   {pets.length > 1 && activePet
                     ? `與「${activePet.name}」的對話`
                     : '問我怎麼使用，或寵物照護小問題'}
@@ -1165,7 +1172,7 @@ export default function AssistantWidget() {
                   value={activePetId ?? ''}
                   onChange={e => switchPet(Number(e.target.value))}
                   aria-label="選擇寵物"
-                  className="max-w-[6rem] truncate rounded-md border border-gray-200 bg-gray-50 px-1.5 py-1 text-xs text-gray-600 outline-none focus:border-green-400"
+                  className="max-w-[6rem] truncate rounded-lg border border-[#eae6d8] bg-[#fdf6ea] px-1.5 py-1 text-xs text-ink-soft outline-none focus:border-pine-700"
                 >
                   {pets.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -1176,7 +1183,7 @@ export default function AssistantWidget() {
               {messages.length > 0 && (
                 <button
                   onClick={clearChat}
-                  className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-md hover:bg-gray-100"
+                  className="text-xs text-ink-soft hover:text-pine-900 px-2 py-1 rounded-lg hover:bg-[#fdf6ea]"
                 >
                   清除
                 </button>
@@ -1185,7 +1192,7 @@ export default function AssistantWidget() {
               <button
                 onClick={() => setOpen(false)}
                 aria-label="關閉小助理"
-                className="p-1.5 -mr-1 rounded-lg text-gray-500 hover:bg-gray-100"
+                className="p-1.5 -mr-1 rounded-lg text-ink-soft hover:bg-[#fdf6ea] hover:text-pine-900"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M6 6l12 12M18 6L6 18" />
@@ -1194,11 +1201,11 @@ export default function AssistantWidget() {
             </div>
 
             {/* 對話內容 */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50">
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-[#faf7ef]">
               {/* 歡迎訊息 */}
               <div className="flex">
-                <div className="max-w-[85%] bg-white border border-gray-200 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-gray-700 leading-relaxed">
-                  <p>嗨！我是 PawCare 小助理 🐾</p>
+                <div className="max-w-[85%] bg-plate border border-[#f0e6d2] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-ink leading-relaxed">
+                  <p>嗨！我是 PawCare 小助理</p>
                   <p className="mt-1">
                     可以問我怎麼使用各項功能、日常寵物照護的小問題，也能幫你查今天該餵什麼、記錄餵食，或拍張食物照片問我能不能吃。
                   </p>
@@ -1207,23 +1214,23 @@ export default function AssistantWidget() {
 
               {/* 今日提醒（還沒開始聊天時顯示） */}
               {messages.length === 0 && briefingItems.length > 0 && (
-                <div className="rounded-2xl border border-gray-200 bg-white p-3">
-                  <p className="text-xs font-semibold text-gray-700">今日提醒</p>
+                <div className="rounded-2xl border border-[#f0e6d2] bg-plate p-3">
+                  <p className="text-xs font-semibold text-pine-900">今日提醒</p>
                   <ul className="mt-1.5 space-y-1.5">
                     {briefingItems.map(item => (
                       <li
                         key={item.id}
-                        className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs ${
+                        className={`flex items-start gap-2 rounded-xl px-2 py-1.5 text-xs ${
                           item.level === 'warning'
-                            ? 'bg-amber-50 text-amber-800'
-                            : 'bg-gray-50 text-gray-600'
+                            ? 'bg-[#fff3d6] text-[#7a5200]'
+                            : 'bg-[#fdf6ea] text-ink-soft'
                         }`}
                       >
                         <span className="flex-1">{item.text}</span>
                         {item.link && (
                           <button
                             onClick={() => goTo(item.link.to)}
-                            className="shrink-0 font-medium text-green-700 hover:underline"
+                            className="shrink-0 font-semibold text-pine-700 hover:underline"
                           >
                             查看
                           </button>
@@ -1237,7 +1244,7 @@ export default function AssistantWidget() {
               {messages.map((m, i) =>
                 m.role === 'user' ? (
                   <div key={i} className="flex justify-end">
-                    <div className="max-w-[85%] bg-green-500 text-white rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    <div className="max-w-[85%] bg-pine-800 text-[#fdf8ec] rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
                       {m.thumb && (
                         <img
                           src={m.thumb}
@@ -1253,8 +1260,8 @@ export default function AssistantWidget() {
                     <div
                       className={`max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm leading-relaxed border break-words ${
                         m.isError
-                          ? 'bg-red-50 border-red-100 text-red-600'
-                          : 'bg-white border-gray-200 text-gray-700'
+                          ? 'bg-[#fdeee6] border-[#f6d5c4] text-[#b4552f]'
+                          : 'bg-plate border-[#f0e6d2] text-ink'
                       }`}
                     >
                       {m.isError ? (
@@ -1262,13 +1269,13 @@ export default function AssistantWidget() {
                       ) : m.streaming && !m.content ? (
                         // 還沒有文字：顯示工具進度，或三個跳動的點
                         m.status ? (
-                          <span className="text-gray-400">{m.status}</span>
+                          <span className="text-ink-soft">{m.status}</span>
                         ) : (
                           <span className="flex gap-1.5 py-1" aria-label="回覆中">
                             {[0, 1, 2].map(n => (
                               <span
                                 key={n}
-                                className="w-1.5 h-1.5 bg-green-400 rounded-full animate-bounce"
+                                className="w-1.5 h-1.5 bg-pine-700 rounded-full animate-bounce"
                                 style={{ animationDelay: `${n * 0.15}s` }}
                               />
                             ))}
@@ -1313,22 +1320,22 @@ export default function AssistantWidget() {
 
             {/* 準備傳送的照片 */}
             {(photo || photoError) && (
-              <div className="shrink-0 bg-white px-3 pt-2">
+              <div className="shrink-0 bg-plate px-3 pt-2">
                 {photo && (
-                  <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-1.5">
+                  <div className="flex items-center gap-2 rounded-2xl border border-[#f0e6d2] bg-[#fdf6ea] p-1.5">
                     <img
                       src={photo.thumb}
                       alt="準備傳送的食物照片"
-                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                      className="h-12 w-12 shrink-0 rounded-xl object-cover"
                     />
-                    <p className="min-w-0 flex-1 text-xs text-green-800">
+                    <p className="min-w-0 flex-1 text-xs text-pine-900">
                       傳送後會辨識食物，並檢查是否適合{activePet ? ` ${activePet.name}` : '寵物'}
                     </p>
                     <button
                       type="button"
                       onClick={removePhoto}
                       aria-label="移除照片"
-                      className="shrink-0 rounded-lg p-1.5 text-green-700 hover:bg-green-100"
+                      className="shrink-0 rounded-lg p-1.5 text-ink-soft hover:bg-[#f3e6cf] hover:text-pine-900"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <path d="M6 6l12 12M18 6L6 18" />
@@ -1347,7 +1354,7 @@ export default function AssistantWidget() {
             {/* 輸入列 */}
             <form
               onSubmit={handleSubmit}
-              className="shrink-0 bg-white px-3 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3"
+              className="shrink-0 bg-plate px-3 pt-2.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3"
             >
               <div className="flex items-center gap-2">
                 <button
@@ -1355,7 +1362,7 @@ export default function AssistantWidget() {
                   onClick={openPicker}
                   disabled={loading}
                   aria-label="選擇食物照片"
-                  className="shrink-0 w-10 h-10 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-green-600 disabled:opacity-40 flex items-center justify-center transition-colors"
+                  className="shrink-0 w-10 h-10 rounded-full border border-[#eae6d8] text-ink-soft hover:bg-[#fdf6ea] hover:text-pine-700 disabled:opacity-40 flex items-center justify-center transition-colors"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
@@ -1383,7 +1390,7 @@ export default function AssistantWidget() {
                   }}
                   maxLength={MAX_INPUT}
                   placeholder="輸入問題，或點左邊拍照"
-                  className="flex-1 min-w-0 border border-gray-200 rounded-full px-4 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+                  className="flex-1 min-w-0 border border-[#eae6d8] rounded-full px-4 py-2.5 text-sm bg-[#faf7ef] focus:outline-none focus:ring-2 focus:ring-pine-700/40 focus:bg-plate transition-all"
                 />
 
                 {loading ? (
@@ -1391,16 +1398,16 @@ export default function AssistantWidget() {
                     type="button"
                     onClick={stop}
                     aria-label="停止回答"
-                    className="shrink-0 w-10 h-10 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center"
+                    className="shrink-0 w-10 h-10 rounded-full border border-[#eae6d8] text-pine-900 hover:bg-[#fdf6ea] flex items-center justify-center"
                   >
-                    <span className="block w-3 h-3 rounded-sm bg-gray-600" />
+                    <span className="block w-3 h-3 rounded-sm bg-pine-800" />
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={!input.trim() && !photo}
                     aria-label="送出"
-                    className="shrink-0 w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:hover:bg-green-500 text-white flex items-center justify-center transition-colors"
+                    className="shrink-0 w-10 h-10 rounded-full bg-[#f5c04a] hover:bg-[#f0b23a] disabled:opacity-40 disabled:hover:bg-[#f5c04a] text-pine-900 flex items-center justify-center transition-colors"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22 2 11 13" />
@@ -1410,7 +1417,7 @@ export default function AssistantWidget() {
                 )}
               </div>
 
-              <p className="text-[10px] text-gray-300 text-center mt-2">
+              <p className="text-[10px] text-ink-soft/70 text-center mt-2">
                 AI 回答僅供參考，寵物健康問題請諮詢獸醫
               </p>
             </form>

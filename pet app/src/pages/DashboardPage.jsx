@@ -125,6 +125,17 @@ const ACTION_LINKS = [
 
 const dayOf = v => (v ? String(v).slice(0, 10) : null)
 
+// 後端偶爾會把陣列包在物件裡（例如 { days: [...] }），這裡一律轉成陣列，
+// 避免 .find / .map 直接爆掉讓整頁白屏
+function asRows(value) {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+  if (Array.isArray(value.rows)) return value.rows
+  if (Array.isArray(value.records)) return value.records
+  if (Array.isArray(value.data)) return value.data
+  return Object.values(value).filter(v => v && typeof v === 'object' && !Array.isArray(v))
+}
+
 function deriveReminders(records, today) {
   const items = (records || [])
     .map(r => {
@@ -174,7 +185,7 @@ export default function DashboardPage() {
     refetch: refetchPets
   } = useQuery({
     queryKey: ['pets'],
-    queryFn: () => api.get('/pets').then(r => r.data.data)
+    queryFn: () => api.get('/pets').then(r => asRows(r.data?.data))
   })
 
   // 攝影機本機服務狀態（決定「連線中 vs 離線」）
@@ -212,8 +223,12 @@ export default function DashboardPage() {
   const feedingQueries = useQueries({
     queries: pets.map(pet => ({
       queryKey: ['feeding-trends', pet.id],
-      queryFn: () =>
-        api.get(`/feeding/pet/${pet.id}/trends?days=7`).then(r => r.data?.data?.days || []),
+      queryFn: async () => {
+        const res = await api.get(`/feeding/pet/${pet.id}/trends?days=7`)
+        const payload = res.data?.data
+        const days = Array.isArray(payload) ? payload : payload?.days
+        return asRows(days)
+      },
       enabled: !!pet.id,
       staleTime: 60_000
     }))
@@ -222,8 +237,10 @@ export default function DashboardPage() {
   const healthQueries = useQueries({
     queries: pets.map(pet => ({
       queryKey: ['pet-health', pet.id],
-      queryFn: () =>
-        api.get(`/health-records/pet/${pet.id}`).then(r => r.data?.data || []),
+      queryFn: async () => {
+        const res = await api.get(`/health-records/pet/${pet.id}`)
+        return asRows(res.data?.data)
+      },
       enabled: !!pet.id,
       staleTime: 60_000
     }))
@@ -234,7 +251,7 @@ export default function DashboardPage() {
     () =>
       pets.map((pet, i) => {
         const q = feedingQueries[i]
-        const row = (q?.data || []).find(d => d.date === today) || null
+        const row = asRows(q?.data).find(d => d.date === today) || null
         return { pet, row, loading: q?.isLoading, error: q?.isError }
       }),
     [pets, feedingQueries, today]
@@ -242,7 +259,7 @@ export default function DashboardPage() {
 
   const healthSummary = useMemo(() => {
     const perPet = pets.map((pet, i) => {
-      const records = healthQueries[i]?.data || []
+      const records = asRows(healthQueries[i]?.data)
       return { pet, reminder: deriveReminders(records, today), done: healthQueries[i]?.isSuccess }
     })
     const combined = perPet

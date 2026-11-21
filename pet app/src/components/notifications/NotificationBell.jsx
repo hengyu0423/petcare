@@ -19,19 +19,95 @@ import NotificationPreferencesModal from './NotificationPreferencesModal'
 // 完全不受父容器 transform / overflow 影響。
 // ======================================================
 
-const ICON = {
-  camera_missing: '📷',
-  camera_reappeared: '🐱',
-  health_alert: '🩺',
-  weekly_report_ready: '📋',
-  feeding_reminder: '🍽️'
+/* 通知類型圖示：與側邊欄同一套線條語言 */
+const TYPE_ICON = {
+  camera_missing: (
+    <>
+      <rect x="3" y="8" width="13" height="10" rx="2" />
+      <path d="M16 11l5-2.5v9L16 15" />
+    </>
+  ),
+  camera_reappeared: (
+    <>
+      <ellipse cx="7.6" cy="10" rx="1.9" ry="2.4" />
+      <ellipse cx="12" cy="7.6" rx="1.9" ry="2.4" />
+      <ellipse cx="16.4" cy="10" rx="1.9" ry="2.4" />
+      <ellipse cx="19.4" cy="14" rx="1.8" ry="2.2" />
+      <path d="M12.2 12.4c2.6 0 4.8 2 4.8 4.2 0 1.9-1.7 2.9-4.8 2.9s-4.8-1-4.8-2.9c0-2.2 2.2-4.2 4.8-4.2Z" />
+    </>
+  ),
+  health_alert: (
+    <>
+      <path d="M6 4v6a5 5 0 0 0 10 0V4" />
+      <path d="M6 4H4M18 4h-2" />
+      <path d="M11 15v2a4 4 0 0 0 8 0v-1" />
+      <circle cx="19" cy="13" r="1.6" />
+    </>
+  ),
+  weekly_report_ready: (
+    <>
+      <rect x="5.5" y="5" width="13" height="16" rx="2" />
+      <path d="M9 5V3.8A.8.8 0 0 1 9.8 3h4.4a.8.8 0 0 1 .8.8V5" />
+      <path d="M9.5 11h5M9.5 15h3.5" />
+    </>
+  ),
+  feeding_reminder: (
+    <>
+      <path d="M4 12h16" />
+      <path d="M5.5 12a6.5 6.5 0 0 0 13 0" />
+      <path d="M10 18.5h4" />
+    </>
+  ),
+  default: (
+    <>
+      <path d="M18 15.5V11a6 6 0 1 0-12 0v4.5L4.5 18h15L18 15.5Z" />
+      <path d="M10 21h4" />
+    </>
+  )
 }
 
 const SEVERITY_DOT = {
-  emergency: 'bg-red-500',
-  urgent: 'bg-amber-500',
-  warning: 'bg-amber-500',
-  info: 'bg-gray-300'
+  emergency: 'bg-[#d94a3d]',
+  urgent: 'bg-[#ffb31f]',
+  warning: 'bg-[#ffb31f]',
+  info: 'bg-line'
+}
+
+function TypeIcon({ type, size = 16 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {TYPE_ICON[type] || TYPE_ICON.default}
+    </svg>
+  )
+}
+
+function BellIcon({ size = 19 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 15.5V11a6 6 0 1 0-12 0v4.5L4.5 18h15L18 15.5Z" />
+      <path d="M10 21h4" />
+    </svg>
+  )
 }
 
 function timeAgo(iso) {
@@ -150,17 +226,17 @@ export default function NotificationBell() {
         width: DROP_W,
         zIndex: 9999
       }}
-      className="bg-white rounded-xl shadow-lg border border-gray-100 max-h-[70vh] flex flex-col"
+      className="flex max-h-[70vh] flex-col rounded-3xl border border-[#f0e6d2] bg-plate shadow-[0_24px_48px_-24px_rgba(87,54,17,0.45)]"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <p className="text-sm font-bold text-gray-800">通知</p>
+      <div className="flex items-center justify-between border-b border-[#f3ead9] px-4 py-3">
+        <p className="text-sm font-bold text-pine-900">通知</p>
 
         <div className="flex items-center gap-3">
           {unreadCount > 0 && (
             <button
               type="button"
               onClick={markAllRead}
-              className="text-xs text-green-600 font-semibold hover:underline"
+              className="text-xs font-semibold text-pine-700 hover:underline"
             >
               全部已讀
             </button>
@@ -172,18 +248,22 @@ export default function NotificationBell() {
               setOpen(false)
               setShowPrefs(true)
             }}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            className="rounded-lg p-1 text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
             title="通知設定"
+            aria-label="通知設定"
           >
-            ⚙️
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.2" />
+              <path d="M19.4 14a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 14a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.1a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+            </svg>
           </button>
         </div>
       </div>
 
-      <div className="overflow-y-auto flex-1">
+      <div className="flex-1 overflow-y-auto">
 
         {notifications.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-10">
+          <p className="py-10 text-center text-sm text-ink-soft">
             目前沒有通知
           </p>
         )}
@@ -193,31 +273,31 @@ export default function NotificationBell() {
             key={n.id}
             type="button"
             onClick={() => !n.isRead && markRead(n.id)}
-            className={`w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 flex gap-2.5 transition-colors ${
-              n.isRead ? 'bg-white' : 'bg-green-50/40 hover:bg-green-50'
+            className={`flex w-full gap-2.5 border-b border-[#f6efdf] px-4 py-3 text-left transition-colors last:border-0 ${
+              n.isRead ? 'bg-plate' : 'bg-[#fdf6ea] hover:bg-[#fbf0dd]'
             }`}
           >
-            <span className="text-lg shrink-0">
-              {ICON[n.type] || '🔔'}
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#fdf3e3] text-[#c96f2e]">
+              <TypeIcon type={n.type} />
             </span>
 
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    SEVERITY_DOT[n.severity] || 'bg-gray-300'
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                    SEVERITY_DOT[n.severity] || 'bg-line'
                   }`}
                 />
-                <p className="text-sm font-semibold text-gray-800 truncate">
+                <p className="truncate text-sm font-semibold text-pine-900">
                   {n.title}
                 </p>
               </div>
 
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+              <p className="mt-0.5 line-clamp-2 text-xs text-ink-soft">
                 {n.message}
               </p>
 
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="mt-1 text-[11px] text-ink-soft/75">
                 {n.petName ? `${n.petName}・` : ''}
                 {timeAgo(n.createdAt)}
               </p>
@@ -236,12 +316,12 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="relative w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
         aria-label="通知"
       >
-        🔔
+        <BellIcon />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ffb31f] px-1 text-[10px] font-extrabold text-[#4a3200]">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
