@@ -1542,35 +1542,35 @@ export default function DietPage() {
                 )}
 
                 {smartDiet?.recommendation && !smartLoading && (
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                  <div className="rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] p-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                        ✨
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pine-800 text-[#f5c04a]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3Z" />
+                          <path d="M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" />
+                        </svg>
                       </div>
 
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-green-600">
-                          系統推薦
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-pine-700">系統推薦</p>
 
-                        <p className="text-sm font-bold text-gray-800 mt-1">
+                        <p className="mt-1 text-sm font-bold text-pine-900">
                           {smartDiet.recommendation.title}
                         </p>
 
-                        <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
+                        <p className="mt-1.5 text-sm leading-relaxed text-ink">
                           {smartDiet.recommendation.recommendation}
                         </p>
 
-                        <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                        <p className="mt-2 text-xs leading-relaxed text-ink-soft">
                           原因：{smartDiet.recommendation.reason}
                         </p>
 
                         {smartDiet.history?.hasData && (
-                          <p className="text-[11px] text-gray-400 mt-3">
+                          <p className="mt-3 text-xs font-medium text-ink-soft">
                             已分析 {smartDiet.history.mealCount} 筆近期餵食紀錄
                           </p>
                         )}
-
                       </div>
                     </div>
                   </div>

@@ -163,9 +163,6 @@
 .legacy-skin .shadow-2xl            { box-shadow: 0 28px 56px -24px rgba(87, 54, 17, 0.5); }
 
 /* 舊頁面常用的彩色 hero：改成松綠奶油漸層 */
-.legacy-skin .bg-gradient-to-br,
-.legacy-skin .bg-gradient-to-r      { background-image: linear-gradient(135deg, #2c5a43, #18301f); }
-
 .legacy-skin .placeholder-gray-400::placeholder { color: #a7ada3; }
 
 /* hover / focus 狀態（Tailwind 的引號類名要跳脫） */
