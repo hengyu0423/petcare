@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
 import DietPreferencesModal from '../components/diet/DietPreferencesModal'
@@ -96,6 +96,9 @@ export default function DietPage() {
 
   const today = getLocalDate()
 
+  // 通知鈴鐺點過來時會帶 ?petId=，用來選到通知那隻寵物
+  const [searchParams] = useSearchParams()
+
   const [selectedPet, setSelectedPet] = useState(null)
   const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
   const [showPastHealthEvents, setShowPastHealthEvents] = useState(false) // 展開已過注意期的健康事件
@@ -159,11 +162,15 @@ export default function DietPage() {
     queryFn: () => api.get('/pets').then(r => r.data.data)
   })
 
+  // 通知鈴鐺跳過來時 URL 會帶 ?petId=，停在通知那隻寵物的畫面；
+  // 沒帶或找不到就一樣選第一隻。
   useEffect(() => {
-    if (pets.length > 0 && !selectedPet) {
-      setSelectedPet(pets[0])
-    }
-  }, [pets])
+    if (pets.length === 0 || selectedPet) return
+
+    const wanted = Number(searchParams.get('petId'))
+
+    setSelectedPet(pets.find(p => p.id === wanted) || pets[0])
+  }, [pets, searchParams])
 
   const { data: foods = [] } = useQuery({
     queryKey: ['foods'],

@@ -5,6 +5,8 @@
 //   1. 依飼主的通知偏好，決定要不要建立通知
 //   2. 同一隻寵物、同一種類型的通知在時間窗內合併，避免洗版
 //   3. 即時推播（SSE）：有新通知時主動推給正在連線的分頁
+//   4. 過期清理：相機動態只留 RETENTION_DAYS 天，
+//      健康提醒／週報／餵食提醒不設到期，不會被自動刪除
 //
 // 所有寫入通知的地方（AI 健康諮詢、週報、飲食提醒、攝影機）
 // 都呼叫這裡的 createNotification()，不要直接寫 SQL insert，
@@ -41,6 +43,65 @@ const DEDUP_HOURS = {
   health_alert: 24,
   weekly_report_ready: 24 * 6, // 不到一週內重新產生同一份週報，不重複通知
   feeding_reminder: 24
+}
+
+// 相機動態（「好久沒看到寵物」「又出現了」）多半是角度、光線、貓在鏡頭外，
+// 不是要飼主處理的事，所以只保留 30 天，時間到自動清掉。
+// 只有列在這裡的類型會自動刪除：health_alert / weekly_report_ready /
+// feeding_reminder 是健康與照護相關，不設到期，永遠保留。
+const RETENTION_DAYS = {
+  camera_missing: 30,
+  camera_reappeared: 30
+}
+
+const CAMERA_TYPES = Object.keys(RETENTION_DAYS)
+
+// 相機動態的最長保留天數（實際過期由 pruneOldNotifications 逐類型判斷）
+const CAMERA_RETENTION_DAYS = CAMERA_TYPES.length
+  ? Math.max(...Object.values(RETENTION_DAYS))
+  : 0
+
+// 同一個使用者最多每 15 分鐘做一次清理，避免每次建立通知都跑一次 DELETE。
+const PRUNE_INTERVAL_MS = 15 * 60 * 1000
+const lastPruneAt = new Map()
+
+// ------------------------------------------------------
+// 清理過期通知（只清 RETENTION_DAYS 裡有列出的類型）
+// ------------------------------------------------------
+
+async function pruneOldNotifications(userId) {
+  const rules = Object.entries(RETENTION_DAYS)
+  if (rules.length === 0) return 0
+
+  const result = await pool.query(
+    `
+    DELETE FROM notifications n
+    WHERE n.user_id = $1
+      AND EXISTS (
+        SELECT 1
+        FROM unnest($2::text[], $3::int[]) AS rule(type, days)
+        WHERE rule.type = n.type
+          AND n.created_at < NOW() - make_interval(days => rule.days)
+      )
+    RETURNING n.id
+    `,
+    [userId, rules.map(([type]) => type), rules.map(([, days]) => days)]
+  )
+
+  return result.rowCount
+}
+
+function schedulePrune(userId) {
+  if (!userId) return
+
+  const now = Date.now()
+  if ((lastPruneAt.get(userId) || 0) > now - PRUNE_INTERVAL_MS) return
+
+  lastPruneAt.set(userId, now)
+
+  pruneOldNotifications(userId).catch(err => {
+    console.error('清理過期通知失敗：', err)
+  })
 }
 
 function sanitizePreferences(raw) {
@@ -214,6 +275,9 @@ async function createNotification({
       }
       broadcast(uid, r)
       lastRow = r
+
+      // 順手清掉這位使用者過期的相機動態（健康／週報不会被清）
+      schedulePrune(uid)
     }
 
     return { notification: lastRow, deduped: anyDeduped }
@@ -302,6 +366,7 @@ async function createNotification({
   }
 
   broadcast(targetUserId, row)
+  schedulePrune(targetUserId)
 
   return { notification: row, deduped }
 }
@@ -309,10 +374,15 @@ async function createNotification({
 module.exports = {
   NOTIFICATION_TYPES,
   DEFAULT_PREFS,
+  CAMERA_TYPES,
+  RETENTION_DAYS,
+  CAMERA_RETENTION_DAYS,
   sanitizePreferences,
   getPreferences,
   savePreferences,
   createNotification,
+  pruneOldNotifications,
+  schedulePrune,
   subscribe,
   unsubscribe,
   broadcast

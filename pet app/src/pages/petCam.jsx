@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   buildTimelineWithGaps,
   deriveMonitorState,
@@ -19,7 +20,7 @@ const ranges = {
   today: { label: '今天', minutes: 1440, bucket: 60 }
 }
 
-// 貓砂盆：平均上廁所時間顯示
+// 貓砂盆：如廁時間顯示（中位數）
 const formatVisitSeconds = seconds => {
   if (seconds == null) return '—'
 
@@ -29,7 +30,12 @@ const formatVisitSeconds = seconds => {
   return `${(value / 60).toFixed(1)} 分`
 }
 
-export default function PetCam({ cameraId = 'cam_1' }) {
+export default function PetCam({ cameraId: cameraIdProp } = {}) {
+  // 通知鈴鐺跳過來時可能帶 ?camera=xxx，用來看對應那台相機的畫面；
+  // 沒帶（正常的菜單進入）就一樣是 Camera 1。
+  const [searchParams] = useSearchParams()
+  const cameraId = cameraIdProp || searchParams.get('camera') || 'cam_1'
+
   const [status, setStatus] = useState({
     cameraId: 'cam_1',
     cameraName: 'Camera 1',
@@ -87,6 +93,8 @@ export default function PetCam({ cameraId = 'cam_1' }) {
     poopCount: 0,
     avgUrineSeconds: null,
     avgPoopSeconds: null,
+    visitDurations: [],
+    baselineMedianSeconds: null,
   })
 
   useEffect(() => {
@@ -103,6 +111,10 @@ export default function PetCam({ cameraId = 'cam_1' }) {
           poopCount: data.poopCount ?? 0,
           avgUrineSeconds: data.avgUrineSeconds ?? null,
           avgPoopSeconds: data.avgPoopSeconds ?? null,
+          visitDurations: Array.isArray(data.visitDurations)
+            ? data.visitDurations
+            : [],
+          baselineMedianSeconds: data.baselineMedianSeconds ?? null,
         })
       } catch {
         // 後端尚未連線時維持原數值
@@ -291,15 +303,27 @@ export default function PetCam({ cameraId = 'cam_1' }) {
 
   const hasGap = displayTimeline.some(item => item.type === 'gap')
 
-  // 尿尿與大便合併為「如廁次數」，並以次數加權算出整體平均如廁時間
+  // 尿尿與大便合併為「如廁次數」；如廁時間改用中位數（不被偶爾蹲很久的一次拉高）
   const totalVisitCount = catStats.urineCount + catStats.poopCount
 
-  const totalVisitSeconds =
-    (catStats.avgUrineSeconds ?? 0) * catStats.urineCount +
-    (catStats.avgPoopSeconds ?? 0) * catStats.poopCount
+  const visitDurations = catStats.visitDurations
+  const medianVisitSeconds = (() => {
+    if (visitDurations.length === 0) return null
+    const sorted = [...visitDurations].sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    return sorted.length % 2
+      ? sorted[mid]
+      : (sorted[mid - 1] + sorted[mid]) / 2
+  })()
 
-  const avgVisitSeconds =
-    totalVisitCount > 0 ? totalVisitSeconds / totalVisitCount : null
+  // 比平常（近 7 天中位數）久 50% 以上就提醒，可能是排尿不順
+  const baseline = catStats.baselineMedianSeconds
+  const visitRatio =
+    medianVisitSeconds != null && baseline ? medianVisitSeconds / baseline : null
+  const visitTimeAbnormal = visitRatio != null && visitRatio >= 1.5
+
+  const sparkMax = Math.max(1, ...visitDurations)
+  const sparkBars = visitDurations.slice(-12)
 
   return (
     <div className="w-full min-h-full bg-gray-50 px-4 py-6">
@@ -481,12 +505,46 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                 ⏱️ 如廁時間
               </p>
 
-              <p className="mt-0.5">
-                <span className="text-xl font-bold text-gray-800">
-                  {formatVisitSeconds(avgVisitSeconds)}
+              <div className="mt-0.5 flex items-end gap-2">
+                <span
+                  className={`text-xl font-bold ${
+                    visitTimeAbnormal ? 'text-orange-500' : 'text-gray-800'
+                  }`}
+                >
+                  {formatVisitSeconds(medianVisitSeconds)}
                 </span>
-                <span className="text-xs text-gray-500 ml-1">平均</span>
-              </p>
+                <span className="text-xs text-gray-500">中位</span>
+
+                {sparkBars.length > 0 && (
+                  <div
+                    className="ml-auto flex items-end gap-0.5 h-5"
+                    title="今日每次如廁時間"
+                  >
+                    {sparkBars.map((sec, i) => (
+                      <span
+                        key={i}
+                        className={`w-1 rounded-sm ${
+                          baseline && sec >= baseline * 1.5
+                            ? 'bg-orange-400'
+                            : 'bg-indigo-300'
+                        }`}
+                        style={{
+                          height: `${Math.max(15, (sec / sparkMax) * 100)}%`
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {totalVisitCount === 0 && (
+                <p className="text-[10px] text-gray-400 mt-0.5">今天還沒有紀錄</p>
+              )}
+              {visitTimeAbnormal && (
+                <p className="text-[10px] text-orange-500 mt-0.5">
+                  比平常久 {Math.round((visitRatio - 1) * 100)}%
+                </p>
+              )}
             </div>
 
           </div>
