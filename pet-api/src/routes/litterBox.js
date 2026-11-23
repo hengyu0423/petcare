@@ -168,6 +168,34 @@ async function getTodayStats(cameraId) {
     [cameraId]
   )
 
+  // 今日每次如廁時長（秒，依時間排序），給前端算中位數與畫迷你長條圖
+  const durations = await pool.query(
+    `
+    SELECT duration_seconds
+    FROM litter_box_visits
+    WHERE camera_id = $1
+      AND date = (NOW() AT TIME ZONE $2)::date
+      AND duration_seconds IS NOT NULL
+    ORDER BY entered_at ASC
+    `,
+    [cameraId, APP_TIMEZONE]
+  )
+
+  // 平常基準：近 7 天（不含今天）每次如廁時長的中位數
+  const baseline = await pool.query(
+    `
+    SELECT
+      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_seconds))::int AS median_seconds,
+      COUNT(*)::int AS n
+    FROM litter_box_visits
+    WHERE camera_id = $1
+      AND date < (NOW() AT TIME ZONE $2)::date
+      AND date >= (NOW() AT TIME ZONE $2)::date - 7
+      AND duration_seconds IS NOT NULL
+    `,
+    [cameraId, APP_TIMEZONE]
+  )
+
   const row = today.rows[0]
   const recentRow = recent.rows[0]
   const lastRow = lastTimes.rows[0]
@@ -220,6 +248,11 @@ async function getTodayStats(cameraId) {
     // 平均上廁所時間（近 24 小時，比較穩定）
     avgUrineSeconds: recentRow.avg_urine,
     avgPoopSeconds: recentRow.avg_poop,
+
+    // 今日每次如廁時長（秒）與平常基準（近 7 天中位數，樣本 < 5 筆時為 null）
+    visitDurations: durations.rows.map(r => r.duration_seconds),
+    baselineMedianSeconds:
+      baseline.rows[0].n >= 5 ? baseline.rows[0].median_seconds : null,
 
     // 近 24 小時次數
     urine24h: recentRow.urine,
