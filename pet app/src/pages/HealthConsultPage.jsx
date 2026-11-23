@@ -1047,7 +1047,7 @@ export default function HealthConsultPage() {
                                 onKeyDown={e => {
                                   if (e.key === 'Escape') setEditing(null)
                                 }}
-                                className="w-full resize-none rounded-xl border border-[#d5e4ea] bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
+                                className="w-full resize-none rounded-xl border border-water-100 bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
                               />
                               <p className="mt-1 text-xs text-ink-soft">
                                 送出後，原本的 AI 回覆與相關健康紀錄會被刪除，並依新的問題重新回覆。

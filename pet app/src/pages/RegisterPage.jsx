@@ -58,7 +58,7 @@ export default function RegisterPage() {
               {error && (
                 <div
                   role="alert"
-                  className="mt-5 rounded-2xl border border-clay-200 bg-clay-50 px-4 py-3 text-xs sm:text-sm text-[#b3402a]"
+                  className="mt-5 rounded-2xl border border-clay-200 bg-clay-50 px-4 py-3 text-xs sm:text-sm text-clay"
                 >
                   {error}
                 </div>
@@ -76,7 +76,7 @@ export default function RegisterPage() {
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="你的名字"
-                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-honey/30"
+                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-honey-500 focus:bg-white focus:ring-4 focus:ring-honey/30"
                   />
                 </div>
                 <div>
@@ -91,7 +91,7 @@ export default function RegisterPage() {
                     value={form.email}
                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="you@example.com"
-                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-honey/30"
+                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-honey-500 focus:bg-white focus:ring-4 focus:ring-honey/30"
                   />
                 </div>
                 <div>
@@ -107,13 +107,13 @@ export default function RegisterPage() {
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     placeholder="至少 6 個字元"
-                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-honey/30"
+                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-honey-500 focus:bg-white focus:ring-4 focus:ring-honey/30"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-2xl bg-[#f0a04b] hover:bg-[#e8853d] active:translate-y-px text-pine-900 font-brand font-extrabold py-3.5 text-sm sm:text-base tracking-wide transition-all disabled:opacity-60 shadow-press hover:shadow-press"
+                  className="w-full rounded-2xl bg-tabby hover:bg-tabby-deep active:translate-y-px text-pine-900 font-brand font-extrabold py-3.5 text-sm sm:text-base tracking-wide transition-all disabled:opacity-60 shadow-press hover:shadow-press"
                 >
                   {loading ? '建立中…' : '建立帳號'}
                 </button>

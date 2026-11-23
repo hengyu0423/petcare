@@ -18,7 +18,7 @@ const GENDER_MAP = Object.fromEntries(GENDER)
 
 // 生命階段：暖色系標籤（與「我的寵物」一致）
 const STAGE_CLS = {
-  young:  'bg-[#eaf1f4] text-[#3f6b7a] border-[#d5e4ea]',
+  young:  'bg-water-50 text-water-700 border-water-100',
   adult:  'bg-pine-50 text-pine-700 border-pine-100',
   senior: 'bg-warm text-honey-deep border-honey-200'
 }
@@ -158,8 +158,8 @@ export default function PetDetailPage() {
       <div className="space-y-4">
         {/* 頂部：頭像、名字、標籤 + 編輯按鈕 */}
         <header className="relative overflow-hidden rounded-3xl border border-hair shadow-card bg-warm p-5 md:p-6">
-          <div aria-hidden="true" className="absolute -right-12 -top-14 h-40 w-40 rounded-full bg-[#f7e6c8]/80" />
-          <div aria-hidden="true" className="absolute -bottom-16 -left-10 h-32 w-32 rounded-full bg-[#f2ead8]/70" />
+          <div aria-hidden="true" className="absolute -right-12 -top-14 h-40 w-40 rounded-full bg-honey-150/80" />
+          <div aria-hidden="true" className="absolute -bottom-16 -left-10 h-32 w-32 rounded-full bg-hair/70" />
 
           <div className="relative flex flex-wrap items-center gap-4 md:gap-5">
             <PetIcon species={pet.species} breed={pet.breed} size={84} className="h-[72px] w-[72px] shrink-0 md:h-[84px] md:w-[84px]" />
@@ -182,7 +182,7 @@ export default function PetDetailPage() {
                   </span>
                 )}
                 {birthday?.isToday && (
-                  <span className="rounded-full border border-[#e8a33d] bg-[#ffb31f] px-2.5 py-0.5 text-[11px] font-bold text-[#4a3200]">
+                  <span className="rounded-full border border-honey-500 bg-amber px-2.5 py-0.5 text-[11px] font-bold text-amber-ink">
                     今天生日！
                   </span>
                 )}

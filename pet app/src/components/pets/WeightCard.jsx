@@ -126,7 +126,7 @@ export default function WeightCard({ pet }) {
                   {' ・ '}近 {trend.spanDays} 天{' '}
                   <span
                     className={
-                      trend.delta > 0 ? 'text-honey-deep' : trend.delta < 0 ? 'text-[#3f6b7a]' : 'text-ink-soft'
+                      trend.delta > 0 ? 'text-honey-deep' : trend.delta < 0 ? 'text-water-700' : 'text-ink-soft'
                     }
                   >
                     {trend.delta > 0 ? '+' : ''}
@@ -149,7 +149,7 @@ export default function WeightCard({ pet }) {
                 type="button"
                 aria-pressed={effectiveMode === key}
                 onClick={() => setMode(key)}
-                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${effectiveMode === key ? 'bg-pine-800 text-warm' : 'text-ink-soft hover:bg-[#f2ebdc]'
+                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${effectiveMode === key ? 'bg-pine-800 text-warm' : 'text-ink-soft hover:bg-hair'
                   }`}
               >
                 {label}
@@ -306,7 +306,7 @@ export default function WeightCard({ pet }) {
                 <span className="w-24 shrink-0 text-xs tabular-nums text-ink-soft">{r.measured_on}</span>
                 <span className="font-semibold tabular-nums text-pine-900">{formatKg(r.weight)} kg</span>
                 {r.diff !== null && r.diff !== 0 && (
-                  <span className={`text-xs tabular-nums ${r.diff > 0 ? 'text-honey-deep' : 'text-[#3f6b7a]'}`}>
+                  <span className={`text-xs tabular-nums ${r.diff > 0 ? 'text-honey-deep' : 'text-water-700'}`}>
                     {r.diff > 0 ? '+' : ''}{formatKg(r.diff)}
                   </span>
                 )}

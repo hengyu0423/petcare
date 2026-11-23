@@ -68,9 +68,9 @@ const TYPE_ICON = {
 }
 
 const SEVERITY_DOT = {
-  emergency: 'bg-[#d94a3d]',
-  urgent: 'bg-[#ffb31f]',
-  warning: 'bg-[#ffb31f]',
+  emergency: 'bg-alert',
+  urgent: 'bg-amber',
+  warning: 'bg-amber',
   info: 'bg-line'
 }
 
@@ -275,8 +275,8 @@ export default function NotificationBell() {
             key={n.id}
             type="button"
             onClick={() => !n.isRead && markRead(n.id)}
-            className={`flex w-full gap-2.5 border-b border-[#f6efdf] px-4 py-3 text-left transition-colors last:border-0 ${
-              n.isRead ? 'bg-plate' : 'bg-warm hover:bg-[#fbf0dd]'
+            className={`flex w-full gap-2.5 border-b border-paper px-4 py-3 text-left transition-colors last:border-0 ${
+              n.isRead ? 'bg-plate' : 'bg-warm hover:bg-honey-100'
             }`}
           >
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warm text-honey-deep">
@@ -323,7 +323,7 @@ export default function NotificationBell() {
       >
         <BellIcon />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ffb31f] px-1 text-[10px] font-extrabold text-[#4a3200]">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber px-1 text-[10px] font-extrabold text-amber-ink">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

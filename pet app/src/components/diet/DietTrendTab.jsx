@@ -129,7 +129,7 @@ export default function DietTrendTab({
                     )}
                     {actual !== null && (
                       <span
-                        className="absolute top-1/2 h-4 w-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_2px_#fffdf6]"
+                        className="absolute top-1/2 h-4 w-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_2px_var(--color-plate)]"
                         style={{
                           left: `calc(${pos(actual)}% - 3px)`,
                           backgroundColor: TICK_COLOR[day.status] || TICK_COLOR.no_data

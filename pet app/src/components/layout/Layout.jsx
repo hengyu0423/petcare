@@ -224,7 +224,7 @@ export default function Layout() {
         <div className="border-t border-hair p-3">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold text-clay transition-colors hover:bg-clay-50 hover:text-[#8f3f1f]"
+            className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold text-clay transition-colors hover:bg-clay-50 hover:text-clay-700"
           >
             <SvgIcon>{Icon.logout}</SvgIcon>
             登出
@@ -242,7 +242,7 @@ export default function Layout() {
             aria-label="開啟選單"
             aria-expanded={open}
             aria-controls="app-sidebar"
-            className="rounded-xl p-2 text-pine-900 transition-colors hover:bg-warm active:bg-[#f8efdd]"
+            className="rounded-xl p-2 text-pine-900 transition-colors hover:bg-warm active:bg-warm-deep"
           >
             <SvgIcon size={22} strokeWidth={2}>{Icon.menu}</SvgIcon>
           </button>

@@ -9,7 +9,7 @@ export const foodKind = name => {
 
 export const KIND_TILE = {
   dry: 'bg-pine-50',
-  wet: 'bg-[#e6f0f3]',
+  wet: 'bg-water-50',
   snack: 'bg-honey-100',
   other: 'bg-cream'
 }

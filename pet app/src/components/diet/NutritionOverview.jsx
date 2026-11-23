@@ -114,7 +114,7 @@ export default function NutritionOverview({
             />
             {hasData && (
               <div
-                className="absolute top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_2px_rgba(34,67,47,1)]"
+                className="absolute top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_2px_var(--color-pine-800)]"
                 style={{
                   left: `calc(${pos(actual)}% - 3px)`,
                   backgroundColor: info.bar

@@ -59,7 +59,7 @@ export function PetPickerBar({ emoji, icon, name, sub, onOpen }) {
       <button
         onClick={onOpen}
         aria-label="開啟寵物選單"
-        className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-warm active:bg-[#f8efdd]"
+        className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-warm active:bg-warm-deep"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-pine-700" aria-hidden="true">
           <path d="M4 6h16M4 12h16M4 18h16" />

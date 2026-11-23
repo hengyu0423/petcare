@@ -128,7 +128,7 @@ export default function NotificationPreferencesModal({ onClose }) {
                       toggle(t.key)
                     }}
                     className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none ${
-                      prefs[t.key] ? 'bg-pine-700' : 'bg-[#ddd8c8]'
+                      prefs[t.key] ? 'bg-pine-700' : 'bg-line'
                     }`}
                   >
                     <span
@@ -151,7 +151,7 @@ export default function NotificationPreferencesModal({ onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-cream py-2.5 text-sm font-bold text-ink-soft transition-colors hover:bg-[#f0ece0]"
+            className="flex-1 rounded-xl bg-cream py-2.5 text-sm font-bold text-ink-soft transition-colors hover:bg-paper"
           >
             取消
           </button>

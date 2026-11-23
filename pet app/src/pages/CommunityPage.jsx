@@ -416,7 +416,7 @@ export default function CommunityPage() {
               {/* 圖片上傳 */}
               <div>
                 <label className={labelCls}>新增圖片（選填）</label>
-                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#e2d8c1] px-4 py-2.5 transition-colors hover:border-pine-700/40 hover:bg-cream">
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-hair-strong px-4 py-2.5 transition-colors hover:border-pine-700/40 hover:bg-cream">
                   <span className="text-pine-700"><LineIcon name="camera" size={18} /></span>
                   <span className="text-sm text-ink-soft">點擊上傳圖片</span>
                   <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />

@@ -12,7 +12,7 @@ const inputCls =
   'w-full border border-sand rounded-xl px-3 py-2 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
 
 const SEVERITY = {
-  emergency: { label: '緊急', cls: 'bg-[#fde3dc] text-[#b4422f]' },
+  emergency: { label: '緊急', cls: 'bg-clay-100 text-clay' },
   urgent: { label: '建議就醫', cls: 'bg-honey-100 text-honey-ink' }
 }
 
@@ -351,7 +351,7 @@ export default function HealthCard({ petId }) {
                       {TYPE_LABEL[r.type] || r.type}
                     </span>
                     {r.source === 'ai_consult' && (
-                      <span className="rounded-full bg-[#f3edfa] px-2 py-0.5 text-[11px] font-semibold text-[#7a5a9e]">AI 諮詢</span>
+                      <span className="rounded-full bg-plum-50 px-2 py-0.5 text-[11px] font-semibold text-plum-700">AI 諮詢</span>
                     )}
                     {sev && (
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${sev.cls}`}>{sev.label}</span>

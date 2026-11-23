@@ -82,7 +82,7 @@ const MarkdownReport = ({ text }) => (
       ol: ({ children }) => <ol className="ml-6 mb-4 space-y-2 text-ink">{children}</ol>,
       li: ({ children }) => <li className="pl-1 text-sm leading-6">{children}</li>,
       strong: ({ children }) => <strong className="font-bold text-pine-900">{children}</strong>,
-      blockquote: ({ children }) => <blockquote className="my-4 rounded-r-xl border-l-4 border-[#e8a33d] bg-honey-50 px-4 py-3 text-sm text-honey-ink">{children}</blockquote>,
+      blockquote: ({ children }) => <blockquote className="my-4 rounded-r-xl border-l-4 border-honey-500 bg-honey-50 px-4 py-3 text-sm text-honey-ink">{children}</blockquote>,
       hr: () => <hr className="my-6 border-hair" />
     }}
   >
@@ -251,7 +251,7 @@ export default function WeeklyReportPage() {
                     <button
                       onClick={() => changeWeek(addDays(weekStart, -7))}
                       aria-label="上一週"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-[#f2ead8]"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-hair"
                     >
                       <LineIcon name="left" size={18} />
                     </button>
@@ -264,7 +264,7 @@ export default function WeeklyReportPage() {
                     <button
                       onClick={() => changeWeek(addDays(weekStart, 7))}
                       aria-label="下一週"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-[#f2ead8]"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-hair"
                     >
                       <LineIcon name="right" size={18} />
                     </button>

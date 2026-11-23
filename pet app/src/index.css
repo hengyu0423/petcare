@@ -52,6 +52,23 @@
   --color-honey-brown: #8a5412;
   --color-clay-700:    #8f3f21;
 
+  /* ---- 分類色：保留各自色相，不併進別的顏色 ---- */
+  --color-water-50:    #eaf1f4;  /* 冷藍：水／濕食 */
+  --color-water-100:   #d5e4ea;
+  --color-water-300:   #4f93a8;
+  --color-water-700:   #3f6b7a;
+  --color-plum-50:     #f3edfa;  /* 紫：健康紀錄分類 */
+  --color-plum-700:    #7a5a9e;
+  --color-blush-50:    #fdeef0;  /* 粉紅：特殊提醒 */
+  --color-blush-700:   #c2435f;
+  --color-tabby:       #f0a04b;  /* 虎斑橘（貓咪點綴） */
+  --color-tabby-deep:  #e8853d;
+  --color-amber-ink:   #4a3200;  /* 琥珀底上的深字 */
+  --color-alert:       #d94a3d;  /* 未讀數紅點 */
+  --color-clay-100:    #f9d9d0;
+  --color-lime-hover:  #e0f58a;
+  --color-warm-deep:   #f8efdd;  /* 側邊欄 hover 暖底 */
+
   /* ---- 陰影與圓角 ---- */
   --shadow-press: 0 4px 0 #c96f2e;
   --shadow-card:  0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 16px 32px -24px rgba(87, 54, 17, 0.45);

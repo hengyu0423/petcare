@@ -116,10 +116,10 @@ function MoodIcon({ mood, size = 20 }) {
 const moodColor = mood => {
   const key = moodKey(mood)
   if (key === 'active') return 'bg-honey-100 text-honey-deep'
-  if (key === 'curious') return 'bg-[#f3edfa] text-[#7a5a9e]'
-  if (key === 'rest') return 'bg-[#eaf1f4] text-ink-mute'
+  if (key === 'curious') return 'bg-plum-50 text-plum-700'
+  if (key === 'rest') return 'bg-water-50 text-ink-mute'
   if (key === 'calm') return 'bg-pine-50 text-pine-700'
-  if (key === 'alert') return 'bg-[#ffb31f]/20 text-honey-text'
+  if (key === 'alert') return 'bg-amber/20 text-honey-text'
   return 'bg-cream text-ink-soft'
 }
 
@@ -553,7 +553,7 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                   className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                     range === key
                       ? 'bg-pine-800 text-warm'
-                      : 'bg-cream text-ink-soft hover:bg-[#f2ead8]'
+                      : 'bg-cream text-ink-soft hover:bg-hair'
                   }`}
                 >
                   {item.label}
@@ -576,7 +576,7 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                         <p className="text-[11px] tabular-nums text-ink-soft/80">
                           {formatTime(item.time)}–{formatTime(item.endTime)}
                         </p>
-                        <div className="mx-auto my-2 flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-[#ddd8c8] bg-cream text-ink-soft/60">
+                        <div className="mx-auto my-2 flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-line bg-cream text-ink-soft/60">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                             <path d="M6 12h12" />
                           </svg>

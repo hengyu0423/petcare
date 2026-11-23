@@ -115,9 +115,9 @@ function animateFeedScroll(el, to) {
 
 const QUICK_LINKS = [
   { to: '/diet',           icon: Icon.bowl,        title: '飲食管理', desc: '記錄每日餵食與份量', bg: 'bg-warm', fg: 'text-honey-deep' },
-  { to: '/health-consult', icon: Icon.stethoscope, title: '健康諮詢', desc: 'AI 問診，給毛孩初步建議', bg: 'bg-[#eef3ec]', fg: 'text-pine-700' },
-  { to: '/weekly-report',  icon: Icon.clipboard,   title: '健康週報', desc: '查看近七天的健康摘要', bg: 'bg-[#f3eefc]', fg: 'text-[#6d4fc4]' },
-  { to: '/expenses',       icon: Icon.wallet,      title: '財務管理', desc: '記帳與追蹤寵物開銷', bg: 'bg-[#fdeef0]', fg: 'text-[#c2435f]' }
+  { to: '/health-consult', icon: Icon.stethoscope, title: '健康諮詢', desc: 'AI 問診，給毛孩初步建議', bg: 'bg-pine-50', fg: 'text-pine-700' },
+  { to: '/weekly-report',  icon: Icon.clipboard,   title: '健康週報', desc: '查看近七天的健康摘要', bg: 'bg-plum-50', fg: 'text-plum-700' },
+  { to: '/expenses',       icon: Icon.wallet,      title: '財務管理', desc: '記帳與追蹤寵物開銷', bg: 'bg-blush-50', fg: 'text-blush-700' }
 ]
 
 const BAND_CARDS = [
@@ -169,16 +169,16 @@ function deriveReminders(records, today) {
 
 function petHealthBadge(reminder, isLoading) {
   if (isLoading) return { label: '讀取中', cls: 'bg-sand text-ink-soft' }
-  if (reminder.overdue.length > 0) return { label: '已逾期', cls: 'bg-[#ffb31f] text-[#4a3200]' }
+  if (reminder.overdue.length > 0) return { label: '已逾期', cls: 'bg-amber text-amber-ink' }
   if (reminder.soon.length > 0) return { label: '該回診', cls: 'bg-warm text-honey-deep border border-honey-200' }
-  if (reminder.upcoming.length > 0) return { label: '有提醒', cls: 'bg-[#eef3ec] text-pine-700 border border-pine-100' }
+  if (reminder.upcoming.length > 0) return { label: '有提醒', cls: 'bg-pine-50 text-pine-700 border border-pine-100' }
   return { label: '狀態良好', cls: 'bg-pine-50 text-pine-700' }
 }
 
 const FEEDING_STATUS = {
   in_range: { label: '份量剛好', cls: 'bg-pine-50 text-pine-700 border border-pine-100' },
   under:    { label: '還不夠',   cls: 'bg-warm text-honey-deep border border-honey-200' },
-  over:     { label: '吃太多了', cls: 'bg-[#ffb31f] text-[#4a3200] border border-[#e8a33d]' },
+  over:     { label: '吃太多了', cls: 'bg-amber text-amber-ink border border-honey-500' },
   no_data:  { label: '還沒餵食', cls: 'bg-sand text-ink-soft border border-line' },
   no_target:{ label: '無法估算', cls: 'bg-sand text-ink-soft border border-line' }
 }
@@ -455,10 +455,10 @@ export default function DashboardPage() {
                   CAMERA 1
                 </p>
                 <p className="flex flex-wrap items-center gap-3 text-[10px] md:text-[11px]">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#3dff8e]/15 border border-[#3dff8e]/30 px-3 py-1 font-bold text-[#8affc4]">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-lime/15 border border-lime/30 px-3 py-1 font-bold text-lime">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-live-ping absolute inline-flex h-full w-full rounded-full bg-[#3dff8e]" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#3dff8e]" />
+                      <span className="animate-live-ping absolute inline-flex h-full w-full rounded-full bg-lime" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-lime" />
                     </span>
                     連線中
                   </span>
@@ -519,7 +519,7 @@ export default function DashboardPage() {
                 <p className="text-[9px] md:text-[10px] text-paper/40">
                   辨識僅供參考，不能取代獸醫診斷
                 </p>
-                <span className="inline-flex items-center gap-2 btn-lime rounded-2xl bg-lime px-4 py-2 text-[10px] md:text-[11px] font-extrabold text-pine-900 group-hover:bg-[#e0f58a]">
+                <span className="inline-flex items-center gap-2 btn-lime rounded-2xl bg-lime px-4 py-2 text-[10px] md:text-[11px] font-extrabold text-pine-900 group-hover:bg-lime-hover">
                   打開即時監控
                   <SvgIcon size={13} strokeWidth={2.4}>{Icon.arrowRight}</SvgIcon>
                 </span>
@@ -554,7 +554,7 @@ export default function DashboardPage() {
                   <p className="text-[9px] md:text-[10px] text-paper/45">
                     一般是牠不在畫面裡而已
                   </p>
-                  <span className="inline-flex items-center gap-2 btn-lime rounded-2xl bg-lime px-4 py-2 text-[10px] md:text-[11px] font-extrabold text-pine-900 group-hover:bg-[#e0f58a]">
+                  <span className="inline-flex items-center gap-2 btn-lime rounded-2xl bg-lime px-4 py-2 text-[10px] md:text-[11px] font-extrabold text-pine-900 group-hover:bg-lime-hover">
                     查看即時畫面
                     <SvgIcon size={13} strokeWidth={2.4}>{Icon.arrowRight}</SvgIcon>
                   </span>
@@ -575,7 +575,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-brand text-xl md:text-2xl font-extrabold text-pine-900">
                     攝影機離線
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ffb31f] px-3 py-0.5 text-[9px] md:text-[10px] font-black text-[#4a3200]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber px-3 py-0.5 text-[9px] md:text-[10px] font-black text-amber-ink">
                       未連線
                     </span>
                   </p>
@@ -715,7 +715,7 @@ export default function DashboardPage() {
                               <div className="mt-2">
                                 <div className="relative h-2.5 rounded-full bg-sand">
                                   <div
-                                    className="absolute top-0 bottom-0 rounded-full border border-[#bfe0c8] bg-[#dcefe0]"
+                                    className="absolute top-0 bottom-0 rounded-full border border-pine-200 bg-pine-100"
                                     style={{
                                       left: `${pos(minKcal)}%`,
                                       width: `${Math.max(pos(maxKcal) - pos(minKcal), 2)}%`
@@ -723,7 +723,7 @@ export default function DashboardPage() {
                                   />
                                   {hasData && (
                                     <div
-                                      className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-plate bg-[#f0a04b] shadow-sm"
+                                      className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-plate bg-tabby shadow-sm"
                                       style={{ left: `${pos(actual)}%` }}
                                       title={`今天吃了 ${formatKcal(actual)} kcal`}
                                     />

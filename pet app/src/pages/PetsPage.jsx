@@ -13,7 +13,7 @@ const GENDER  = [['male','男'],['female','女'],['unknown','不明']]
 
 // 生命階段：改用暖色系標籤（與首頁同一組顏色）
 const STAGE_CLS = {
-  young:  'bg-[#eaf1f4] text-[#3f6b7a] border-[#d5e4ea]',
+  young:  'bg-water-50 text-water-700 border-water-100',
   adult:  'bg-pine-50 text-pine-700 border-pine-100',
   senior: 'bg-warm text-honey-deep border-honey-200'
 }

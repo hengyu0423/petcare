@@ -379,10 +379,10 @@ async function streamChat(body, { signal, onStatus, onDelta, onReset }) {
 // ---------- 食物照片的結論卡片 ----------
 // 結論（verdict）由後端規則決定（危險食物、健康歷史、近期飲食…），不是 AI 自己說了算。
 const VERDICTS = {
-  avoid: { label: '不建議餵食', box: 'border-clay-200 bg-clay-50', pill: 'bg-[#c9552f] text-white' },
-  caution: { label: '可以少量，要注意', box: 'border-honey-200 bg-honey-50', pill: 'bg-[#e8a63a] text-white' },
+  avoid: { label: '不建議餵食', box: 'border-clay-200 bg-clay-50', pill: 'bg-clay text-white' },
+  caution: { label: '可以少量，要注意', box: 'border-honey-200 bg-honey-50', pill: 'bg-honey-500 text-white' },
   ok: { label: '目前沒發現問題', box: 'border-pine-100 bg-pine-50', pill: 'bg-pine-700 text-white' },
-  unknown: { label: '只有辨識，未檢查', box: 'border-sand bg-cream', pill: 'bg-[#a7ada3] text-white' }
+  unknown: { label: '只有辨識，未檢查', box: 'border-sand bg-cream', pill: 'bg-ink-ghost text-white' }
 }
 
 function FoodPhotoCard({ photo }) {
@@ -417,9 +417,9 @@ function FoodPhotoCard({ photo }) {
               key={i}
               className={`rounded-lg px-2 py-1 text-xs ${
                 w.level === 'danger'
-                  ? 'bg-[#f9d9d0] text-[#8f3a1c]'
+                  ? 'bg-clay-100 text-clay-700'
                   : w.level === 'warning'
-                    ? 'bg-[#fbe9c4] text-[#8a5412]'
+                    ? 'bg-honey-150 text-honey-brown'
                     : 'bg-plate/70 text-ink-soft'
               }`}
             >
@@ -461,7 +461,7 @@ function FeedingCard({ action, status, error, onConfirm, onCancel }) {
               key={i}
               className={`rounded-lg px-2 py-1 text-xs ${
                 w.level === 'warning'
-                  ? 'bg-honey-50 text-[#8a5412]'
+                  ? 'bg-honey-50 text-honey-brown'
                   : 'bg-cream text-ink-soft'
               }`}
             >
@@ -592,7 +592,7 @@ function ChipRow({ items, disabled, onPick }) {
             key={q}
             onClick={() => onPick(q)}
             disabled={disabled}
-            className="shrink-0 whitespace-nowrap text-xs font-medium text-pine-700 bg-warm hover:bg-[#f8eeda] border border-hair rounded-full px-3 py-1.5 transition-colors disabled:opacity-40 disabled:hover:bg-warm"
+            className="shrink-0 whitespace-nowrap text-xs font-medium text-pine-700 bg-warm hover:bg-honey-100 border border-hair rounded-full px-3 py-1.5 transition-colors disabled:opacity-40 disabled:hover:bg-warm"
           >
             {q}
           </button>
@@ -1114,7 +1114,7 @@ export default function AssistantWidget() {
         >
           <PixelAssistant size={40} mood={open ? 'typing' : 'idle'} />
           {hasAlert && !open && (
-            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-plate bg-[#ffb31f]" />
+            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-plate bg-amber" />
           )}
         </button>
       )}
@@ -1333,7 +1333,7 @@ export default function AssistantWidget() {
                       type="button"
                       onClick={removePhoto}
                       aria-label="移除照片"
-                      className="shrink-0 rounded-lg p-1.5 text-ink-soft hover:bg-[#f3e6cf] hover:text-pine-900"
+                      className="shrink-0 rounded-lg p-1.5 text-ink-soft hover:bg-hair hover:text-pine-900"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <path d="M6 6l12 12M18 6L6 18" />

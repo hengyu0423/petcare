@@ -16,7 +16,7 @@ const CAT_LABEL = {
 
 const CAT_COLOR = {
   dry: 'bg-pine-50 text-pine-700',
-  wet: 'bg-[#eaf1f4] text-[#3f6b7a]',
+  wet: 'bg-water-50 text-water-700',
   snack: 'bg-honey-100 text-honey-text',
   other: 'bg-cream text-ink-soft'
 }
@@ -24,7 +24,7 @@ const CAT_COLOR = {
 // 每個分類的圖示底色與熱量條顏色
 const CAT_TONE = {
   dry: { tile: 'bg-pine-50', bar: 'bg-pine-700' },
-  wet: { tile: 'bg-[#e6f0f3]', bar: 'bg-[#4f93a8]' },
+  wet: { tile: 'bg-water-50', bar: 'bg-water-300' },
   snack: { tile: 'bg-honey-100', bar: 'bg-honey' },
   other: { tile: 'bg-cream', bar: 'bg-ink-faint' }
 }
