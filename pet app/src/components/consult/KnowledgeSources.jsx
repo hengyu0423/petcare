@@ -40,7 +40,7 @@ export default function KnowledgeSources({ sources }) {
 
   return (
     <details className="mt-3 border-t border-pine-100 pt-3 text-xs text-ink-soft">
-      <summary className="cursor-pointer select-none font-bold text-pine-700 transition-colors hover:text-[#c96f2e]">
+      <summary className="cursor-pointer select-none font-bold text-pine-700 transition-colors hover:text-honey-deep">
         <span className="inline-flex items-center gap-1.5">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
             <path d="M5 4.5h6a2.5 2.5 0 0 1 2.5 2.5v12A2.5 2.5 0 0 0 11 16.5H5Z" />

@@ -1,3 +1,4 @@
+import EmptyState from '../components/ui/EmptyState'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
@@ -67,22 +68,22 @@ function LineIcon({ name, size = 16 }) {
   )
 }
 
-const cardCls = 'rounded-3xl border border-[#f3e3cd] bg-plate'
+const cardCls = 'rounded-3xl border border-hair bg-plate'
 
 const MarkdownReport = ({ text }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm]}
     components={{
       h1: ({ children }) => <h1 className="mt-7 mb-3 text-xl font-extrabold text-pine-900">{children}</h1>,
-      h2: ({ children }) => <h2 className="mt-7 mb-3 border-b border-[#f3ead9] pb-2 text-base font-bold text-pine-900 first:mt-0">{children}</h2>,
+      h2: ({ children }) => <h2 className="mt-7 mb-3 border-b border-hair pb-2 text-base font-bold text-pine-900 first:mt-0">{children}</h2>,
       h3: ({ children }) => <h3 className="mt-5 mb-2 text-sm font-bold text-pine-800">{children}</h3>,
       p: ({ children }) => <p className="mb-3 text-sm leading-7 text-ink">{children}</p>,
       ul: ({ children }) => <ul className="ml-6 mb-4 space-y-1.5 text-ink">{children}</ul>,
       ol: ({ children }) => <ol className="ml-6 mb-4 space-y-2 text-ink">{children}</ol>,
       li: ({ children }) => <li className="pl-1 text-sm leading-6">{children}</li>,
       strong: ({ children }) => <strong className="font-bold text-pine-900">{children}</strong>,
-      blockquote: ({ children }) => <blockquote className="my-4 rounded-r-xl border-l-4 border-[#e8a33d] bg-[#fff8e9] px-4 py-3 text-sm text-[#7a5200]">{children}</blockquote>,
-      hr: () => <hr className="my-6 border-[#f3ead9]" />
+      blockquote: ({ children }) => <blockquote className="my-4 rounded-r-xl border-l-4 border-[#e8a33d] bg-honey-50 px-4 py-3 text-sm text-honey-ink">{children}</blockquote>,
+      hr: () => <hr className="my-6 border-hair" />
     }}
   >
     {cleanReport(text)}
@@ -185,9 +186,9 @@ export default function WeeklyReportPage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden bg-paper">
+    <div className="flex h-full overflow-hidden">
       <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-56">
-        <div className="border-b border-[#f0e6d2] px-4 py-5">
+        <div className="border-b border-hair px-4 py-5">
           <h2 className="text-sm font-bold text-pine-900">選擇寵物</h2>
           <p className="mt-1 text-xs text-ink-soft">查看健康週報</p>
         </div>
@@ -199,10 +200,10 @@ export default function WeeklyReportPage() {
               className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                 selectedPet?.id === pet.id
                   ? 'border-pine-700/35 bg-pine-50'
-                  : 'border-[#eae6d8] bg-[#faf7ef] hover:border-pine-700/30 hover:bg-[#fdf6ea]'
+                  : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
               }`}
             >
-              <PetIcon species={pet.species} size={40} className="h-10 w-10 shrink-0" />
+              <PetIcon species={pet.species} breed={pet.breed} size={40} className="h-10 w-10 shrink-0" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-pine-900">{pet.name}</p>
                 <p className="truncate text-xs text-ink-soft">{pet.breed || pet.species}</p>
@@ -214,7 +215,7 @@ export default function WeeklyReportPage() {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PetPickerBar
-          icon={selectedPet ? <PetIcon species={selectedPet.species} size={28} className="h-7 w-7 shrink-0" /> : null}
+          icon={selectedPet ? <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={28} className="h-7 w-7 shrink-0" /> : null}
           name={selectedPet?.name}
           sub={selectedPet ? (selectedPet.breed || selectedPet.species) : ''}
           onOpen={() => setPetOpen(true)}
@@ -222,7 +223,7 @@ export default function WeeklyReportPage() {
 
         {!selectedPet ? (
           <main className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fdf6ea] text-pine-700">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warm text-pine-700">
               <LineIcon name="clipboard" size={26} />
             </span>
             <p className="mt-3 font-bold text-pine-900">健康週報</p>
@@ -232,15 +233,15 @@ export default function WeeklyReportPage() {
           <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
             <div className="mx-auto grid h-full grid-cols-1 content-start gap-4 overflow-y-auto p-3 sm:p-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:content-normal xl:overflow-visible">
               <section className="min-w-0 xl:overflow-y-auto xl:pr-1">
-                <div className="mb-4 rounded-3xl bg-pine-800 p-5 text-[#fdf8ec] shadow-[0_20px_40px_-24px_rgba(24,48,31,0.8)]">
+                <div className="forest-band mb-4 rounded-3xl bg-pine-800 px-5 py-8 text-warm shadow-card">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f5c04a] text-pine-900">
-                      <PetIcon species={selectedPet.species} size={32} className="h-8 w-8" />
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-honey text-pine-900">
+                      <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={32} className="h-8 w-8" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-[#f5c04a]">AI 健康週報</p>
-                      <h1 className="font-brand text-xl font-extrabold">{selectedPet.name}</h1>
-                      <p className="text-xs text-[#fdf8ec]/80">{formatDate(weekStart)} ～ {formatDate(weekEnd)}</p>
+                      <p className="font-mono text-[11px] font-bold tracking-[0.16em] text-lime">AI 健康週報</p>
+                      <h1 className="font-brand text-2xl font-extrabold leading-tight md:text-3xl">{selectedPet.name}</h1>
+                      <p className="text-xs text-warm/80">{formatDate(weekStart)} ～ {formatDate(weekEnd)}</p>
                     </div>
                   </div>
                 </div>
@@ -250,7 +251,7 @@ export default function WeeklyReportPage() {
                     <button
                       onClick={() => changeWeek(addDays(weekStart, -7))}
                       aria-label="上一週"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#faf7ef] text-pine-800 transition-colors hover:bg-[#f2ead8]"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-[#f2ead8]"
                     >
                       <LineIcon name="left" size={18} />
                     </button>
@@ -258,12 +259,12 @@ export default function WeeklyReportPage() {
                       type="date"
                       value={weekStart}
                       onChange={e => changeWeek(getMonday(e.target.value))}
-                      className="rounded-xl border border-[#eae6d8] bg-[#faf7ef] px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
+                      className="rounded-xl border border-sand bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
                     />
                     <button
                       onClick={() => changeWeek(addDays(weekStart, 7))}
                       aria-label="下一週"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#faf7ef] text-pine-800 transition-colors hover:bg-[#f2ead8]"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-[#f2ead8]"
                     >
                       <LineIcon name="right" size={18} />
                     </button>
@@ -271,7 +272,7 @@ export default function WeeklyReportPage() {
                   <button
                     onClick={generateReport}
                     disabled={loading}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#f5c04a] py-3 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-honey py-3 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
                   >
                     <LineIcon name="spark" size={17} />
                     {loading ? 'AI 分析中…' : '生成這一週的 AI 健康週報'}
@@ -279,16 +280,16 @@ export default function WeeklyReportPage() {
                 </div>
 
                 {error && (
-                  <div role="alert" className="mb-4 rounded-xl border border-[#f3c2b8] bg-[#fdf0ec] p-4 text-sm text-[#b4552f]">
+                  <div role="alert" className="mb-4 rounded-xl border border-clay-200 bg-clay-50 p-4 text-sm text-clay">
                     {error}
                   </div>
                 )}
 
                 {displayReport ? (
                   <div className={`${cardCls} overflow-hidden`}>
-                    <div className="flex items-center justify-between gap-3 bg-pine-700 px-5 py-4 text-[#fdf8ec]">
+                    <div className="flex items-center justify-between gap-3 bg-pine-700 px-5 py-4 text-warm">
                       <div>
-                        <p className="mb-1 text-[11px] font-semibold text-[#f5c04a]">AI 分析結果</p>
+                        <p className="mb-1 text-[11px] font-semibold text-honey">AI 分析結果</p>
                         <p className="font-bold">{selectedPet.name} 的健康週報</p>
                       </div>
                       <span className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-xs">
@@ -297,24 +298,22 @@ export default function WeeklyReportPage() {
                     </div>
                     <div className="p-4 sm:p-6 md:p-7">
                       <MarkdownReport text={displayReport} />
-                      <div className="mt-7 border-t border-[#f3ead9] pt-4 text-[11px] leading-5 text-ink-soft/80">
+                      <div className="mt-7 border-t border-hair pt-4 text-[11px] leading-5 text-ink-soft/80">
                         AI 週報依 PawCare 系統中的紀錄進行整理與分析；攝影機狀態屬於姿態與活動量推測，不等同醫療診斷。
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-dashed border-[#e8d9bd] bg-[#faf7ef] p-12 text-center">
-                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-plate text-pine-700">
-                      <LineIcon name="clipboard" size={22} />
-                    </span>
-                    <p className="mt-3 font-semibold text-pine-900">尚未顯示週報</p>
-                    <p className="mt-1 text-xs text-ink-soft">若這週曾生成過，會自動載入；也可以點擊上方按鈕重新分析</p>
-                  </div>
+                  <EmptyState
+                    icon="note"
+                    title="尚未顯示週報"
+                    desc="若這週曾生成過，會自動載入；也可以點擊上方按鈕重新分析"
+                  />
                 )}
               </section>
 
               <aside className={`${cardCls} flex max-h-[32rem] min-w-0 flex-col overflow-hidden shadow-sm xl:max-h-none`}>
-                <div className="shrink-0 border-b border-[#f0e6d2] px-5 py-4">
+                <div className="shrink-0 border-b border-hair px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="flex items-center gap-1.5 font-bold text-pine-900">
@@ -337,31 +336,29 @@ export default function WeeklyReportPage() {
                     </div>
                   ) : reportsError ? (
                     <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-                      <span className="text-[#b4552f]"><LineIcon name="alert" size={26} /></span>
-                      <p className="mt-3 text-sm font-semibold text-[#b4552f]">歷史週報讀取失敗</p>
+                      <span className="text-clay"><LineIcon name="alert" size={26} /></span>
+                      <p className="mt-3 text-sm font-semibold text-clay">歷史週報讀取失敗</p>
                       <p className="mt-1 text-xs text-ink-soft">請確認後端有 GET /api/ai/weekly-report/:petId</p>
                     </div>
                   ) : reports.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center px-5 text-center">
-                      <span className="text-pine-700"><LineIcon name="inbox" size={26} /></span>
-                      <p className="mt-3 text-sm font-semibold text-ink">目前還沒有歷史週報</p>
-                      <p className="mt-1 text-xs text-ink-soft">生成週報後會自動保存並顯示在這裡</p>
+                    <div className="flex h-full items-center justify-center p-4">
+                      <EmptyState compact icon="note" title="目前還沒有歷史週報" desc="生成週報後會自動保存並顯示在這裡" />
                     </div>
                   ) : reports.map(r => (
                     <button
                       key={r.id || `${r.week_start}-${r.created_at}`}
                       onClick={() => selectReport(r)}
-                      className={`w-full overflow-hidden rounded-xl border text-left transition-colors hover:bg-[#fdf6ea] ${
+                      className={`w-full overflow-hidden rounded-xl border text-left transition-colors hover:bg-warm ${
                         r.week_start && getDate(r.week_start) === weekStart
                           ? 'border-pine-700/40 bg-pine-50'
-                          : 'border-[#eae6d8] bg-[#faf7ef] hover:border-pine-700/30'
+                          : 'border-sand bg-cream hover:border-pine-700/30'
                       }`}
                     >
-                      <div className="border-b border-[#f3ead9] px-4 py-3">
+                      <div className="border-b border-hair px-4 py-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-bold text-pine-900">{formatDate(r.week_start)} ～ {formatDate(r.week_end)}</p>
                           {r.week_start && getDate(r.week_start) === weekStart && (
-                            <span className="shrink-0 rounded-full bg-pine-800 px-2 py-0.5 text-[10px] font-bold text-[#fdf8ec]">目前</span>
+                            <span className="shrink-0 rounded-full bg-pine-800 px-2 py-0.5 text-[10px] font-bold text-warm">目前</span>
                           )}
                         </div>
                         <p className="mt-1 text-[11px] text-ink-soft">生成於 {new Date(r.created_at).toLocaleDateString('zh-TW')}</p>

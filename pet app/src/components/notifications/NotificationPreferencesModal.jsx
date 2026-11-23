@@ -75,12 +75,12 @@ export default function NotificationPreferencesModal({ onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-3xl border border-[#f0e6d2] bg-plate shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]"
+        className="w-full max-w-md overflow-hidden rounded-3xl border border-hair bg-plate shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#f0e6d2] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-hair px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-pine-800 text-[#f5c04a]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-pine-800 text-honey">
               <LineIcon name="gear" size={17} />
             </span>
             <h2 className="font-brand text-base font-extrabold text-pine-900">通知設定</h2>
@@ -89,7 +89,7 @@ export default function NotificationPreferencesModal({ onClose }) {
             type="button"
             onClick={onClose}
             aria-label="關閉"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
           >
             <LineIcon name="close" size={15} />
           </button>
@@ -106,10 +106,10 @@ export default function NotificationPreferencesModal({ onClose }) {
                 <div
                   key={t.key}
                   onClick={() => toggle(t.key)}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-colors hover:border-[#eae6d8] hover:bg-[#faf7ef]"
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-transparent p-3 transition-colors hover:border-sand hover:bg-cream"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fdf6ea] text-pine-700">
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warm text-pine-700">
                       <LineIcon name={t.key} size={18} />
                     </span>
                     <div className="min-w-0">
@@ -132,7 +132,7 @@ export default function NotificationPreferencesModal({ onClose }) {
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-plate shadow-sm transition-transform ${
+                      className={`absolute left-0 top-0.5 h-5 w-5 rounded-full bg-plate shadow-sm transition-transform ${
                         prefs[t.key] ? 'translate-x-5' : 'translate-x-0.5'
                       }`}
                     />
@@ -143,15 +143,15 @@ export default function NotificationPreferencesModal({ onClose }) {
           )}
 
           {save.isError && (
-            <p className="mt-3 text-xs font-semibold text-[#b4552f]">儲存失敗，請稍後再試。</p>
+            <p className="mt-3 text-xs font-semibold text-clay">儲存失敗，請稍後再試。</p>
           )}
         </div>
 
-        <div className="flex gap-3 border-t border-[#f0e6d2] px-5 pb-5 pt-4">
+        <div className="flex gap-3 border-t border-hair px-5 pb-5 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-[#faf7ef] py-2.5 text-sm font-bold text-ink-soft transition-colors hover:bg-[#f0ece0]"
+            className="flex-1 rounded-xl bg-cream py-2.5 text-sm font-bold text-ink-soft transition-colors hover:bg-[#f0ece0]"
           >
             取消
           </button>
@@ -160,7 +160,7 @@ export default function NotificationPreferencesModal({ onClose }) {
             type="button"
             disabled={!prefs || save.isPending}
             onClick={() => save.mutate(prefs)}
-            className="flex-1 rounded-xl bg-[#f5c04a] py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+            className="flex-1 rounded-xl bg-honey py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
           >
             {save.isPending ? '儲存中…' : '儲存'}
           </button>

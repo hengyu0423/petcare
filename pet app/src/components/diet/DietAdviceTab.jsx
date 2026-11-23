@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import PixelAssistant from '../brand/PixelAssistant'
 
 // ======================================================
 // AI 飲食建議
@@ -58,7 +59,7 @@ function AdviceSources({ sources }) {
       <ul className="space-y-1">
         {sources.map((item, index) => (
           <li key={`${item.title}-${index}`} className="text-[11px] leading-relaxed text-ink-soft">
-            {index + 1}.{' '}
+            <span className="mr-1 font-mono text-ink-faint">{String(index + 1).padStart(2, '0')}</span>
             {item.url ? (
               <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-pine-700 hover:underline">
                 {item.title}
@@ -102,43 +103,47 @@ export default function DietAdviceTab({
 
   return (
     <div className="space-y-4">
-      {/* 今日飲食分析 */}
-      <div className="rounded-3xl border border-[#f3e3cd] bg-plate p-5">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-[#f5c04a]">
-            <LineIcon name="spark" size={18} />
-          </span>
-          <h2 className="text-sm font-bold text-pine-900">AI 個人化飲食建議</h2>
-          <span className="rounded-full bg-pine-50 px-2 py-0.5 text-xs font-bold text-pine-700">
+      {/* 今日飲食分析（深綠功能區） */}
+      <div className="forest-band rounded-3xl bg-pine-800 px-5 pb-8 pt-8 text-paper shadow-card sm:px-6">
+        <div className="relative flex flex-wrap items-center gap-3">
+          <PixelAssistant tile size={40} mood={loadingAdvice ? 'typing' : 'idle'} />
+          <h2 className="font-brand text-lg font-extrabold text-paper">
+            AI 個人化<span className="text-lime">飲食建議</span>
+          </h2>
+          <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wider text-paper/75">
             Powered by Groq
           </span>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-[#e8d9bd] bg-[#fff8e9] p-4">
-          <p className="text-xs font-bold text-[#7a5200]">① 今日飲食分析</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-[#6b5637]">
+        <div className="relative mt-5">
+          <p className="font-mono text-[11px] font-bold tracking-[0.14em] text-lime">01 · 今日飲食分析</p>
+          <p className="mt-2 text-xs leading-relaxed text-paper/70">
             系統會讀取 {pet?.name || '這隻寵物'} 的寵物資料、
             {dateLabel}的飲食紀錄、每日建議範圍與健康紀錄，產生個人化建議。
           </p>
-          <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-[#7a5200]">
-            <span className="rounded-full bg-plate/80 px-2 py-0.5">
-              實際：{hasData ? `${formatKcal(actualKcal)} kcal` : '尚無紀錄'}
+          <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-paper">
+            <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5">
+              實際：<span className="font-mono tabular-nums">{hasData ? `${formatKcal(actualKcal)} kcal` : '尚無紀錄'}</span>
             </span>
             {hasTarget && (
-              <span className="rounded-full bg-plate/80 px-2 py-0.5">
-                建議：{formatKcal(target.minKcal)}–{formatKcal(target.maxKcal)} kcal
+              <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5">
+                建議：<span className="font-mono tabular-nums">{formatKcal(target.minKcal)}–{formatKcal(target.maxKcal)} kcal</span>
               </span>
             )}
-            {statusLabel && <span className="rounded-full bg-plate/80 px-2 py-0.5">狀態：{statusLabel}</span>}
+            {statusLabel && (
+              <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5">狀態：{statusLabel}</span>
+            )}
             {consultationsCount > 0 && (
-              <span className="rounded-full bg-plate/80 px-2 py-0.5">健康諮詢 {consultationsCount} 筆</span>
+              <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5">
+                健康諮詢 <span className="font-mono tabular-nums">{consultationsCount}</span> 筆
+              </span>
             )}
           </div>
           <button
             type="button"
             onClick={onAnalyze}
             disabled={loadingAdvice}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#f5c04a] px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+            className="btn-lime mt-5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-lime px-4 py-3 font-brand text-sm font-extrabold text-pine-900 disabled:opacity-60"
           >
             <LineIcon name="spark" size={15} />
             {loadingAdvice ? '分析中…' : '分析今日飲食'}
@@ -147,8 +152,8 @@ export default function DietAdviceTab({
       </div>
 
       {/* 主動提問 */}
-      <div className="rounded-3xl border border-[#f3e3cd] bg-plate p-5">
-        <p className="text-xs font-bold text-pine-900">② 主動提問</p>
+      <div className="rounded-3xl border border-hair shadow-card bg-plate p-5">
+        <p className="font-mono text-[11px] font-bold tracking-[0.14em] text-honey-deep">02 · 主動提問</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-soft">
           AI 會沿用同一份寵物資料、當日飲食、建議範圍與健康狀況回答。
         </p>
@@ -158,7 +163,7 @@ export default function DietAdviceTab({
               key={example}
               type="button"
               onClick={() => setAdviceQuestion(example)}
-              className="rounded-full border border-[#e8d9bd] bg-[#faf7ef] px-3 py-1 text-[11px] font-semibold text-pine-800 transition-colors hover:border-pine-700/40 hover:bg-[#fdf6ea]"
+              className="rounded-full border border-hair-strong bg-cream px-3 py-1 text-[11px] font-semibold text-pine-800 transition-colors hover:border-pine-700/40 hover:bg-warm"
             >
               {example}
             </button>
@@ -176,13 +181,13 @@ export default function DietAdviceTab({
             }}
             placeholder="例如：今天可以增加雞胸肉嗎？"
             maxLength={200}
-            className="min-w-0 flex-1 rounded-xl border border-[#eae6d8] bg-[#faf7ef] px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:border-pine-700/40 focus:bg-plate focus:outline-none"
+            className="min-w-0 flex-1 rounded-xl border border-sand bg-cream px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:border-pine-700/40 focus:bg-plate focus:outline-none"
           />
           <button
             type="button"
             onClick={onAsk}
             disabled={sendingQuestion || loadingAdvice || !adviceQuestion.trim()}
-            className="shrink-0 rounded-xl bg-pine-800 px-4 py-2.5 text-xs font-bold text-[#fdf8ec] transition-colors hover:bg-pine-700 disabled:opacity-50"
+            className="shrink-0 rounded-xl bg-pine-800 px-4 py-2.5 font-brand text-xs font-extrabold text-warm transition-colors hover:bg-pine-700 disabled:opacity-50"
           >
             {sendingQuestion ? '思考中…' : '取得建議'}
           </button>
@@ -191,50 +196,61 @@ export default function DietAdviceTab({
 
       {/* 載入／錯誤 */}
       {loadingAdvice && (
-        <div className="rounded-3xl border border-[#f3e3cd] bg-plate p-6 text-center">
-          <div className="mb-2 flex justify-center gap-1.5">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="h-2 w-2 animate-bounce rounded-full bg-pine-700" style={{ animationDelay: `${i * 0.15}s` }} />
-            ))}
+        <div className="flex items-start gap-2.5">
+          <PixelAssistant tile size={34} mood="typing" />
+          <div className="bubble-ai px-4 py-3">
+            <div className="flex h-5 items-center gap-1.5">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="h-2 w-2 animate-bounce rounded-[2px] bg-pine-700" style={{ animationDelay: `${i * 0.15}s` }} />
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-ink-soft">AI 正在分析健康、當日與近期飲食紀錄…</p>
           </div>
-          <p className="text-xs text-ink-soft">AI 正在分析健康、當日與近期飲食紀錄…</p>
         </div>
       )}
 
       {adviceError && (
-        <div role="alert" className="rounded-xl border border-[#f3c2b8] bg-[#fdf0ec] p-3">
-          <p className="text-xs font-semibold text-[#b4552f]">{adviceError}</p>
+        <div role="alert" className="rounded-2xl border-2 border-clay bg-clay-50 p-3.5">
+          <p className="text-xs font-semibold text-clay">{adviceError}</p>
         </div>
       )}
 
       {/* 今日分析結果 */}
       {dietAdvice && (
-        <div className="rounded-2xl border border-pine-100 bg-pine-50/60 p-4">
-          <div className="text-sm leading-relaxed text-ink" dangerouslySetInnerHTML={{ __html: adviceHtml(dietAdvice) }} />
-          <AdviceSources sources={adviceSources} />
-          <div className="mt-3 flex items-center justify-between border-t border-pine-100 pt-3">
-            <p className="flex items-center gap-1 text-xs text-ink-soft">
-              <LineIcon name="alert" size={13} />
-              此建議僅供參考，請諮詢專業獸醫
-            </p>
-            <button type="button" onClick={onAnalyze} className="text-xs font-bold text-pine-700 hover:underline">
-              重新分析
-            </button>
+        <div className="flex items-start gap-2.5">
+          <PixelAssistant tile size={34} />
+          <div className="bubble-ai min-w-0 flex-1 p-4">
+            <p className="mb-2 font-mono text-[11px] font-bold tracking-[0.14em] text-honey-deep">今日飲食分析</p>
+            <div className="text-sm leading-relaxed text-ink" dangerouslySetInnerHTML={{ __html: adviceHtml(dietAdvice) }} />
+            <AdviceSources sources={adviceSources} />
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-pine-100 pt-3">
+              <p className="flex items-center gap-1 text-xs text-ink-soft">
+                <LineIcon name="alert" size={13} />
+                此建議僅供參考，請諮詢專業獸醫
+              </p>
+              <button type="button" onClick={onAnalyze} className="shrink-0 text-xs font-bold text-pine-700 hover:underline">
+                重新分析
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* 追加提問結果（即使還沒做今日分析也會顯示） */}
       {adviceFollowups.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {adviceFollowups.map((item, index) => (
-            <div key={index} className="rounded-2xl border border-[#f3e3cd] bg-plate p-4">
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-pine-800">
-                <LineIcon name="question" size={14} />
-                {item.question}
-              </p>
-              <div className="text-sm leading-relaxed text-ink" dangerouslySetInnerHTML={{ __html: adviceHtml(item.answer) }} />
-              <AdviceSources sources={item.sources} />
+            <div key={index} className="space-y-2.5">
+              <div className="flex justify-end">
+                <div className="bubble-user max-w-[88%] px-4 py-2.5 text-sm font-bold">{item.question}</div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <PixelAssistant tile size={34} />
+                <div className="bubble-ai min-w-0 flex-1 p-4">
+                  <div className="text-sm leading-relaxed text-ink" dangerouslySetInnerHTML={{ __html: adviceHtml(item.answer) }} />
+                  <AdviceSources sources={item.sources} />
+                </div>
+              </div>
             </div>
           ))}
         </div>

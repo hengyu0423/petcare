@@ -26,7 +26,7 @@ export function PetDrawer({ open, onClose, widthClass = 'md:w-56', children }) {
 
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-[#eae6d8] bg-plate
+          fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-sand bg-plate
           transition-transform duration-200 ease-out
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
           ${open ? 'translate-x-0 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]' : '-translate-x-full'}
@@ -37,7 +37,7 @@ export function PetDrawer({ open, onClose, widthClass = 'md:w-56', children }) {
         <button
           onClick={onClose}
           aria-label="關閉寵物選單"
-          className="absolute right-3 top-3 z-10 rounded-lg p-2 text-ink-soft transition-colors hover:bg-[#fdf6ea] md:hidden"
+          className="absolute right-3 top-3 z-10 rounded-lg p-2 text-ink-soft transition-colors hover:bg-warm md:hidden"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
@@ -55,11 +55,11 @@ export function PetDrawer({ open, onClose, widthClass = 'md:w-56', children }) {
  */
 export function PetPickerBar({ emoji, icon, name, sub, onOpen }) {
   return (
-    <div className="sticky top-0 z-20 border-b border-[#eae6d8] bg-plate/95 px-3 py-2 backdrop-blur md:hidden">
+    <div className="sticky top-0 z-20 border-b border-sand bg-plate/95 px-3 py-2 backdrop-blur md:hidden">
       <button
         onClick={onOpen}
         aria-label="開啟寵物選單"
-        className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[#fdf6ea] active:bg-[#f8efdd]"
+        className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-warm active:bg-[#f8efdd]"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-pine-700" aria-hidden="true">
           <path d="M4 6h16M4 12h16M4 18h16" />

@@ -9,31 +9,32 @@ import { Link } from 'react-router-dom'
 // 避免同一頁重複顯示。
 // ======================================================
 
+// 深綠底上的狀態色：className 是狀態標籤，bar 是進度標記
 const STATUS = {
   no_data: {
     label: '尚無紀錄',
-    className: 'bg-[#faf7ef] text-ink-soft border-[#eae6d8]',
-    bar: '#8e978d'
+    className: 'border-white/20 bg-white/10 text-paper/80',
+    bar: '#aab7ad'
   },
   no_target: {
     label: '無法估算',
-    className: 'bg-[#faf7ef] text-ink-soft border-[#eae6d8]',
-    bar: '#8e978d'
+    className: 'border-white/20 bg-white/10 text-paper/80',
+    bar: '#aab7ad'
   },
   under: {
     label: '低於建議範圍',
-    className: 'bg-[#fff8e9] text-[#a5681c] border-[#f0d9b5]',
-    bar: '#c96f2e'
+    className: 'border-honey/40 bg-honey/15 text-honey',
+    bar: '#f5c04a'
   },
   in_range: {
     label: '在建議範圍內',
-    className: 'bg-pine-50 text-pine-700 border-pine-100',
-    bar: '#2c5a43'
+    className: 'border-lime/40 bg-lime/15 text-lime',
+    bar: '#d3f26a'
   },
   over: {
     label: '超出建議範圍',
-    className: 'bg-[#fdf0ec] text-[#b4552f] border-[#f3c2b8]',
-    bar: '#b4552f'
+    className: 'border-clay-200/40 bg-clay-200/15 text-clay-200',
+    bar: '#f3b49c'
   }
 }
 
@@ -75,21 +76,21 @@ export default function NutritionOverview({
   }
 
   return (
-    <div className="rounded-3xl border border-[#f3e3cd] bg-plate p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-3">
+    <div className="forest-band rounded-3xl bg-pine-800 px-5 pb-8 pt-8 text-paper shadow-card sm:px-6">
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold tracking-wide text-ink-soft">
+          <p className="font-mono text-[11px] font-bold tracking-[0.14em] text-lime">
             {dateLabel}飲食
           </p>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <p className="font-brand text-4xl font-extrabold leading-none tabular-nums text-pine-900">
+            <p className="font-brand text-5xl font-extrabold leading-none tabular-nums text-paper">
               {hasData ? formatKcal(actual) : '—'}
             </p>
-            <span className="text-sm font-semibold text-ink-soft">
+            <span className="text-sm font-semibold text-paper/65">
               {hasTarget ? `/ 建議 ${formatKcal(targetKcal)} kcal` : '/ 尚無建議值'}
             </span>
           </div>
-          <p className="mt-2 text-xs text-ink-soft">
+          <p className="mt-2 text-xs text-paper/60">
             {hasTarget
               ? `建議範圍 ${formatKcal(minKcal)}–${formatKcal(maxKcal)} kcal`
               : '需要體重資料才能估算建議範圍'}
@@ -102,10 +103,10 @@ export default function NutritionOverview({
       </div>
 
       {hasTarget && (
-        <div className="mt-5">
-          <div className="relative h-3 rounded-full bg-[#faf7ef]">
+        <div className="relative mt-6">
+          <div className="relative h-3 rounded-full bg-white/10">
             <div
-              className="absolute bottom-0 top-0 rounded-full border border-pine-100 bg-pine-100"
+              className="absolute bottom-0 top-0 rounded-full bg-white/20"
               style={{
                 left: `${pos(minKcal)}%`,
                 width: `${Math.max(pos(maxKcal) - pos(minKcal), 1)}%`
@@ -113,7 +114,7 @@ export default function NutritionOverview({
             />
             {hasData && (
               <div
-                className="absolute top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full shadow-[0_2px_6px_rgba(87,54,17,0.35)]"
+                className="absolute top-1/2 h-6 w-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_2px_rgba(34,67,47,1)]"
                 style={{
                   left: `calc(${pos(actual)}% - 3px)`,
                   backgroundColor: info.bar
@@ -121,7 +122,7 @@ export default function NutritionOverview({
               />
             )}
           </div>
-          <div className="mt-2 flex justify-between text-[11px] font-medium text-ink-soft/80">
+          <div className="mt-2 flex justify-between text-[11px] font-medium text-paper/60">
             <span>0</span>
             <span>
               {percent !== null
@@ -136,15 +137,15 @@ export default function NutritionOverview({
       )}
 
       {!hasData && (
-        <p className="mt-4 rounded-xl bg-[#faf7ef] px-3 py-2.5 text-xs text-ink-soft">
+        <p className="relative mt-4 rounded-xl bg-white/10 px-3 py-2.5 text-xs text-paper/75">
           還沒有餵食紀錄。新增後，這裡會自動顯示今天的攝取量與狀態。
         </p>
       )}
 
-      <div className="mt-3 flex justify-end">
+      <div className="relative mt-3 flex justify-end">
         <Link
           to="/weekly-report"
-          className="text-xs font-bold text-pine-700 transition-colors hover:text-[#c96f2e]"
+          className="text-xs font-bold text-lime transition-colors hover:text-paper"
         >
           查看健康週報 →
         </Link>

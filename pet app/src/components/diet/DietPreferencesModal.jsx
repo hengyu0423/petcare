@@ -156,7 +156,7 @@ function PrefsForm({ pet, initial, onClose }) {
     `px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
       active
         ? 'bg-pine-50 border-pine-700/35 text-pine-700'
-        : 'bg-plate border-[#eae6d8] text-ink-soft hover:border-green-200'
+        : 'bg-plate border-sand text-ink-soft hover:border-green-200'
     }`
 
   const presetKey = isCustom ? 'custom' : String(mealsPerDay)
@@ -238,7 +238,7 @@ function PrefsForm({ pet, initial, onClose }) {
           type="button"
           onClick={onClose}
           aria-label="關閉"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft/80 transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft/80 transition-colors hover:bg-warm hover:text-pine-900"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
@@ -281,7 +281,7 @@ function PrefsForm({ pet, initial, onClose }) {
       <button
         type="button"
         onClick={() => setShowAdvanced(v => !v)}
-        className="mt-4 w-full flex items-center justify-center gap-1 border border-[#eae6d8] rounded-xl py-2 text-xs font-semibold text-ink-soft hover:border-pine-700/30 hover:text-pine-700 transition-colors"
+        className="mt-4 w-full flex items-center justify-center gap-1 border border-sand rounded-xl py-2 text-xs font-semibold text-ink-soft hover:border-pine-700/30 hover:text-pine-700 transition-colors"
       >
         {showAdvanced
           ? '收合進階設定 ▲'
@@ -289,7 +289,7 @@ function PrefsForm({ pet, initial, onClose }) {
       </button>
 
       {showAdvanced && (
-        <div className="space-y-5 mt-4 pt-4 border-t border-[#f0e6d2]">
+        <div className="space-y-5 mt-4 pt-4 border-t border-hair">
 
           {/* 餐次時間與固定食物 */}
           <div>
@@ -306,7 +306,7 @@ function PrefsForm({ pet, initial, onClose }) {
               {schedule.map((slot, index) => (
                 <div
                   key={slot.key}
-                  className="bg-[#faf7ef] rounded-xl p-2.5 space-y-2"
+                  className="bg-cream rounded-xl p-2.5 space-y-2"
                 >
                   <div className="grid grid-cols-[1fr_110px] gap-2">
                     <input
@@ -317,7 +317,7 @@ function PrefsForm({ pet, initial, onClose }) {
                       }}
                       placeholder={`第 ${index + 1} 餐`}
                       maxLength={20}
-                      className="border border-[#eae6d8] bg-plate rounded-xl px-2.5 py-1.5 text-sm focus:outline-none focus:border-pine-700/40"
+                      className="border border-sand bg-plate rounded-xl px-2.5 py-1.5 text-sm focus:outline-none focus:border-pine-700/40"
                     />
 
                     <input
@@ -327,7 +327,7 @@ function PrefsForm({ pet, initial, onClose }) {
                         updateSlot(index, { time: e.target.value })
                         setIsCustom(true)
                       }}
-                      className="border border-[#eae6d8] bg-plate rounded-xl px-2.5 py-1.5 text-sm focus:outline-none focus:border-pine-700/40"
+                      className="border border-sand bg-plate rounded-xl px-2.5 py-1.5 text-sm focus:outline-none focus:border-pine-700/40"
                     />
                   </div>
 
@@ -337,7 +337,7 @@ function PrefsForm({ pet, initial, onClose }) {
                       onChange={e =>
                         updateSlot(index, { foodId: e.target.value })
                       }
-                      className="border border-[#eae6d8] bg-plate rounded-xl px-2.5 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-pine-700/40"
+                      className="border border-sand bg-plate rounded-xl px-2.5 py-1.5 text-sm text-ink-soft focus:outline-none focus:border-pine-700/40"
                     >
                       <option value="">不固定（系統推薦）</option>
                       {foodOptions.map(food => (
@@ -357,7 +357,7 @@ function PrefsForm({ pet, initial, onClose }) {
                         updateSlot(index, { amountG: e.target.value })
                       }
                       placeholder={slot.foodId ? '克數' : '—'}
-                      className="border border-[#eae6d8] bg-plate rounded-xl px-2.5 py-1.5 text-sm focus:outline-none focus:border-pine-700/40 disabled:bg-[#faf7ef] disabled:text-ink-soft/80"
+                      className="border border-sand bg-plate rounded-xl px-2.5 py-1.5 text-sm focus:outline-none focus:border-pine-700/40 disabled:bg-cream disabled:text-ink-soft/80"
                     />
                   </div>
 
@@ -366,7 +366,7 @@ function PrefsForm({ pet, initial, onClose }) {
                       <button
                         type="button"
                         onClick={() => removeSlot(index)}
-                        className="text-[11px] text-[#b4552f] hover:underline"
+                        className="text-[11px] text-clay hover:underline"
                       >
                         移除這一餐
                       </button>
@@ -380,14 +380,14 @@ function PrefsForm({ pet, initial, onClose }) {
               <button
                 type="button"
                 onClick={addSlot}
-                className="mt-2 w-full border border-dashed border-[#ddd8c8] rounded-xl py-2 text-xs font-semibold text-ink-soft hover:border-pine-700/30 hover:text-pine-700 transition-colors"
+                className="mt-2 w-full border border-dashed border-hair-strong rounded-xl py-2 text-xs font-semibold text-ink-soft hover:border-pine-700/30 hover:text-pine-700 transition-colors"
               >
                 ＋ 增加一餐
               </button>
             )}
 
             {scheduleInvalid && (
-              <p className="text-[11px] text-[#b4552f] mt-2">
+              <p className="text-[11px] text-clay mt-2">
                 每一餐都需要名稱與時間，且至少要有 2 餐。
               </p>
             )}
@@ -445,13 +445,13 @@ function PrefsForm({ pet, initial, onClose }) {
                 }}
                 placeholder="例如：雞肉、牛奶"
                 maxLength={30}
-                className="flex-1 border border-[#eae6d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pine-700/40"
+                className="flex-1 border border-sand rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pine-700/40"
               />
 
               <button
                 type="button"
                 onClick={addAvoid}
-                className="px-3 py-2 rounded-xl text-sm font-semibold bg-[#faf7ef] hover:bg-[#f0ece0] text-ink-soft"
+                className="px-3 py-2 rounded-xl text-sm font-semibold bg-cream hover:bg-paper text-ink-soft"
               >
                 加入
               </button>
@@ -462,7 +462,7 @@ function PrefsForm({ pet, initial, onClose }) {
                 {avoidFoods.map(food => (
                   <span
                     key={food}
-                    className="inline-flex items-center gap-1 text-xs bg-red-50 text-[#b4552f] border border-red-100 px-2 py-1 rounded-full"
+                    className="inline-flex items-center gap-1 text-xs bg-red-50 text-clay border border-red-100 px-2 py-1 rounded-full"
                   >
                     {food}
                     <button
@@ -471,7 +471,7 @@ function PrefsForm({ pet, initial, onClose }) {
                         setAvoidFoods(avoidFoods.filter(f => f !== food))
                       }
                       aria-label={`移除 ${food}`}
-                      className="hover:text-[#8f3f21]"
+                      className="hover:text-clay-700"
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                         <path d="M6 6l12 12M18 6L6 18" />
@@ -491,7 +491,7 @@ function PrefsForm({ pet, initial, onClose }) {
               rows={2}
               maxLength={200}
               placeholder="選填"
-              className="w-full border border-[#eae6d8] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pine-700/40 resize-none"
+              className="w-full border border-sand rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pine-700/40 resize-none"
             />
           </div>
 
@@ -499,14 +499,14 @@ function PrefsForm({ pet, initial, onClose }) {
       )}
 
       {save.isError && (
-        <p className="text-xs text-[#b4552f] mt-3">儲存失敗，請稍後再試。</p>
+        <p className="text-xs text-clay mt-3">儲存失敗，請稍後再試。</p>
       )}
 
       <div className="flex gap-3 mt-5">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#faf7ef] hover:bg-[#f0ece0] text-ink-soft"
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-cream hover:bg-paper text-ink-soft"
         >
           取消
         </button>
@@ -515,7 +515,7 @@ function PrefsForm({ pet, initial, onClose }) {
           type="button"
           onClick={() => save.mutate()}
           disabled={save.isPending || scheduleInvalid}
-          className="flex-[2] py-2.5 rounded-xl text-sm font-semibold bg-[#f5c04a] hover:bg-[#f0b23a] text-pine-900 shadow-[0_4px_0_#c96f2e] disabled:opacity-50"
+          className="flex-[2] py-2.5 rounded-xl text-sm font-semibold bg-honey hover:bg-honey-hover text-pine-900 shadow-press disabled:opacity-50"
         >
           {save.isPending ? '儲存中…' : '儲存'}
         </button>
@@ -536,7 +536,7 @@ export default function DietPreferencesModal({ pet, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-pine-900/35 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-plate rounded-3xl shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)] w-full max-w-md border border-[#f0e6d2] max-h-[90vh] overflow-y-auto">
+      <div className="bg-plate rounded-3xl shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)] w-full max-w-md border border-hair max-h-[90vh] overflow-y-auto">
 
         {isLoading && (
           <p className="p-6 text-sm text-ink-soft/80">讀取中…</p>
@@ -544,7 +544,7 @@ export default function DietPreferencesModal({ pet, onClose }) {
 
         {isError && (
           <div className="p-6">
-            <p className="text-sm text-[#b4552f]">讀取偏好失敗。</p>
+            <p className="text-sm text-clay">讀取偏好失敗。</p>
             <button
               type="button"
               onClick={onClose}

@@ -1,3 +1,4 @@
+import PixelIcon from '../brand/PixelIcon'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -226,9 +227,9 @@ export default function NotificationBell() {
         width: DROP_W,
         zIndex: 9999
       }}
-      className="flex max-h-[70vh] flex-col rounded-3xl border border-[#f0e6d2] bg-plate shadow-[0_24px_48px_-24px_rgba(87,54,17,0.45)]"
+      className="flex max-h-[70vh] flex-col rounded-3xl border border-hair bg-plate shadow-[0_24px_48px_-24px_rgba(87,54,17,0.45)]"
     >
-      <div className="flex items-center justify-between border-b border-[#f3ead9] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-hair px-4 py-3">
         <p className="text-sm font-bold text-pine-900">通知</p>
 
         <div className="flex items-center gap-3">
@@ -248,7 +249,7 @@ export default function NotificationBell() {
               setOpen(false)
               setShowPrefs(true)
             }}
-            className="rounded-lg p-1 text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+            className="rounded-lg p-1 text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
             title="通知設定"
             aria-label="通知設定"
           >
@@ -263,9 +264,10 @@ export default function NotificationBell() {
       <div className="flex-1 overflow-y-auto">
 
         {notifications.length === 0 && (
-          <p className="py-10 text-center text-sm text-ink-soft">
-            目前沒有通知
-          </p>
+          <div className="py-10 text-center">
+            <PixelIcon name="bell" size={40} className="mx-auto" />
+            <p className="mt-2 text-sm text-ink-soft">目前沒有通知</p>
+          </div>
         )}
 
         {notifications.map(n => (
@@ -274,10 +276,10 @@ export default function NotificationBell() {
             type="button"
             onClick={() => !n.isRead && markRead(n.id)}
             className={`flex w-full gap-2.5 border-b border-[#f6efdf] px-4 py-3 text-left transition-colors last:border-0 ${
-              n.isRead ? 'bg-plate' : 'bg-[#fdf6ea] hover:bg-[#fbf0dd]'
+              n.isRead ? 'bg-plate' : 'bg-warm hover:bg-[#fbf0dd]'
             }`}
           >
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#fdf3e3] text-[#c96f2e]">
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warm text-honey-deep">
               <TypeIcon type={n.type} />
             </span>
 
@@ -316,7 +318,7 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
         aria-label="通知"
       >
         <BellIcon />

@@ -1,3 +1,5 @@
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -57,10 +59,10 @@ function LineIcon({ name, size = 16, filled = false }) {
 }
 
 const fieldCls =
-  'w-full border border-[#eae6d8] rounded-xl px-3 py-2.5 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
+  'w-full border border-sand rounded-xl px-3 py-2.5 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
 const labelCls = 'mb-1.5 block text-xs font-semibold text-ink-soft'
 const solidBtn =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#f5c04a] px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50'
+  'inline-flex items-center justify-center gap-1.5 rounded-xl bg-honey px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50'
 
 function Avatar({ name, size = 36 }) {
   return (
@@ -100,14 +102,14 @@ function CommentSection({ postId, currentUserId }) {
   })
 
   return (
-    <div className="mt-3 border-t border-[#f3ead9] pt-3">
+    <div className="mt-3 border-t border-hair pt-3">
       {comments.length > 0 && (
         <div className="mb-3 space-y-3">
           {comments.map(c => (
             <div key={c.id} className="group flex gap-2">
               <Avatar name={c.user_name} size={28} />
               <div className="min-w-0 flex-1">
-                <div className="inline-block max-w-full rounded-2xl rounded-tl-md bg-[#faf7ef] px-3 py-2">
+                <div className="inline-block max-w-full rounded-2xl rounded-tl-md bg-cream px-3 py-2">
                   <span className="text-xs font-bold text-pine-900">{c.user_name}</span>
                   <p className="mt-0.5 text-xs text-ink">{c.content}</p>
                 </div>
@@ -116,7 +118,7 @@ function CommentSection({ postId, currentUserId }) {
                   {String(c.user_id) === String(currentUserId) && (
                     <button
                       onClick={() => deleteComment.mutate(c.id)}
-                      className="text-xs text-ink-soft/60 opacity-0 transition-opacity hover:text-[#b4552f] group-hover:opacity-100"
+                      className="text-xs text-ink-soft/60 opacity-0 transition-opacity hover:text-clay group-hover:opacity-100"
                     >
                       刪除
                     </button>
@@ -142,7 +144,7 @@ function CommentSection({ postId, currentUserId }) {
         <button
           onClick={() => input.trim() && addComment.mutate(input.trim())}
           disabled={!input.trim() || addComment.isPending}
-          className="rounded-xl bg-pine-800 px-3.5 py-2 text-sm font-bold text-[#fdf8ec] transition-colors hover:bg-pine-700 disabled:opacity-50"
+          className="rounded-xl bg-pine-800 px-3.5 py-2 text-sm font-bold text-warm transition-colors hover:bg-pine-700 disabled:opacity-50"
         >
           送出
         </button>
@@ -170,7 +172,7 @@ function PostCard({ post, currentUser, onDelete }) {
   })
 
   return (
-    <article className="rounded-3xl border border-[#f3e3cd] bg-plate p-5 transition-colors hover:bg-[#fffdf6]">
+    <article className="rounded-3xl border border-hair shadow-card bg-plate p-5 transition-colors hover:bg-plate">
       {/* 用戶資訊 */}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -195,7 +197,7 @@ function PostCard({ post, currentUser, onDelete }) {
           <button
             onClick={() => { if (confirm('確定刪除這篇貼文？')) onDelete(post.id) }}
             aria-label="刪除貼文"
-            className="rounded-lg p-1.5 text-ink-soft/60 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f]"
+            className="rounded-lg p-1.5 text-ink-soft/60 transition-colors hover:bg-clay-50 hover:text-clay"
           >
             <LineIcon name="trash" size={16} />
           </button>
@@ -213,11 +215,11 @@ function PostCard({ post, currentUser, onDelete }) {
       )}
 
       {/* 互動按鈕 */}
-      <div className="flex items-center gap-4 border-t border-[#f3ead9] pt-2">
+      <div className="flex items-center gap-4 border-t border-hair pt-2">
         <button
           onClick={() => likeMutation.mutate()}
           className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-colors ${
-            liked ? 'text-[#c96f2e]' : 'text-ink-soft hover:text-[#c96f2e]'
+            liked ? 'text-honey-deep' : 'text-ink-soft hover:text-honey-deep'
           }`}
         >
           <LineIcon name="heart" size={18} filled={liked} />
@@ -303,26 +305,25 @@ export default function CommunityPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-8">
-      {/* Header */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-brand text-2xl font-extrabold text-pine-900">社群</h1>
-          <p className="mt-0.5 text-sm text-ink-soft">分享你和毛孩子的日常</p>
-        </div>
-        <button onClick={() => setShowPostModal(true)} className={solidBtn}>
-          <LineIcon name="pencil" size={15} />
-          發貼文
-        </button>
-      </div>
+      <PageHeader
+        accent="社群"
+        subtitle="分享你和毛孩子的日常"
+        actions={
+          <button onClick={() => setShowPostModal(true)} className={solidBtn}>
+            <LineIcon name="pencil" size={15} />
+            發貼文
+          </button>
+        }
+      />
 
       {/* 快速發文框 */}
       <div
-        className="mb-5 cursor-pointer rounded-2xl border border-[#f3e3cd] bg-plate p-4 transition-colors hover:border-pine-700/30"
+        className="mb-5 cursor-pointer rounded-2xl border border-hair bg-plate p-4 transition-colors hover:border-pine-700/30"
         onClick={() => setShowPostModal(true)}
       >
         <div className="flex items-center gap-3">
           <Avatar name={user?.name} />
-          <div className="flex-1 rounded-xl border border-[#eae6d8] bg-[#faf7ef] px-4 py-2.5 text-sm text-ink-soft/80">
+          <div className="flex-1 rounded-xl border border-sand bg-cream px-4 py-2.5 text-sm text-ink-soft/80">
             分享你和毛孩子的故事...
           </div>
         </div>
@@ -331,18 +332,15 @@ export default function CommunityPage() {
       {/* 貼文列表 */}
       {isLoading ? (
         <div className="space-y-4">
-          {[0, 1].map(i => <div key={i} className="h-40 animate-pulse rounded-3xl bg-[#faf7ef]" />)}
+          {[0, 1].map(i => <div key={i} className="skeleton h-40" />)}
         </div>
       ) : posts.length === 0 ? (
-        <div className="rounded-3xl border-2 border-dashed border-[#e8d9bd] bg-[#faf7ef] py-16 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-plate text-pine-700">
-            <LineIcon name="paw" size={24} />
-          </span>
-          <p className="mt-3 text-sm text-ink-soft">還沒有貼文，成為第一個分享的人！</p>
-          <button onClick={() => setShowPostModal(true)} className={`${solidBtn} mt-5`}>
-            發第一篇貼文
-          </button>
-        </div>
+        <EmptyState
+          icon="chat"
+          title="還沒有貼文"
+          desc="成為第一個分享的人！"
+          action={{ label: '發第一篇貼文', onClick: () => setShowPostModal(true) }}
+        />
       ) : (
         <div className="space-y-4">
           {posts.map(post => (
@@ -354,13 +352,13 @@ export default function CommunityPage() {
       {/* 發貼文 Modal */}
       {showPostModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-900/35 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-[#f0e6d2] bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-hair bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="font-brand text-base font-extrabold text-pine-900">發布新貼文</h2>
               <button
                 onClick={closeModal}
                 aria-label="關閉"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
               >
                 <LineIcon name="close" size={16} />
               </button>
@@ -374,7 +372,7 @@ export default function CommunityPage() {
                   <p className="text-sm font-bold text-pine-900">{user?.name}</p>
                   {taggedPet && (
                     <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-pine-700">
-                      <PetIcon species={taggedPet.species} size={16} className="h-4 w-4" />
+                      <PetIcon species={taggedPet.species} breed={taggedPet.breed} size={16} className="h-4 w-4" />
                       {taggedPet.name}
                     </p>
                   )}
@@ -403,11 +401,11 @@ export default function CommunityPage() {
                         onClick={() => setSelectedPetId(s => String(s) === String(pet.id) ? '' : String(pet.id))}
                         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                           String(selectedPetId) === String(pet.id)
-                            ? 'border-pine-700 bg-pine-800 text-[#fdf8ec]'
-                            : 'border-[#eae6d8] bg-[#faf7ef] text-ink-soft hover:border-pine-700/40'
+                            ? 'border-pine-700 bg-pine-800 text-warm'
+                            : 'border-sand bg-cream text-ink-soft hover:border-pine-700/40'
                         }`}
                       >
-                        <PetIcon species={pet.species} size={16} className="h-4 w-4" />
+                        <PetIcon species={pet.species} breed={pet.breed} size={16} className="h-4 w-4" />
                         {pet.name}
                       </button>
                     ))}
@@ -418,7 +416,7 @@ export default function CommunityPage() {
               {/* 圖片上傳 */}
               <div>
                 <label className={labelCls}>新增圖片（選填）</label>
-                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#e2d8c1] px-4 py-2.5 transition-colors hover:border-pine-700/40 hover:bg-[#faf7ef]">
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#e2d8c1] px-4 py-2.5 transition-colors hover:border-pine-700/40 hover:bg-cream">
                   <span className="text-pine-700"><LineIcon name="camera" size={18} /></span>
                   <span className="text-sm text-ink-soft">點擊上傳圖片</span>
                   <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -430,7 +428,7 @@ export default function CommunityPage() {
                       type="button"
                       onClick={() => { setImageUrl(''); setImagePreview('') }}
                       aria-label="移除圖片"
-                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-pine-900/60 text-[#fffdf6] hover:bg-pine-900/80"
+                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-pine-900/60 text-plate hover:bg-pine-900/80"
                     >
                       <LineIcon name="close" size={13} />
                     </button>
@@ -442,7 +440,7 @@ export default function CommunityPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 rounded-xl border border-line bg-plate py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea]"
+                  className="flex-1 rounded-xl border border-line bg-plate py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-warm"
                 >
                   取消
                 </button>

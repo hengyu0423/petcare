@@ -55,23 +55,28 @@ export default function FoodCheckSteps({
   }
 
   const total = warnings.length
+  const ready = !checking && total === 0
 
   return (
-    <div className="rounded-2xl border border-[#eae6d8] bg-[#faf7ef] p-3.5">
-      <p className="mb-2.5 text-xs font-bold text-pine-900">餵食前檢查</p>
+    <div className="rounded-2xl border border-hair bg-cream p-3.5">
+      <p className="mb-2.5 flex items-center gap-2 text-xs font-bold text-pine-900">
+        餵食前檢查
+        <span className="font-mono text-[10px] font-bold tracking-[0.14em] text-honey-deep">CHECK</span>
+      </p>
 
       <div className="flex flex-wrap items-center gap-1.5">
         {STEPS.map((step, index) => {
           const count = counts[step.key]
-          let style = 'bg-[#eae6d8] text-ink-soft'
+          let style = 'bg-sand text-ink-soft'
           let icon = 'dot'
 
           if (!checking) {
             if (count === 0) {
-              style = 'bg-pine-50 text-pine-700'
+              // 通過：荧光綠
+              style = 'bg-lime text-pine-900'
               icon = 'check'
             } else {
-              style = 'bg-[#fff3d6] text-[#a5681c]'
+              style = 'bg-honey-100 text-honey-text'
               icon = 'alert'
             }
           }
@@ -79,7 +84,8 @@ export default function FoodCheckSteps({
           return (
             <div key={step.key} className="flex items-center gap-1.5">
               {index > 0 && <LineIcon name="arrow" size={11} />}
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${style} ${checking ? 'animate-pulse' : ''}`}>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${style} ${checking ? 'animate-pulse' : ''}`}>
+                <span className="font-mono text-[10px] opacity-60">{String(index + 1).padStart(2, '0')}</span>
                 <LineIcon name={icon} size={12} />
                 {step.label}
                 {icon === 'alert' && count > 0 && count}
@@ -89,7 +95,12 @@ export default function FoodCheckSteps({
         })}
 
         <LineIcon name="arrow" size={11} />
-        <span className="rounded-full bg-[#eae6d8] px-2 py-1 text-xs font-bold text-ink-soft">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+            ready ? 'bg-pine-800 text-lime' : 'bg-sand text-ink-soft'
+          }`}
+        >
+          <span className="font-mono text-[10px] opacity-60">04</span>
           確認餵食
         </span>
       </div>

@@ -10,6 +10,8 @@ import { api } from '../lib/api'
 import { petAgeText } from '../lib/petAge'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
 import PetIcon from '../components/brand/PetIcon'
+import PixelAssistant from '../components/brand/PixelAssistant'
+import LoadingState from '../components/ui/LoadingState'
 import PetEmotionPage from './PetEmotion'
 import KnowledgeSources from '../components/consult/KnowledgeSources'
 import QuickPrompts from '../components/consult/QuickPrompts'
@@ -32,15 +34,15 @@ const SEVERITY_CONFIG = {
   },
   urgent: {
     label: '建議儘快就醫',
-    className: 'bg-[#fff8e9] text-[#a5681c] border-[#f0d9b5]'
+    className: 'bg-honey-50 text-honey-text border-honey-200'
   },
   emergency: {
     label: '緊急救護',
-    className: 'bg-[#fdf0ec] text-[#b4552f] border-[#f3c2b8]'
+    className: 'bg-clay-50 text-clay border-clay-200'
   },
   unknown: {
     label: '尚未分級',
-    className: 'bg-[#faf7ef] text-ink-soft border-[#eae6d8]'
+    className: 'bg-cream text-ink-soft border-sand'
   }
 }
 
@@ -841,12 +843,12 @@ export default function HealthConsultPage() {
   // ===================================================
 
   return (
-    <div className="flex h-full overflow-hidden bg-paper">
+    <div className="flex h-full overflow-hidden">
       {/* ===============================================
           左側：寵物
       =============================================== */}
       <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-56">
-        <div className="border-b border-[#f0e6d2] px-4 py-5">
+        <div className="border-b border-hair px-4 py-5">
           <h2 className="text-sm font-bold text-pine-900">選擇寵物</h2>
           <p className="mt-1 text-xs text-ink-soft">選擇要諮詢的寵物</p>
         </div>
@@ -866,10 +868,10 @@ export default function HealthConsultPage() {
                 className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                   view === 'consult' && selectedPet?.id === pet.id
                     ? 'border-pine-700/35 bg-pine-50'
-                    : 'border-[#eae6d8] bg-[#faf7ef] hover:border-pine-700/30 hover:bg-[#fdf6ea]'
+                    : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
                 }`}
               >
-                <PetIcon species={pet.species} size={40} className="h-10 w-10 shrink-0" />
+                <PetIcon species={pet.species} breed={pet.breed} size={40} className="h-10 w-10 shrink-0" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-pine-900">{pet.name}</p>
                   <p className="truncate text-xs text-ink-soft">{pet.breed || pet.species}</p>
@@ -878,7 +880,7 @@ export default function HealthConsultPage() {
             ))
           )}
 
-          <div className="mt-4 border-t border-[#f0e6d2] pt-4">
+          <div className="mt-4 border-t border-hair pt-4">
             <p className="px-1 pb-2 text-[11px] font-bold text-ink-soft">其他功能</p>
             <button
               type="button"
@@ -890,7 +892,7 @@ export default function HealthConsultPage() {
               className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                 view === 'emotion'
                   ? 'border-pine-700/35 bg-pine-50'
-                  : 'border-[#eae6d8] bg-[#faf7ef] hover:border-pine-700/30 hover:bg-[#fdf6ea]'
+                  : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
               }`}
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-plate text-pine-700">
@@ -914,7 +916,7 @@ export default function HealthConsultPage() {
             view === 'emotion'
               ? <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-pine-50 text-pine-700"><LineIcon name="camera" size={16} /></span>
               : selectedPet
-                ? <PetIcon species={selectedPet.species} size={28} className="h-7 w-7 shrink-0" />
+                ? <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={28} className="h-7 w-7 shrink-0" />
                 : null
           }
           name={view === 'emotion' ? 'AI 心情辨識' : selectedPet?.name}
@@ -925,7 +927,7 @@ export default function HealthConsultPage() {
         {view === 'emotion' ? (
           // AI 心情辨識：直接顯示在右邊主畫面（跟選寵物一樣），不再另外彈出視窗
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex shrink-0 items-center gap-3 border-b border-[#eae6d8] bg-plate px-4 py-3 sm:px-6">
+            <div className="flex shrink-0 items-center gap-3 border-b border-sand bg-plate px-4 py-3 sm:px-6">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pine-50 text-pine-700">
                 <LineIcon name="camera" size={20} />
               </span>
@@ -934,15 +936,14 @@ export default function HealthConsultPage() {
                 <p className="text-xs text-ink-soft">拍攝或上傳寵物照片，讓 AI 分析牠可能的心情</p>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#faf7ef]">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-cream">
               <PetEmotionPage embedded />
             </div>
           </div>
         ) : !selectedPet ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fdf6ea] text-pine-700">
-              <LineIcon name="stethoscope" size={26} />
-            </span>
+            <span className="bubble-ai px-3 py-1.5 font-brand text-xs font-extrabold text-pine-900">先選一隻毛孩吧！</span>
+            <PixelAssistant size={64} />
             <p className="font-bold text-pine-900">請先選擇要諮詢的寵物</p>
             <p className="text-sm text-ink-soft">
               <span className="md:hidden">點上方選擇一隻寵物開始健康諮詢</span>
@@ -952,9 +953,9 @@ export default function HealthConsultPage() {
         ) : (
           <>
             {/* 寵物 Header */}
-            <div className="flex shrink-0 items-center gap-3 border-b border-[#eae6d8] bg-plate px-4 py-3 sm:px-6">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine-800 text-[#f5c04a]">
-                <PetIcon species={selectedPet.species} size={30} className="h-[30px] w-[30px]" />
+            <div className="flex shrink-0 items-center gap-3 border-b border-sand bg-plate px-4 py-3 sm:px-6">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine-800 text-honey">
+                <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={30} className="h-[30px] w-[30px]" />
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-pine-900">{selectedPet.name}</p>
@@ -976,7 +977,7 @@ export default function HealthConsultPage() {
                         clearHistory.mutate(selectedPet.id)
                       }
                     }}
-                    className="inline-flex items-center gap-1 rounded-xl border border-[#eae6d8] bg-plate px-2.5 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-[#b4552f]"
+                    className="inline-flex items-center gap-1 rounded-xl border border-sand bg-plate px-2.5 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:bg-warm hover:text-clay"
                   >
                     <LineIcon name="trash" size={13} />
                     清除紀錄
@@ -988,11 +989,14 @@ export default function HealthConsultPage() {
             {/* 聊天訊息 */}
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {loadingHistory && displayMessages.length === 0 ? (
-                <div className="py-12 text-center text-sm text-ink-soft">載入對話紀錄中...</div>
+                <LoadingState compact label="載入對話紀錄中…" />
               ) : displayMessages.length === 0 ? (
                 <div className="py-10 text-center">
-                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fdf6ea] text-pine-700">
-                    <LineIcon name="paw" size={26} />
+                  <span className="bubble-ai mx-auto inline-block px-3 py-1.5 font-brand text-xs font-extrabold text-pine-900">
+                    有什麼想問的嗎？
+                  </span>
+                  <span className="mt-2 flex justify-center">
+                    <PixelAssistant size={64} />
                   </span>
                   <p className="mt-4 font-bold text-pine-900">開始諮詢 {selectedPet.name} 的健康狀況</p>
                   <p className="mt-1 text-sm text-ink-soft">描述症狀或選擇常見問題快速開始</p>
@@ -1023,15 +1027,13 @@ export default function HealthConsultPage() {
                         className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
                       >
                         {/* 頭像 */}
-                        <div
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                            isUser
-                              ? 'bg-pine-800 text-xs font-bold text-[#fdf8ec]'
-                              : 'bg-pine-50 text-pine-700'
-                          }`}
-                        >
-                          {isUser ? '我' : <LineIcon name="paw" size={16} />}
-                        </div>
+                        {isUser ? (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-800 text-xs font-bold text-warm">
+                            我
+                          </div>
+                        ) : (
+                          <PixelAssistant tile size={34} />
+                        )}
 
                         <div className={`flex max-w-lg flex-col ${isUser ? 'items-end' : 'items-start'}`}>
                           {isEditing && (
@@ -1045,7 +1047,7 @@ export default function HealthConsultPage() {
                                 onKeyDown={e => {
                                   if (e.key === 'Escape') setEditing(null)
                                 }}
-                                className="w-full resize-none rounded-xl border border-[#d5e4ea] bg-[#faf7ef] px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
+                                className="w-full resize-none rounded-xl border border-[#d5e4ea] bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
                               />
                               <p className="mt-1 text-xs text-ink-soft">
                                 送出後，原本的 AI 回覆與相關健康紀錄會被刪除，並依新的問題重新回覆。
@@ -1055,7 +1057,7 @@ export default function HealthConsultPage() {
                                   type="button"
                                   onClick={() => setEditing(null)}
                                   disabled={loading}
-                                  className="rounded-lg border border-[#eae6d8] px-3 py-1.5 text-xs text-ink-soft transition-colors hover:bg-[#faf7ef] disabled:opacity-50"
+                                  className="rounded-lg border border-sand px-3 py-1.5 text-xs text-ink-soft transition-colors hover:bg-cream disabled:opacity-50"
                                 >
                                   取消
                                 </button>
@@ -1063,7 +1065,7 @@ export default function HealthConsultPage() {
                                   type="button"
                                   onClick={submitEdit}
                                   disabled={loading || !editing.text.trim()}
-                                  className="rounded-lg bg-pine-800 px-3 py-1.5 text-xs font-bold text-[#fdf8ec] transition-colors hover:bg-pine-900 disabled:opacity-50"
+                                  className="rounded-lg bg-pine-800 px-3 py-1.5 text-xs font-bold text-warm transition-colors hover:bg-pine-900 disabled:opacity-50"
                                 >
                                   重新送出
                                 </button>
@@ -1073,10 +1075,8 @@ export default function HealthConsultPage() {
 
                           {!isEditing && (
                             <div
-                              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                                isUser
-                                  ? 'rounded-br-sm bg-pine-800 text-[#fdf8ec]'
-                                  : 'rounded-bl-sm border border-[#f3e3cd] bg-plate text-ink'
+                              className={`px-4 py-3 text-sm leading-relaxed ${
+                                isUser ? 'bubble-user' : 'bubble-ai text-ink'
                               }`}
                             >
                               {isUser ? (
@@ -1120,7 +1120,7 @@ export default function HealthConsultPage() {
                                   aria-label="刪除這則提問"
                                   disabled={loading || regeneratingId !== null || deleteQuestion.isPending}
                                   onClick={() => handleDeleteQuestion(msg)}
-                                  className="rounded-md p-1 text-ink-soft transition-colors hover:bg-[#fdf0ec] hover:text-[#b4552f] disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="rounded-md p-1 text-ink-soft transition-colors hover:bg-clay-50 hover:text-clay disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                   <LineIcon name="trash" size={15} />
                                 </button>
@@ -1145,13 +1145,11 @@ export default function HealthConsultPage() {
 
                   {showTyping && (
                     <div className="flex gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-50 text-pine-700">
-                        <LineIcon name="paw" size={16} />
-                      </div>
-                      <div className="rounded-2xl rounded-bl-sm border border-[#f3e3cd] bg-plate px-4 py-3">
+                      <PixelAssistant tile size={34} mood="typing" />
+                      <div className="bubble-ai px-4 py-3">
                         <div className="flex h-5 items-center gap-1.5">
                           {[0, 1, 2].map(i => (
-                            <div key={i} className="h-2 w-2 animate-bounce rounded-full bg-pine-700" style={{ animationDelay: `${i * 0.15}s` }} />
+                            <div key={i} className="h-2 w-2 animate-bounce rounded-[2px] bg-pine-700" style={{ animationDelay: `${i * 0.15}s` }} />
                           ))}
                         </div>
                       </div>
@@ -1163,7 +1161,7 @@ export default function HealthConsultPage() {
             </div>
 
             {/* 輸入區 */}
-            <div className="shrink-0 border-t border-[#eae6d8] bg-plate p-4">
+            <div className="shrink-0 border-t border-sand bg-plate p-4">
               {savedNotice && savedNotice.petId === selectedPet?.id && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-pine-100 bg-pine-50 px-3 py-2 text-xs text-pine-800">
                   <span className="flex items-start gap-1.5">
@@ -1213,13 +1211,13 @@ export default function HealthConsultPage() {
                   placeholder={`描述 ${selectedPet.name} 的症狀或問題...`}
                   rows={2}
                   disabled={loading}
-                  className="min-w-0 flex-1 resize-none rounded-xl border border-[#eae6d8] bg-[#faf7ef] px-4 py-3 text-sm text-ink placeholder:text-ink-soft/60 transition-all focus:border-pine-700/40 focus:bg-plate focus:outline-none disabled:opacity-60"
+                  className="min-w-0 flex-1 resize-none rounded-xl border border-sand bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink-soft/60 transition-all focus:border-pine-700/40 focus:bg-plate focus:outline-none disabled:opacity-60"
                 />
                 <button
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
                   aria-label="送出"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f5c04a] text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-40"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-honey text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-40"
                 >
                   <LineIcon name="send" size={18} />
                 </button>

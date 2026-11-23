@@ -5,6 +5,7 @@
   --font-display: "Saira", "Inter", "Noto Sans TC", system-ui, sans-serif;
   --font-body: "Inter", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --font-brand: "Bricolage Grotesque", "Noto Sans TC", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-pine-50:  #eef3ec;
   --color-pine-100: #dde8dc;
@@ -19,6 +20,43 @@
   --color-ink-soft: #5c665c;
   --color-accent:   #2c5a43;
   --color-amber:    #ffb31f;
+
+  /* ---- 語意色票（取代散落各頁的 [#hex]） ---- */
+  --color-cream:       #faf7ef;  /* 淺底：輸入框、次要區塊 */
+  --color-warm:        #fdf6ea;  /* 暖底：hover、使用者卡片 */
+  --color-hair:        #f1e6d3;  /* 卡片細邊框 */
+  --color-hair-strong: #e6d8bc;  /* 較明顯的分隔線 */
+  --color-lime:        #d3f26a;  /* Kizupi 式重點字螢光方塊 */
+  --color-honey:       #f5c04a;  /* 主要行動色（蜂蜜黃） */
+  --color-honey-hover: #f0b23a;
+  --color-honey-deep:  #c96f2e;  /* 立體按鈕底影 */
+  --color-honey-50:    #fff8e9;
+  --color-honey-100:   #fff3d6;
+  --color-honey-200:   #f0d9b5;
+  --color-honey-ink:   #7a5200;  /* 蜂蜜底上的字 */
+  --color-honey-text:  #a5681c;  /* 內文裡的琥珀色字 */
+  --color-clay:        #b4552f;  /* 警示：字 */
+  --color-clay-50:     #fdf0ec;  /* 警示：底 */
+  --color-clay-200:    #f3c2b8;  /* 警示：邊 */
+  --color-ink-mute:    #6f786e;
+  --color-ink-faint:   #8e978d;
+  --color-ink-body:    #3f4a3f;  /* 內文深字 */
+  --color-ink-ghost:   #b2b8ae;
+  --color-bark:        #6b5637;  /* 說明用的咖啡色字 */
+  --color-pine-200:    #c9d8c7;
+  --color-pine-600:    #3f6b4f;
+  --color-honey-150:   #f5e6c8;
+  --color-honey-300:   #e6c58c;
+  --color-honey-500:   #e8a63a;
+  --color-honey-600:   #c98a1f;
+  --color-honey-brown: #8a5412;
+  --color-clay-700:    #8f3f21;
+
+  /* ---- 陰影與圓角 ---- */
+  --shadow-press: 0 4px 0 #c96f2e;
+  --shadow-card:  0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 16px 32px -24px rgba(87, 54, 17, 0.45);
+  --shadow-lift:  0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 22px 40px -22px rgba(87, 54, 17, 0.5);
+  --radius-card:  24px;
 }
 
 @layer base {
@@ -35,7 +73,7 @@
   /* 全站捲動區塊統一用細滾軸，不顯示上下捲動箭頭 */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
+    scrollbar-color: #e3d6bc transparent;
   }
 
   *::-webkit-scrollbar {
@@ -48,12 +86,12 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
+    background-color: #e3d6bc;
     border-radius: 9999px;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background-color: #9ca3af;
+    background-color: #cdb98f;
   }
 
   *::-webkit-scrollbar-button {
@@ -78,6 +116,15 @@
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+    border-radius: 10px;
+  }
+  ::selection {
+    background: rgba(245, 192, 74, 0.55);
+    color: var(--color-pine-900);
+  }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
   }
 
   /* 隱藏捲軸橫向滑動 */
@@ -177,3 +224,363 @@
 .legacy-skin .hover\:text-red-400:hover     { color: #b4552f; }
 .legacy-skin .hover\:text-gray-500:hover    { color: var(--color-ink-soft); }
 .legacy-skin .focus\:ring-green-400:focus   { --tw-ring-color: rgba(44, 90, 67, 0.35); }
+
+/* ============================================================
+   精緻化層（參考 Kizupi：奶油底、圓潤、一個重點色、重點字螢光筆）
+   ============================================================ */
+
+/* 標題：統一品牌字、略收字距（不動大小與顏色，各頁照舊） */
+.legacy-skin h1,
+.legacy-skin h2 {
+  font-family: var(--font-brand);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+.legacy-skin h3 { letter-spacing: -0.006em; }
+
+/* 重點字螢光方塊（Kizupi 式）：<span className="hl">why</span> */
+.hl {
+  background: var(--color-lime);
+  border-radius: 0.2em;
+  padding: 0.02em 0.14em 0.06em;
+  margin: 0 0.02em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* 小標籤（Kizupi 式編號小標）：<p className="kicker">01 · 今日</p> */
+.kicker {
+  font-family: var(--font-brand);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-honey-text);
+}
+
+/* 頁面進場：每頁最外層輕輕浮起一次 */
+@keyframes pc-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+/* 注意：fill-mode 只用 backwards。若用 both／forwards，動畫結束後仍保留 transform，
+   會讓頁面裡所有 position:fixed 的彈窗改以「頁面」而非「視窗」定位，遮罩只蓋住一半。 */
+.legacy-skin > * { animation: pc-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+/* 卡片 hover 微浮起（只作用在可點擊的卡片連結／group 卡） */
+.card-lift { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.card-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+
+/* 載入骨架 */
+@keyframes pc-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.skeleton {
+  border-radius: 20px;
+  background: linear-gradient(100deg, #f3ead9 30%, #fbf5e8 50%, #f3ead9 70%);
+  background-size: 200% 100%;
+  animation: pc-shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legacy-skin > * { animation: none; }
+  .card-lift:hover { transform: none; }
+  .skeleton { animation: none; }
+}
+
+
+/* ============================================================
+   像素小草地（Kizupi 式像素插畫）
+   ============================================================ */
+.pixel-garden {
+  position: relative;
+  overflow: hidden;
+  height: clamp(156px, 19vw, 220px);
+  background: linear-gradient(#d9ead0 0%, #e8f2da 45%, #f2f6e2 70%, #f6f4ec 100%);
+  image-rendering: pixelated;
+}
+.pixel-garden__scene {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat-x;
+  background-position: center bottom;
+  background-size: auto 100%;
+  image-rendering: pixelated;
+}
+.pixel-garden__sun {
+  position: absolute;
+  right: 19%;
+  top: 9%;
+  height: 24%;
+  aspect-ratio: 1;
+  shape-rendering: crispEdges;
+}
+.pixel-garden__cast {
+  position: absolute;
+  left: 50%;
+  bottom: 5%;
+  height: 27%;
+  aspect-ratio: 40 / 16;
+  transform: translateX(-50%);
+}
+.pixel-garden__cast svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  shape-rendering: crispEdges;
+}
+.pixel-bubble {
+  position: absolute;
+  white-space: nowrap;
+  padding: 5px 10px 6px;
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--color-pine-900);
+  background: #fffdf6;
+  border: 2px solid var(--color-pine-900);
+  border-radius: 10px;
+  box-shadow: 0 2px 0 rgba(24, 48, 31, 0.18);
+}
+.pixel-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  width: 9px;
+  height: 9px;
+  background: #fffdf6;
+  border-right: 2px solid var(--color-pine-900);
+  border-bottom: 2px solid var(--color-pine-900);
+  transform: rotate(45deg);
+}
+.pixel-bubble--l { left: -34%; bottom: calc(100% + 26px); }
+.pixel-bubble--l::after { left: 62%; }
+.pixel-bubble--r { right: -34%; bottom: calc(100% + 6px); }
+.pixel-bubble--r::after { left: 22%; }
+
+@keyframes pc-hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+.pixel-hop { animation: pc-hop 1.3s steps(1, end) infinite; }
+.pixel-hop--late { animation-delay: 0.65s; }
+@media (prefers-reduced-motion: reduce) {
+  .pixel-hop { animation: none; }
+}
+
+
+/* 像素抖色邊：深色面板往下漸漸變疏，接到淺色場景（Kizupi 式） */
+.pixel-dither {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  height: 16px;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'><path fill='%2322432f' d='M0 0h4v1H0z M0 1h1v1H0z M2 1h1v1H2z M1 2h1v1H1z M3 2h1v1H3z M0 3h1v1H0z'/></svg>");
+  background-size: 16px 16px;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+}
+
+
+/* ---- 首屏版：問候與日期疊在場景上，站著使用者自己的毛孩 ---- */
+.pixel-garden--tall { height: clamp(232px, 27vw, 300px); }
+.pixel-garden--tall .pixel-garden__cast { height: 25%; }
+
+.pixel-garden__hero {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: clamp(14px, 2.4vw, 26px) clamp(16px, 2.8vw, 32px);
+  pointer-events: none;
+}
+
+.pixel-garden__cast--pets {
+  z-index: 2;
+  width: max-content;
+  max-width: 96%;
+  aspect-ratio: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(10px, 2.4vw, 24px);
+}
+.pixel-pet {
+  position: relative;
+  display: block;
+  height: 100%;
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: 8px;
+  outline-offset: 6px;
+}
+.pixel-pet > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  shape-rendering: crispEdges;
+  transition: transform 0.15s steps(2, end);
+}
+.pixel-pet:hover > svg,
+.pixel-pet:focus-visible > svg { transform: translateY(-8%); animation: none; }
+.pixel-pet:hover .pixel-bubble,
+.pixel-pet:focus-visible .pixel-bubble { background: var(--color-lime); }
+.pixel-pet:hover .pixel-bubble::after,
+.pixel-pet:focus-visible .pixel-bubble::after { background: var(--color-lime); }
+
+.pixel-bubble--pet {
+  left: 50%;
+  bottom: calc(100% + 6px);
+  max-width: 13em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  transition: background 0.15s ease;
+}
+.pixel-bubble--pet::after { left: calc(50% - 5px); }
+.pixel-bubble--pet.is-high { bottom: calc(100% + 32px); }
+.pixel-bubble--pet.is-higher { bottom: calc(100% + 58px); }
+
+.pixel-more {
+  align-self: center;
+  padding: 3px 9px;
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-pine-900);
+  background: #fffdf6;
+  border: 2px solid var(--color-pine-900);
+  border-radius: 999px;
+}
+.pixel-more:hover { background: var(--color-lime); }
+
+/* 寵物的跳動：以自身高度的百分比位移（頭像大小不一時也一致） */
+@keyframes pc-hop-pet {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5%); }
+}
+.pixel-pet > svg.pixel-hop { animation: pc-hop-pet 1.3s steps(1, end) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pixel-pet > svg.pixel-hop { animation: none; }
+}
+
+
+/* ============================================================
+   深綠功能區、編號列表、FAQ（Kizupi 式）
+   ============================================================ */
+.forest-band { position: relative; overflow: hidden; }
+.forest-band::before,
+.forest-band::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'><path fill='%232c5a43' d='M0 0h4v1H0z M0 1h1v1H0z M2 1h1v1H2z M1 2h1v1H1z M3 2h1v1H3z M0 3h1v1H0z'/></svg>");
+  background-size: 16px 16px;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.forest-band::before { top: 0; }
+.forest-band::after { bottom: 0; transform: scaleY(-1); }
+
+.btn-lime {
+  box-shadow: 0 3px 0 #9fc23a;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+.btn-lime:hover { background-color: #e0f58a; }
+.btn-lime:active { transform: translateY(3px); box-shadow: none; }
+
+.faq-item > summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.faq-item > summary::-webkit-details-marker { display: none; }
+.faq-item > summary:hover .faq-plus::before,
+.faq-item > summary:hover .faq-plus::after { background: var(--color-honey-deep); }
+.faq-plus { position: relative; flex: none; width: 14px; height: 14px; }
+.faq-plus::before,
+.faq-plus::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-pine-900);
+  transition: transform 0.2s ease, background-color 0.15s ease;
+}
+.faq-plus::after { transform: rotate(90deg); }
+.faq-item[open] .faq-plus::after { transform: rotate(0deg); }
+.faq-body {
+  padding: 0 30px 20px 40px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--color-ink-soft);
+}
+.faq-body a { color: var(--color-pine-700); text-decoration: underline; text-underline-offset: 3px; }
+
+
+/* PetCam 等頁面用的精簡版首屏，以及「不在鏡頭裡」時變淡的角色 */
+.pixel-garden--compact { height: clamp(196px, 23vw, 244px); }
+.pixel-garden--compact .pixel-garden__cast { height: 26%; }
+.pixel-pet.is-dim > svg { opacity: 0.4; filter: grayscale(0.7); }
+.pixel-pet--static { cursor: default; }
+
+
+/* ============================================================
+   像素小助理與對話氣泡（Kizupi 式）
+   ============================================================ */
+.pa { display: block; }
+.pa--idle { animation: pa-bob 1.8s steps(1, end) infinite; }
+.pa--typing { animation: pa-bob 0.5s steps(1, end) infinite; }
+@keyframes pa-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6%); }
+}
+/* 眨眼：大多數時間睜眼，偶爾閉一下 */
+.pa-open { animation: pa-open 4.2s steps(1, end) infinite; }
+.pa-closed { animation: pa-closed 4.2s steps(1, end) infinite; }
+@keyframes pa-open { 0%, 93%, 100% { opacity: 1; } 94%, 98% { opacity: 0; } }
+@keyframes pa-closed { 0%, 93%, 100% { opacity: 0; } 94%, 98% { opacity: 1; } }
+
+.pa-tile {
+  background: var(--color-honey-100);
+  box-shadow: inset 0 0 0 2px rgba(24, 48, 31, 0.1);
+}
+
+/* 助理氣泡：奶油底 + 深色粗邊 + 小圓角（左下尖角） */
+.bubble-ai {
+  background: #fffdf6;
+  border: 2px solid var(--color-pine-900);
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 2px 0 rgba(24, 48, 31, 0.16);
+}
+.bubble-ai--error {
+  background: var(--color-clay-50);
+  border-color: var(--color-clay);
+}
+/* 使用者氣泡：荧光綠方塊（右下尖角） */
+.bubble-user {
+  background: var(--color-lime);
+  color: var(--color-pine-900);
+  border: 2px solid var(--color-pine-900);
+  border-radius: 16px 16px 4px 16px;
+  box-shadow: 0 2px 0 rgba(24, 48, 31, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa--idle, .pa--typing, .pa-open, .pa-closed { animation: none; }
+  .pa-closed { opacity: 0; }
+}

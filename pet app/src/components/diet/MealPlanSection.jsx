@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import PixelIcon from '../brand/PixelIcon'
+import EmptyState from '../ui/EmptyState'
+import { foodKind, KIND_TILE } from './foodKind'
 
 // ======================================================
 // 今日飲食計畫（精簡版）
@@ -87,22 +90,22 @@ export default function MealPlanSection({
   const infoNotices = otherNotices.filter(n => n.level !== 'warning')
 
   return (
-    <div className="rounded-3xl border border-[#f3e3cd] bg-plate p-5">
+    <div className="rounded-3xl border border-hair shadow-card bg-plate p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-pine-900">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff3d6] text-[#c96f2e]">
-              <LineIcon name="plate" size={17} />
+          <h2 className="flex items-center gap-2.5 font-brand text-lg font-extrabold text-pine-900">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-honey-100">
+              <PixelIcon name="dry" size={26} />
             </span>
-            今天要餵什麼？
+            <span>今天要<span className="hl">餵什麼</span>？</span>
           </h2>
           {plan?.today?.remainingKcal != null && !plan?.overBudget && (
             <p className="mt-1 text-[11px] font-medium text-ink-soft">
-              今天還可以吃：約 {formatKcal(plan.today.remainingKcal)} kcal
+              今天還可以吃：約 <span className="font-mono font-bold tabular-nums text-pine-800">{formatKcal(plan.today.remainingKcal)}</span> kcal
             </p>
           )}
           {plan?.overBudget && (
-            <p className="mt-1 text-[11px] font-bold text-[#a5681c]">
+            <p className="mt-1 text-[11px] font-bold text-honey-text">
               今天已達建議上限，剩餘餐次建議跳過
             </p>
           )}
@@ -131,7 +134,7 @@ export default function MealPlanSection({
       {isLoading && (
         <div className="space-y-2">
           {[0, 1, 2].map(i => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-[#faf7ef]" />
+            <div key={i} className="skeleton h-16" />
           ))}
         </div>
       )}
@@ -165,15 +168,15 @@ export default function MealPlanSection({
             <button
               type="button"
               onClick={() => onOpenHealthDetails?.()}
-              className="mb-3 flex w-full items-center gap-2.5 rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] px-3 py-2.5 text-left transition-colors hover:bg-[#fdf0d9]"
+              className="mb-3 flex w-full items-center gap-2.5 rounded-2xl border border-honey-200 bg-honey-50 px-3 py-2.5 text-left transition-colors hover:bg-honey-50"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-plate text-[#c96f2e]">
-                <LineIcon name="stethoscope" size={17} />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-plate">
+                <PixelIcon name="heart" size={24} />
               </span>
-              <span className="flex-1 text-xs font-bold text-[#7a5200]">
+              <span className="flex-1 text-xs font-bold text-honey-ink">
                 有 {healthCount} 則健康注意事項影響這份計畫
               </span>
-              <span className="shrink-0 text-xs font-bold text-[#a5681c]">點擊查看 →</span>
+              <span className="shrink-0 text-xs font-bold text-honey-text">點擊查看 →</span>
             </button>
           )}
 
@@ -182,7 +185,7 @@ export default function MealPlanSection({
               {warningNotices.map((notice, index) => (
                 <p
                   key={index}
-                  className="flex items-start gap-1.5 rounded-xl bg-[#fff8e9] px-3 py-2 text-xs leading-relaxed text-[#7a5200]"
+                  className="flex items-start gap-1.5 rounded-xl bg-honey-50 px-3 py-2 text-xs leading-relaxed text-honey-ink"
                 >
                   <LineIcon name="alert" size={13} className="mt-0.5" />
                   {notice.text}
@@ -193,12 +196,10 @@ export default function MealPlanSection({
 
           <div className="space-y-2.5">
             {plan.meals.length === 0 && (
-              <p className="py-6 text-center text-sm text-ink-soft">
-                目前沒有可推薦的餐次，請手動新增或調整計畫設定。
-              </p>
+              <EmptyState compact icon="dry" title="目前沒有可推薦的餐次" desc="請手動新增或調整計畫設定。" />
             )}
 
-            {plan.meals.map(meal => {
+            {plan.meals.map((meal, mealIndex) => {
               const index = choice[meal.key] ?? 0
               const option = meal.options[index]
               const isFeeding = feedingKey === meal.key
@@ -206,22 +207,25 @@ export default function MealPlanSection({
               return (
                 <div
                   key={meal.key}
-                  className={`rounded-2xl border p-3.5 ${
+                  className={`rounded-2xl border p-4 ${
                     meal.logged
                       ? 'border-pine-100 bg-pine-50/60'
-                      : 'border-[#eae6d8] bg-[#faf7ef]'
+                      : 'border-hair bg-cream'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="flex items-center gap-2 text-sm font-bold text-pine-900">
+                    <p className="flex items-center gap-2.5 text-sm font-bold text-pine-900">
+                      <span className="w-5 font-mono text-[11px] font-bold tabular-nums text-honey-deep">
+                        {String(mealIndex + 1).padStart(2, '0')}
+                      </span>
                       <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-plate text-pine-700">
                         <LineIcon name={meal.key} size={17} />
                       </span>
-                      {meal.label}
-                      <span className="text-xs font-medium text-ink-soft">{meal.time}</span>
+                      <span className="font-brand text-[15px] font-extrabold">{meal.label}</span>
+                      <span className="font-mono text-xs font-medium tabular-nums text-ink-soft">{meal.time}</span>
                     </p>
                     {meal.logged && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-pine-100 px-2 py-0.5 text-[11px] font-bold text-pine-700">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-lime px-2 py-0.5 text-[11px] font-bold text-pine-900">
                         <LineIcon name="check" size={12} />
                         已記錄
                       </span>
@@ -229,20 +233,30 @@ export default function MealPlanSection({
                   </div>
 
                   {meal.skip ? (
-                    <p className="mt-2 flex items-start gap-1.5 rounded-xl border border-[#f0d9b5] bg-[#fff8e9] px-3 py-2.5 text-xs leading-relaxed text-[#7a5200]">
+                    <p className="mt-2 flex items-start gap-1.5 rounded-xl border border-honey-200 bg-honey-50 px-3 py-2.5 text-xs leading-relaxed text-honey-ink">
                       <LineIcon name="alert" size={14} className="mt-0.5" />
                       今天已達建議熱量上限，這餐建議跳過；如需餵食，只給極少量清淡食物。
                     </p>
                   ) : !option ? (
                     <p className="mt-2 text-xs text-ink-soft">目前沒有適合的食物。</p>
                   ) : (
-                    <div className="mt-2.5">
+                    <div className="mt-3 flex items-start gap-3">
+                     <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${KIND_TILE[foodKind(option.name)]}`}>
+                       <PixelIcon name={foodKind(option.name)} size={34} />
+                     </span>
+                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                         <span className="text-sm font-bold text-pine-900">{option.name}</span>
                         <span className="text-xs text-ink-soft">
-                          {option.amountG
-                            ? `${option.amountG} g · ${formatKcal(option.kcal)} kcal`
-                            : '份量請依包裝建議'}
+                          {option.amountG ? (
+                            <>
+                              <span className="font-mono font-bold tabular-nums text-pine-800">{option.amountG} g</span>
+                              {' · '}
+                              <span className="font-mono tabular-nums">{formatKcal(option.kcal)} kcal</span>
+                            </>
+                          ) : (
+                            '份量請依包裝建議'
+                          )}
                         </span>
                         {option.fixed && (
                           <span className="rounded-full bg-pine-50 px-1.5 py-0.5 text-[10px] font-bold text-pine-700">固定</span>
@@ -256,7 +270,7 @@ export default function MealPlanSection({
                       {option.warnings.length > 0 && (
                         <div className="mt-1.5 space-y-0.5">
                           {option.warnings.map(w => (
-                            <p key={w.title} className="flex items-start gap-1 text-xs text-[#a5681c]">
+                            <p key={w.title} className="flex items-start gap-1 text-xs text-honey-text">
                               <LineIcon name="alert" size={12} className="mt-0.5" />
                               {w.title}
                             </p>
@@ -270,7 +284,7 @@ export default function MealPlanSection({
                             type="button"
                             onClick={() => onFeedMeal(meal, option)}
                             disabled={!option.amountG || isFeeding}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#f5c04a] px-4 py-2 text-xs font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-honey px-4 py-2 text-xs font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
                           >
                             <LineIcon name="check" size={14} />
                             {isFeeding ? '記錄中…' : option.amountG ? '餵食並記錄' : '請先設定份量'}
@@ -300,6 +314,7 @@ export default function MealPlanSection({
                           這一餐已建立紀錄，可在下方修改，不會重複新增。
                         </p>
                       )}
+                     </div>
                     </div>
                   )}
                 </div>

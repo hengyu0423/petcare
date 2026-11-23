@@ -15,11 +15,11 @@ const HEALTH_SEVERITY = {
   },
   urgent: {
     label: '建議儘快就醫',
-    className: 'bg-[#fff8e9] text-[#a5681c] border-[#f0d9b5]'
+    className: 'bg-honey-50 text-honey-text border-honey-200'
   },
   emergency: {
     label: '緊急',
-    className: 'bg-[#fdf0ec] text-[#b4552f] border-[#f3c2b8]'
+    className: 'bg-clay-50 text-clay border-clay-200'
   }
 }
 
@@ -72,24 +72,24 @@ export default function HealthReminderModal({
       aria-label="健康提醒"
     >
       <div
-        className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl border border-[#f0e6d2] bg-plate shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)] sm:max-w-lg sm:rounded-3xl"
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl border border-hair bg-plate shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)] sm:max-w-lg sm:rounded-3xl"
         onClick={event => event.stopPropagation()}
       >
         {/* 標題列 */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#f0e6d2] bg-plate px-5 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-hair bg-plate px-5 py-4">
           <p className="flex items-center gap-2 text-sm font-bold text-pine-900">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff3d6] text-[#c96f2e]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-honey-100 text-honey-deep">
               <LineIcon name="stethoscope" size={17} />
             </span>
             健康提醒
-            <span className="rounded-full bg-[#fff3d6] px-2 py-0.5 text-xs font-bold text-[#a5681c]">
+            <span className="rounded-full bg-honey-100 px-2 py-0.5 text-xs font-bold text-honey-text">
               {healthCount}
             </span>
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
             aria-label="關閉"
           >
             <LineIcon name="close" size={16} />
@@ -103,7 +103,7 @@ export default function HealthReminderModal({
             const severity = HEALTH_SEVERITY[event.severity]
 
             return (
-              <div key={event.id} className="rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] p-3.5">
+              <div key={event.id} className="rounded-2xl border border-honey-200 bg-honey-50 p-3.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold text-pine-900">{event.title}</span>
                   {severity && (
@@ -112,7 +112,7 @@ export default function HealthReminderModal({
                     </span>
                   )}
                   <span className="text-xs text-ink-soft/80">{event.date_str}</span>
-                  <span className="rounded-full bg-plate px-2 py-0.5 text-xs font-semibold text-[#a5681c]">
+                  <span className="rounded-full bg-plate px-2 py-0.5 text-xs font-semibold text-honey-text">
                     {event.is_active ? `注意至 ${event.diet_until_str}` : '已過注意期'}
                   </span>
                 </div>
@@ -130,7 +130,7 @@ export default function HealthReminderModal({
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-semibold text-ink-soft">應避免：</span>
                     {info.avoidFoods.map(food => (
-                      <span key={food} className="rounded-full border border-[#f3c2b8] bg-[#fdf0ec] px-2 py-0.5 text-xs font-semibold text-[#b4552f]">
+                      <span key={food} className="rounded-full border border-clay-200 bg-clay-50 px-2 py-0.5 text-xs font-semibold text-clay">
                         {food}
                       </span>
                     ))}
@@ -158,17 +158,17 @@ export default function HealthReminderModal({
                   key={alert.id}
                   className={`rounded-2xl border p-3.5 ${
                     alert.level === 'warning'
-                      ? 'border-[#f0d9b5] bg-[#fff8e9]'
-                      : 'border-[#eae6d8] bg-[#faf7ef]'
+                      ? 'border-honey-200 bg-honey-50'
+                      : 'border-sand bg-cream'
                   }`}
                 >
                   <p className="flex items-center gap-1.5 text-sm font-bold text-pine-900">
-                    <LineIcon name={alert.level === 'warning' ? 'alert' : 'bulb'} size={15} className={alert.level === 'warning' ? 'text-[#c96f2e]' : 'text-pine-700'} />
+                    <LineIcon name={alert.level === 'warning' ? 'alert' : 'bulb'} size={15} className={alert.level === 'warning' ? 'text-honey-deep' : 'text-pine-700'} />
                     {alert.title}
                   </p>
                   <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">{alert.message}</p>
                   {alert.suggestion && (
-                    <p className="mt-2 text-xs leading-relaxed text-[#a5681c]">建議：{alert.suggestion}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-honey-text">建議：{alert.suggestion}</p>
                   )}
                 </div>
               ))}
@@ -176,7 +176,7 @@ export default function HealthReminderModal({
           )}
 
           {activeHealthEvents.length === 0 && (
-            <p className="rounded-xl bg-[#faf7ef] px-3 py-3 text-sm text-ink-soft">
+            <p className="rounded-xl bg-cream px-3 py-3 text-sm text-ink-soft">
               目前沒有注意期內的健康事件
             </p>
           )}
@@ -197,7 +197,7 @@ export default function HealthReminderModal({
               {showPastHealthEvents && (
                 <div className="mt-2 space-y-2">
                   {pastHealthEvents.map(event => (
-                    <div key={event.id} className="rounded-xl border border-[#eae6d8] bg-[#faf7ef] p-3 opacity-80">
+                    <div key={event.id} className="rounded-xl border border-sand bg-cream p-3 opacity-80">
                       <p className="text-sm font-semibold text-pine-800">
                         {event.title}
                         <span className="ml-2 text-xs font-medium text-ink-soft/80">
@@ -214,10 +214,10 @@ export default function HealthReminderModal({
           <p className="pt-1 text-xs text-ink-soft/80">AI 記錄僅供參考，不能取代獸醫診斷。</p>
 
           <div className="flex flex-wrap gap-4 pb-1">
-            <Link to="/health-consult" onClick={onClose} className="text-xs font-bold text-pine-700 hover:text-[#c96f2e]">
+            <Link to="/health-consult" onClick={onClose} className="text-xs font-bold text-pine-700 hover:text-honey-deep">
               健康諮詢 →
             </Link>
-            <Link to="/weekly-report" onClick={onClose} className="text-xs font-bold text-pine-700 hover:text-[#c96f2e]">
+            <Link to="/weekly-report" onClick={onClose} className="text-xs font-bold text-pine-700 hover:text-honey-deep">
               健康週報 →
             </Link>
           </div>

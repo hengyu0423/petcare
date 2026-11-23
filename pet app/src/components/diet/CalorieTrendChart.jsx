@@ -1,3 +1,5 @@
+import EmptyState from '../ui/EmptyState'
+
 // ======================================================
 // 一週熱量趨勢（折線圖）
 //
@@ -9,6 +11,18 @@
 const WIDTH = 660
 const HEIGHT = 240
 const PAD = { top: 18, right: 16, bottom: 34, left: 52 }
+
+// 圖表色（SVG 屬性不能用 Tailwind 類別，這裡對應全站色票）
+const C = {
+  grid: '#f1e6d3',      // hair
+  axis: '#6f786e',      // ink-mute
+  ink: '#18301f',       // pine-900
+  line: '#2c5a43',      // pine-700
+  band: '#d3f26a',      // lime
+  bandEdge: '#b6d84a',
+  dot: '#fffdf6',       // plate
+  missing: '#b2b8ae'    // ink-ghost
+}
 
 const STATUS_COLOR = {
   under: '#c96f2e',
@@ -33,11 +47,7 @@ export default function CalorieTrendChart({
   onSelectDate
 }) {
   if (days.length === 0) {
-    return (
-      <div className="py-16 text-center text-sm text-ink-soft">
-        目前沒有可顯示的趨勢資料。
-      </div>
-    )
+    return <EmptyState compact icon="chart" title="目前沒有可顯示的趨勢資料" />
   }
 
   const values = days.flatMap(day =>
@@ -105,6 +115,7 @@ export default function CalorieTrendChart({
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="w-full min-w-[560px]"
+          style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
           role="img"
           aria-label="一週熱量趨勢圖"
         >
@@ -121,7 +132,7 @@ export default function CalorieTrendChart({
                   y1={yy}
                   x2={WIDTH - PAD.right}
                   y2={yy}
-                  stroke="#f1ede2"
+                  stroke={C.grid}
                   strokeWidth="1"
                 />
                 <text
@@ -129,7 +140,7 @@ export default function CalorieTrendChart({
                   y={yy + 3}
                   textAnchor="end"
                   fontSize="9"
-                  fill="#8e978d"
+                  fill={C.axis}
                 >
                   {value.toLocaleString('zh-TW')}
                 </text>
@@ -152,11 +163,21 @@ export default function CalorieTrendChart({
               <polygon
                 key={`range-${runIndex}`}
                 points={`${top} ${bottom}`}
-                fill="#dde8dc"
-                opacity="0.8"
+                fill={C.band}
+                opacity="0.5"
               />
             )
           })}
+
+          {/* 色帶上下緣 */}
+          {rangeRuns.map((run, runIndex) =>
+            run.length > 1 ? (
+              <g key={`edge-${runIndex}`} fill="none" stroke={C.bandEdge} strokeWidth="1.5" strokeLinejoin="round">
+                <polyline points={run.map(day => `${x(day.index)},${y(day.maxKcal)}`).join(' ')} />
+                <polyline points={run.map(day => `${x(day.index)},${y(day.minKcal)}`).join(' ')} />
+              </g>
+            ) : null
+          )}
 
           {/* 只有一天有範圍時，色帶太窄，補一條短線 */}
           {rangeRuns.map((run, runIndex) =>
@@ -167,23 +188,22 @@ export default function CalorieTrendChart({
                 y1={y(run[0].maxKcal)}
                 x2={x(run[0].index) + 7}
                 y2={y(run[0].maxKcal)}
-                stroke="#b8d0bb"
-                strokeWidth="2"
+                stroke={C.bandEdge}
+                strokeWidth="3"
               />
             ) : null
           )}
 
-          {/* 選取日期 */}
+          {/* 選取日期：荧光綠欄 */}
           {selectedIndex >= 0 && (
-            <line
-              x1={x(selectedIndex)}
-              y1={PAD.top}
-              x2={x(selectedIndex)}
-              y2={HEIGHT - PAD.bottom}
-              stroke="#2c5a43"
-              strokeDasharray="4 4"
-              strokeWidth="1"
-              opacity="0.45"
+            <rect
+              x={x(selectedIndex) - 16}
+              y={PAD.top}
+              width="32"
+              height={HEIGHT - PAD.top - PAD.bottom}
+              rx="8"
+              fill={C.band}
+              opacity="0.3"
             />
           )}
 
@@ -200,8 +220,8 @@ export default function CalorieTrendChart({
                 key={`line-${runIndex}`}
                 points={points}
                 fill="none"
-                stroke="#2c5a43"
-                strokeWidth="2.5"
+                stroke={C.line}
+                strokeWidth="3"
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
@@ -218,28 +238,29 @@ export default function CalorieTrendChart({
                 onClick={() => onSelectDate?.(day.date)}
                 className="cursor-pointer"
               >
-                <circle
-                  cx={x(index)}
-                  cy={y(day.actualKcal)}
-                  r="5"
-                  fill="#fffdf6"
-                  stroke={STATUS_COLOR[day.status] || '#2c5a43'}
+                <rect
+                  x={x(index) - 5}
+                  y={y(day.actualKcal) - 5}
+                  width="10"
+                  height="10"
+                  fill={C.dot}
+                  stroke={STATUS_COLOR[day.status] || C.line}
                   strokeWidth="2.5"
+                  shapeRendering="crispEdges"
                 >
                   <title>
-                    {day.date}：{Math.round(day.actualKcal)} kcal
-                    {day.minKcal !== null
-                      ? `（建議 ${day.minKcal}–${day.maxKcal}）`
-                      : ''}
+                    {`${day.date}：${Math.round(day.actualKcal)} kcal${
+                      day.minKcal !== null ? `（建議 ${day.minKcal}–${day.maxKcal}）` : ''
+                    }`}
                   </title>
-                </circle>
+                </rect>
                 <text
                   x={x(index)}
                   y={y(day.actualKcal) - 10}
                   textAnchor="middle"
                   fontSize="9.5"
-                  fontWeight="600"
-                  fill="#1e241f"
+                  fontWeight="700"
+                  fill={C.ink}
                 >
                   {Math.round(day.actualKcal)}
                 </text>
@@ -256,46 +277,51 @@ export default function CalorieTrendChart({
                 y={HEIGHT - PAD.bottom - 6}
                 textAnchor="middle"
                 fontSize="9"
-                fill="#ddd8c8"
+                fill={C.missing}
               >
                 無紀錄
               </text>
             ) : null
           )}
 
-          {/* X 軸日期 */}
-          {days.map((day, index) => (
-            <text
-              key={`x-${day.date}`}
-              x={x(index)}
-              y={HEIGHT - 12}
-              textAnchor="middle"
-              fontSize="9.5"
-              fontWeight={day.date === selectedDate ? '700' : '400'}
-              fill={day.date === selectedDate ? '#2c5a43' : '#8e978d'}
-              onClick={() => onSelectDate?.(day.date)}
-              className="cursor-pointer"
-            >
-              {shortDate(day.date)}
-            </text>
-          ))}
+          {/* X 軸日期：選取的那天有荧光綠底 */}
+          {days.map((day, index) => {
+            const selected = day.date === selectedDate
+            return (
+              <g key={`x-${day.date}`} onClick={() => onSelectDate?.(day.date)} className="cursor-pointer">
+                {selected && (
+                  <rect x={x(index) - 21} y={HEIGHT - 25} width="42" height="17" rx="5" fill={C.band} />
+                )}
+                <text
+                  x={x(index)}
+                  y={HEIGHT - 12}
+                  textAnchor="middle"
+                  fontSize="9.5"
+                  fontWeight={selected ? '700' : '400'}
+                  fill={selected ? C.ink : C.axis}
+                >
+                  {shortDate(day.date)}
+                </text>
+              </g>
+            )
+          })}
 
         </svg>
       </div>
 
       <div className="flex flex-wrap items-center gap-4 text-[11px] text-ink-soft mt-2 px-1">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-4 h-0.5 bg-[#2c5a43] rounded-full" />
+          <span className="h-0.5 w-4 rounded-full bg-pine-700" />
           實際攝取
         </span>
 
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-4 h-2.5 bg-green-100 border border-green-200 rounded-sm" />
+          <span className="h-2.5 w-4 rounded-sm border border-lime bg-lime/50" />
           建議範圍（最低～最高）
         </span>
 
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-line" />
+          <span className="h-2 w-2 bg-hair-strong" />
           沒有紀錄（不視為 0）
         </span>
       </div>

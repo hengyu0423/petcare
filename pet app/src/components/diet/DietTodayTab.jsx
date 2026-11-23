@@ -1,3 +1,6 @@
+import PixelIcon from '../brand/PixelIcon'
+import EmptyState from '../ui/EmptyState'
+import { foodKind, KIND_TILE } from './foodKind'
 import { useState } from 'react'
 import NutritionOverview from './NutritionOverview'
 import MealPlanSection from './MealPlanSection'
@@ -52,12 +55,6 @@ function LineIcon({ name, size = 18, className = '' }) {
       {ICON[name] || ICON.plate}
     </svg>
   )
-}
-
-const foodIcon = name => {
-  if (name?.includes('乾')) return 'bowl'
-  if (name?.includes('罐') || name?.includes('濕')) return 'can'
-  return 'meat'
 }
 
 export default function DietTodayTab({
@@ -123,19 +120,19 @@ export default function DietTodayTab({
           feedingKey={feedingKey}
         />
       ) : (
-        <div className="rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] p-4">
-          <p className="text-sm font-bold text-[#7a5200]">
+        <div className="rounded-2xl border border-honey-200 bg-honey-50 p-4">
+          <p className="text-sm font-bold text-honey-ink">
             正在查看 {dateLabel} 的飲食紀錄
           </p>
-          <p className="mt-1 text-xs text-[#a5681c]">
+          <p className="mt-1 text-xs text-honey-text">
             每日餵食計畫只會顯示今天；切回今天即可編輯或依計畫餵食。
           </p>
         </div>
       )}
 
       {/* 當日餵食紀錄 */}
-      <div className="overflow-hidden rounded-3xl border border-[#f3e3cd] bg-plate">
-        <div className="flex items-center justify-between gap-2 border-b border-[#f3ead9] px-5 py-4">
+      <div className="overflow-hidden rounded-3xl border border-hair shadow-card bg-plate">
+        <div className="flex items-center justify-between gap-2 border-b border-hair px-5 py-4">
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-pine-900">
               {dateLabel}餵食紀錄
@@ -149,7 +146,7 @@ export default function DietTodayTab({
             <button
               type="button"
               onClick={onOpenAdd}
-              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[#e8d9bd] bg-plate px-3 py-1.5 text-xs font-bold text-pine-800 transition-colors hover:bg-[#fdf6ea]"
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-hair-strong bg-plate px-3 py-1.5 text-xs font-bold text-pine-800 transition-colors hover:bg-warm"
             >
               <LineIcon name="plus" size={13} />
               新增
@@ -158,30 +155,23 @@ export default function DietTodayTab({
         </div>
 
         {records.length === 0 ? (
-          <div className="py-14 text-center">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#faf7ef] text-pine-700">
-              <LineIcon name="plate" size={24} />
-            </span>
-            <p className="mt-3 text-sm text-ink-soft">這天還沒有餵食紀錄</p>
-            {selectedDate === today && (
-              <button
-                onClick={onOpenAdd}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#f5c04a] px-5 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none"
-              >
-                <LineIcon name="plus" size={14} />
-                新增第一筆
-              </button>
-            )}
+          <div className="p-4 sm:p-5">
+            <EmptyState
+              compact
+              icon="dry"
+              title="這天還沒有餵食紀錄"
+              action={selectedDate === today ? { label: '新增第一筆', onClick: onOpenAdd } : undefined}
+            />
           </div>
         ) : (
-          <div className="divide-y divide-[#f7f3e9]">
+          <div className="divide-y divide-hair">
             {records.map(record => (
               <div
                 key={record.id}
-                className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-[#faf7ef] sm:px-5"
+                className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-cream sm:px-5"
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine-50 text-pine-700">
-                  <LineIcon name={foodIcon(record.food_name)} size={19} />
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${KIND_TILE[foodKind(record.food_name)]}`}>
+                  <PixelIcon name={foodKind(record.food_name)} size={30} />
                 </span>
 
                 <div className="min-w-0 flex-1">
@@ -190,7 +180,7 @@ export default function DietTodayTab({
                       {record.food_name}
                     </p>
                     {record.meal_type && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#faf7ef] px-2 py-0.5 text-[10px] font-semibold text-ink-soft">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-cream px-2 py-0.5 text-[10px] font-semibold text-ink-soft">
                         <LineIcon name={record.meal_type} size={12} />
                         {MEAL_LABEL[record.meal_type] || '自訂餐次'}
                       </span>
@@ -208,8 +198,11 @@ export default function DietTodayTab({
                 </div>
 
                 {record.calories && (
-                  <p className="shrink-0 text-sm font-extrabold tabular-nums text-pine-800">
-                    {Number(record.calories).toFixed(0)} kcal
+                  <p className="shrink-0 whitespace-nowrap text-right">
+                    <span className="font-brand text-base font-extrabold tabular-nums text-pine-900">
+                      {Number(record.calories).toFixed(0)}
+                    </span>
+                    <span className="ml-1 font-mono text-[10px] text-ink-mute">kcal</span>
                   </p>
                 )}
 
@@ -232,7 +225,7 @@ export default function DietTodayTab({
                   }}
                   title="刪除"
                   aria-label="刪除"
-                  className="shrink-0 rounded-lg p-1.5 text-ink-soft/50 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f]"
+                  className="shrink-0 rounded-lg p-1.5 text-ink-soft/50 transition-colors hover:bg-clay-50 hover:text-clay"
                 >
                   <LineIcon name="trash" size={16} />
                 </button>

@@ -1,3 +1,6 @@
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
+import LoadingState from '../components/ui/LoadingState'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -42,14 +45,14 @@ function LineIcon({ name, size = 16 }) {
   )
 }
 
-const cardCls = 'min-w-0 rounded-3xl border border-[#f3e3cd] bg-plate p-4 sm:p-5'
+const cardCls = 'min-w-0 rounded-3xl border border-hair bg-plate p-4 sm:p-5'
 const sectionTitle = 'mb-4 text-base font-bold text-pine-900'
 const axisTick = { fontSize: 11, fill: '#8e978d' }
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-[#f0e6d2] bg-plate px-3.5 py-2.5 text-xs shadow-[0_12px_24px_-16px_rgba(87,54,17,0.5)]">
+    <div className="rounded-xl border border-hair bg-plate px-3.5 py-2.5 text-xs shadow-[0_12px_24px_-16px_rgba(87,54,17,0.5)]">
       {label && <p className="mb-1 font-bold text-pine-900">{label}</p>}
       {payload.map((p, i) => (
         <p key={i} className="font-semibold tabular-nums" style={{ color: p.color }}>
@@ -120,39 +123,22 @@ export default function ExpenseReportPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-3 sm:mb-8 sm:gap-4">
-        <Link
-          to="/expenses"
-          aria-label="返回财务管理"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#eae6d8] bg-plate text-pine-700 transition-colors hover:bg-[#fdf6ea]"
-        >
-          <LineIcon name="back" size={18} />
-        </Link>
-        <div className="min-w-0">
-          <h1 className="font-brand text-2xl font-extrabold text-pine-900 sm:text-3xl">支出報表</h1>
-          <p className="mt-0.5 text-sm text-ink-soft">所有寵物的財務統計總覽</p>
-        </div>
-      </div>
+      <PageHeader
+        back={{ to: '/expenses', label: '返回財務管理' }}
+        title="支出"
+        accent="報表"
+        subtitle="所有寵物的財務統計總覽"
+      />
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-32">
-          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-pine-100 border-t-pine-700" aria-label="載入中" />
-        </div>
+        <LoadingState label="載入報表中…" />
       ) : summary.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-[#e8d9bd] bg-[#faf7ef] px-4 py-20 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-plate text-pine-700">
-            <LineIcon name="chart" size={26} />
-          </span>
-          <p className="mt-3 text-sm font-bold text-pine-900">還沒有支出資料</p>
-          <p className="mt-1 text-xs text-ink-soft">先去記錄一些寵物花費吧！</p>
-          <Link
-            to="/expenses"
-            className="mt-5 inline-block rounded-xl bg-[#f5c04a] px-5 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none"
-          >
-            前往新增支出
-          </Link>
-        </div>
+        <EmptyState
+          icon="chart"
+          title="還沒有支出資料"
+          desc="先去記錄一些寵物花費吧！"
+          action={{ label: '前往新增支出', to: '/expenses' }}
+        />
       ) : (
         <div className="space-y-5">
           {/* 統計卡片 */}
@@ -165,7 +151,7 @@ export default function ExpenseReportPage() {
             ].map((card, i) => (
               <div key={card.label} className={cardCls}>
                 <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${i % 2 === 0 ? 'bg-[#fff3d6] text-[#c96f2e]' : 'bg-pine-50 text-pine-700'}`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${i % 2 === 0 ? 'bg-honey-100 text-honey-deep' : 'bg-pine-50 text-pine-700'}`}
                 >
                   <LineIcon name={card.icon} size={19} />
                 </span>
@@ -208,7 +194,7 @@ export default function ExpenseReportPage() {
                           <span className="ml-2 text-xs tabular-nums text-ink-soft">{pct.toFixed(1)}%</span>
                         </div>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-[#faf7ef]">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-cream">
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
                       </div>
                     </div>
@@ -242,7 +228,7 @@ export default function ExpenseReportPage() {
                     return (
                       <div key={p.name} className="flex items-center gap-3">
                         <span
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-[#fffdf6]"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-plate"
                           style={{ backgroundColor: COLORS[i % COLORS.length] }}
                         >
                           {p.name[0]}
@@ -252,7 +238,7 @@ export default function ExpenseReportPage() {
                             <span className="truncate text-sm font-semibold text-pine-900">{p.name}</span>
                             <span className="shrink-0 text-sm font-bold tabular-nums text-pine-800">TWD {Number(p.total).toFixed(2)}</span>
                           </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-[#faf7ef]">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-cream">
                             <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
                           </div>
                         </div>

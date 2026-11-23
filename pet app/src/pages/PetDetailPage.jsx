@@ -20,10 +20,10 @@ const GENDER_MAP = Object.fromEntries(GENDER)
 const STAGE_CLS = {
   young:  'bg-[#eaf1f4] text-[#3f6b7a] border-[#d5e4ea]',
   adult:  'bg-pine-50 text-pine-700 border-pine-100',
-  senior: 'bg-[#fdf3e3] text-[#c96f2e] border-[#f0d9b5]'
+  senior: 'bg-warm text-honey-deep border-honey-200'
 }
 
-const fieldCls = "w-full border border-[#eae6d8] rounded-xl px-3 py-2.5 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all"
+const fieldCls = "w-full border border-sand rounded-xl px-3 py-2.5 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all"
 const labelCls = "mb-1.5 block text-[12px] font-semibold text-ink-soft"
 
 const asRows = value => {
@@ -35,7 +35,7 @@ const asRows = value => {
 
 function StatTile({ label, value, sub, tone = 'text-pine-900' }) {
   return (
-    <div className="rounded-2xl border border-[#f3e3cd] bg-plate p-4">
+    <div className="rounded-2xl border border-hair bg-plate p-4">
       <p className="text-[11px] font-semibold text-ink-soft/85">{label}</p>
       <p className={`mt-1 text-[17px] font-bold leading-tight ${tone}`}>{value}</p>
       {sub && <p className="mt-1 text-[11px] leading-relaxed text-ink-soft">{sub}</p>}
@@ -116,7 +116,15 @@ export default function PetDetailPage() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  if (isLoading) return <div className="px-6 py-16 text-center text-sm text-ink-soft">載入中…</div>
+  if (isLoading) return (
+    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 md:px-8 md:py-8" aria-busy="true" aria-label="載入中">
+      <div className="skeleton h-28" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="skeleton h-64" />
+        <div className="skeleton h-64" />
+      </div>
+    </div>
+  )
 
   if (!pet) return (
     <div className="px-6 py-16 text-center">
@@ -126,7 +134,7 @@ export default function PetDetailPage() {
       <p className="mt-4 text-sm text-ink-soft">找不到這隻寵物</p>
       <Link
         to="/pets"
-        className="mt-4 inline-block rounded-2xl border border-line bg-plate px-4 py-2 text-sm font-semibold text-pine-800 transition-colors hover:bg-[#fdf6ea]"
+        className="mt-4 inline-block rounded-2xl border border-line bg-plate px-4 py-2 text-sm font-semibold text-pine-800 transition-colors hover:bg-warm"
       >
         ← 返回列表
       </Link>
@@ -149,12 +157,12 @@ export default function PetDetailPage() {
 
       <div className="space-y-4">
         {/* 頂部：頭像、名字、標籤 + 編輯按鈕 */}
-        <header className="relative overflow-hidden rounded-3xl border border-[#f3e3cd] bg-[#fdf6ea] p-5 md:p-6">
+        <header className="relative overflow-hidden rounded-3xl border border-hair shadow-card bg-warm p-5 md:p-6">
           <div aria-hidden="true" className="absolute -right-12 -top-14 h-40 w-40 rounded-full bg-[#f7e6c8]/80" />
           <div aria-hidden="true" className="absolute -bottom-16 -left-10 h-32 w-32 rounded-full bg-[#f2ead8]/70" />
 
           <div className="relative flex flex-wrap items-center gap-4 md:gap-5">
-            <PetIcon species={pet.species} size={84} className="h-[72px] w-[72px] shrink-0 md:h-[84px] md:w-[84px]" />
+            <PetIcon species={pet.species} breed={pet.breed} size={84} className="h-[72px] w-[72px] shrink-0 md:h-[84px] md:w-[84px]" />
 
             <div className="min-w-0 flex-1">
               <h1 className="font-brand text-2xl font-extrabold leading-tight text-pine-900">{pet.name}</h1>
@@ -164,7 +172,7 @@ export default function PetDetailPage() {
               </p>
 
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-full border border-[#e8d9bd] bg-plate px-2.5 py-0.5 text-[11px] font-medium text-ink-soft">
+                <span className="rounded-full border border-hair-strong bg-plate px-2.5 py-0.5 text-[11px] font-medium text-ink-soft">
                   {SPECIES_MAP[pet.species]}
                   {pet.gender && pet.gender !== 'unknown' ? ` ・ ${GENDER_MAP[pet.gender]}` : ''}
                 </span>
@@ -183,7 +191,7 @@ export default function PetDetailPage() {
 
             <button
               onClick={startEdit}
-              className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-[#e8d9bd] bg-plate px-3.5 py-2 text-xs font-bold text-pine-800 transition-colors hover:bg-[#fffdf6]"
+              className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-hair-strong bg-plate px-3.5 py-2 text-xs font-bold text-pine-800 transition-colors hover:bg-plate"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3Z" />
@@ -197,13 +205,13 @@ export default function PetDetailPage() {
         {/* 編輯 Modal */}
         {editing && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-900/35 p-4 backdrop-blur-sm">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#f0e6d2] bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
+            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-hair bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="text-base font-bold text-pine-900">編輯資料</h2>
                 <button
                   onClick={() => setEditing(false)}
                   aria-label="關閉"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                     <path d="M6 6l12 12M18 6L6 18" />
@@ -249,7 +257,7 @@ export default function PetDetailPage() {
                   <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} placeholder="選填" className={`${fieldCls} resize-none`} />
                 </div>
                 {updatePet.isError && (
-                  <p role="alert" className="text-xs text-[#b4552f]">
+                  <p role="alert" className="text-xs text-clay">
                     {updatePet.error?.response?.data?.error || '儲存失敗，請稍後再試'}
                   </p>
                 )}
@@ -257,14 +265,14 @@ export default function PetDetailPage() {
                   <button
                     type="button"
                     onClick={() => setEditing(false)}
-                    className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea]"
+                    className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-warm"
                   >
                     取消
                   </button>
                   <button
                     type="submit"
                     disabled={updatePet.isPending}
-                    className="flex-1 rounded-xl bg-[#f5c04a] py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+                    className="flex-1 rounded-xl bg-honey py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
                   >
                     {updatePet.isPending ? '儲存中...' : '儲存'}
                   </button>
@@ -290,7 +298,7 @@ export default function PetDetailPage() {
                 : pet.weight ? '再記錄幾次就能看到變化' : '下方可以記錄體重'
             }
             tone={
-              trend && Math.abs(trend.pct) >= 10 && stage?.key !== 'young' ? 'text-[#c96f2e]' : 'text-pine-900'
+              trend && Math.abs(trend.pct) >= 10 && stage?.key !== 'young' ? 'text-honey-deep' : 'text-pine-900'
             }
           />
           <StatTile
@@ -306,7 +314,7 @@ export default function PetDetailPage() {
             label="下次提醒"
             value={reminder ? (reminder.daysLeft === 0 ? '就是今天' : `${reminder.daysLeft} 天後`) : '沒有安排'}
             sub={reminder ? reminder.title : '新增疫苗、回診日期就會提醒'}
-            tone={reminder && reminder.daysLeft <= 7 ? 'text-[#c96f2e]' : 'text-pine-900'}
+            tone={reminder && reminder.daysLeft <= 7 ? 'text-honey-deep' : 'text-pine-900'}
           />
         </div>
 
@@ -315,7 +323,7 @@ export default function PetDetailPage() {
         <HealthCard petId={pet.id} />
 
         {/* 花費摘要 */}
-        <section className="rounded-3xl border border-[#f3e3cd] bg-plate p-5" aria-label="花費摘要">
+        <section className="rounded-3xl border border-hair shadow-card bg-plate p-5" aria-label="花費摘要">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold text-pine-900">花費摘要</h2>
             <Link to="/expenses" className="text-xs font-semibold text-pine-700 hover:underline">
@@ -323,11 +331,11 @@ export default function PetDetailPage() {
             </Link>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-[#faf7ef] p-3.5">
+            <div className="rounded-2xl bg-cream p-3.5">
               <p className="text-[11px] text-ink-soft">本月</p>
               <p className="mt-0.5 text-base font-bold tabular-nums text-pine-900">{twd(spend.month)}</p>
             </div>
-            <div className="rounded-2xl bg-[#faf7ef] p-3.5">
+            <div className="rounded-2xl bg-cream p-3.5">
               <p className="text-[11px] text-ink-soft">今年累計</p>
               <p className="mt-0.5 text-base font-bold tabular-nums text-pine-900">{twd(spend.year)}</p>
             </div>

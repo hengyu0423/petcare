@@ -1,3 +1,4 @@
+import EmptyState from '../ui/EmptyState'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -12,7 +13,7 @@ import {
 } from '../../lib/petInsights'
 
 const inputCls =
-  'w-full border border-[#eae6d8] rounded-xl px-3 py-2 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
+  'w-full border border-sand rounded-xl px-3 py-2 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
 
 const BAND_FILL = { young: '#eaf1f4', adult: '#eef3ec', senior: '#fdf3e3' }
 const HISTORY_PREVIEW = 6
@@ -25,7 +26,7 @@ function WeightTooltip({ active, payload, birthDate }) {
   const months = birthDate ? ageInMonths(birthDate, p.date) : null
 
   return (
-    <div className="rounded-xl border border-[#f0e6d2] bg-plate px-3 py-2 text-xs shadow-[0_12px_24px_-16px_rgba(87,54,17,0.5)]">
+    <div className="rounded-xl border border-hair bg-plate px-3 py-2 text-xs shadow-[0_12px_24px_-16px_rgba(87,54,17,0.5)]">
       <p className="font-semibold text-pine-900">{formatKg(p.weight)} kg</p>
       <p className="text-ink-soft">
         {p.date}
@@ -113,7 +114,7 @@ export default function WeightCard({ pet }) {
       }
 
   return (
-    <section className="rounded-3xl border border-[#f3e3cd] bg-plate p-5" aria-label="體重與成長曲線">
+    <section className="rounded-3xl border border-hair shadow-card bg-plate p-5" aria-label="體重與成長曲線">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-pine-900">體重與成長曲線</h2>
@@ -125,7 +126,7 @@ export default function WeightCard({ pet }) {
                   {' ・ '}近 {trend.spanDays} 天{' '}
                   <span
                     className={
-                      trend.delta > 0 ? 'text-[#c96f2e]' : trend.delta < 0 ? 'text-[#3f6b7a]' : 'text-ink-soft'
+                      trend.delta > 0 ? 'text-honey-deep' : trend.delta < 0 ? 'text-[#3f6b7a]' : 'text-ink-soft'
                     }
                   >
                     {trend.delta > 0 ? '+' : ''}
@@ -141,14 +142,14 @@ export default function WeightCard({ pet }) {
         </div>
 
         {canUseAge && (
-          <div className="inline-flex shrink-0 rounded-xl border border-[#eae6d8] bg-[#faf7ef] p-0.5 text-xs" role="group" aria-label="橫軸">
+          <div className="inline-flex shrink-0 rounded-xl border border-sand bg-cream p-0.5 text-xs" role="group" aria-label="橫軸">
             {[['date', '依日期'], ['age', '依年齡']].map(([key, label]) => (
               <button
                 key={key}
                 type="button"
                 aria-pressed={effectiveMode === key}
                 onClick={() => setMode(key)}
-                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${effectiveMode === key ? 'bg-pine-800 text-[#fdf8ec]' : 'text-ink-soft hover:bg-[#f2ebdc]'
+                className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${effectiveMode === key ? 'bg-pine-800 text-warm' : 'text-ink-soft hover:bg-[#f2ebdc]'
                   }`}
               >
                 {label}
@@ -161,7 +162,7 @@ export default function WeightCard({ pet }) {
       {note && (
         <p
           role="status"
-          className={`mt-3 rounded-xl px-3 py-2 text-xs ${note.level === 'warning' ? 'bg-[#fff3d6] text-[#7a5200]' : 'bg-[#faf7ef] text-ink-soft'
+          className={`mt-3 rounded-xl px-3 py-2 text-xs ${note.level === 'warning' ? 'bg-honey-100 text-honey-ink' : 'bg-cream text-ink-soft'
             }`}
         >
           {note.text}
@@ -169,7 +170,7 @@ export default function WeightCard({ pet }) {
       )}
 
       {isLoading ? (
-        <div className="mt-4 h-[240px] animate-pulse rounded-2xl bg-[#faf7ef]" />
+        <div className="skeleton mt-4 h-[240px]" />
       ) : records.length > 0 ? (
         <div className="mt-4">
           <div className="h-[240px] w-full" data-testid="weight-chart">
@@ -232,17 +233,11 @@ export default function WeightCard({ pet }) {
           )}
         </div>
       ) : (
-        <div className="mt-4 rounded-2xl bg-[#faf7ef] px-4 py-8 text-center text-sm text-ink-soft">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-2 text-ink-soft/50" aria-hidden="true">
-            <path d="M4 19V6M4 19h16" />
-            <path d="M7 15l4-4 3 2.5L20 8" />
-          </svg>
-          還沒有體重紀錄
-        </div>
+        <EmptyState compact className="mt-4" icon="chart" title="還沒有體重紀錄" desc="在下方記錄第一筆體重，就會畫出成長曲線。" />
       )}
 
       {/* 新增體重 */}
-      <form onSubmit={submit} className="mt-4 rounded-2xl bg-[#faf7ef] p-3">
+      <form onSubmit={submit} className="mt-4 rounded-2xl bg-cream p-3">
         <p className="mb-2 text-xs font-semibold text-ink-soft">記錄體重</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
           <div>
@@ -288,13 +283,13 @@ export default function WeightCard({ pet }) {
           <button
             type="submit"
             disabled={addWeight.isPending || !form.weight}
-            className="col-span-2 rounded-xl bg-[#f5c04a] px-4 py-2 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50 sm:col-span-1"
+            className="col-span-2 rounded-xl bg-honey px-4 py-2 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50 sm:col-span-1"
           >
             {addWeight.isPending ? '儲存中…' : '記錄'}
           </button>
         </div>
         {addWeight.isError && (
-          <p role="alert" className="mt-2 text-xs text-[#b4552f]">{errorText(addWeight.error)}</p>
+          <p role="alert" className="mt-2 text-xs text-clay">{errorText(addWeight.error)}</p>
         )}
         <p className="mt-2 text-[11px] text-ink-soft/85">
           更新體重後，飲食管理的每日熱量建議也會跟著調整。同一天再記錄一次會取代原本那一筆。
@@ -305,13 +300,13 @@ export default function WeightCard({ pet }) {
       {history.length > 0 && (
         <div className="mt-4">
           <p className="mb-1 text-xs font-semibold text-ink-soft">歷史紀錄</p>
-          <ul className="divide-y divide-[#f3ead9]">
+          <ul className="divide-y divide-hair">
             {visibleHistory.map(r => (
               <li key={r.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="w-24 shrink-0 text-xs tabular-nums text-ink-soft">{r.measured_on}</span>
                 <span className="font-semibold tabular-nums text-pine-900">{formatKg(r.weight)} kg</span>
                 {r.diff !== null && r.diff !== 0 && (
-                  <span className={`text-xs tabular-nums ${r.diff > 0 ? 'text-[#c96f2e]' : 'text-[#3f6b7a]'}`}>
+                  <span className={`text-xs tabular-nums ${r.diff > 0 ? 'text-honey-deep' : 'text-[#3f6b7a]'}`}>
                     {r.diff > 0 ? '+' : ''}{formatKg(r.diff)}
                   </span>
                 )}
@@ -323,7 +318,7 @@ export default function WeightCard({ pet }) {
                   }}
                   disabled={removeWeight.isPending}
                   aria-label={`刪除 ${r.measured_on} 的體重紀錄`}
-                  className="ml-auto shrink-0 rounded-lg px-2 py-1 text-xs text-ink-soft/80 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f] disabled:opacity-50"
+                  className="ml-auto shrink-0 rounded-lg px-2 py-1 text-xs text-ink-soft/80 transition-colors hover:bg-clay-50 hover:text-clay disabled:opacity-50"
                 >
                   刪除
                 </button>
@@ -340,7 +335,7 @@ export default function WeightCard({ pet }) {
             </button>
           )}
           {removeWeight.isError && (
-            <p role="alert" className="mt-1 text-xs text-[#b4552f]">刪除失敗，請稍後再試</p>
+            <p role="alert" className="mt-1 text-xs text-clay">刪除失敗，請稍後再試</p>
           )}
         </div>
       )}

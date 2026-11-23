@@ -66,18 +66,18 @@ export default function QuickPrompts({
     compact
       ? `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors disabled:opacity-50 ${
           isActive
-            ? 'border-pine-700/40 bg-pine-800 text-[#fdf8ec]'
-            : 'border-[#eae6d8] bg-plate text-ink-soft hover:border-pine-700/30 hover:bg-[#fdf6ea] hover:text-pine-700'
+            ? 'border-pine-700/40 bg-pine-800 text-warm'
+            : 'border-sand bg-plate text-ink-soft hover:border-pine-700/30 hover:bg-warm hover:text-pine-700'
         }`
       : `inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-bold transition-colors disabled:opacity-50 ${
           isActive
-            ? 'border-pine-800 bg-pine-800 text-[#fdf8ec]'
-            : 'border-[#eae6d8] bg-plate text-ink-soft hover:border-pine-700/30 hover:bg-[#fdf6ea] hover:text-pine-700'
+            ? 'border-pine-800 bg-pine-800 text-warm'
+            : 'border-sand bg-plate text-ink-soft hover:border-pine-700/30 hover:bg-warm hover:text-pine-700'
         }`
 
   const promptClass = compact
-    ? 'rounded-full border border-[#eae6d8] bg-plate px-3 py-1 text-xs font-semibold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-[#fdf6ea] disabled:opacity-50'
-    : 'rounded-full border border-[#eae6d8] bg-plate px-4 py-2 text-sm font-semibold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-[#fdf6ea] disabled:opacity-50'
+    ? 'rounded-full border border-sand bg-plate px-3 py-1 text-xs font-semibold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-warm disabled:opacity-50'
+    : 'rounded-full border border-sand bg-plate px-4 py-2 text-sm font-semibold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-warm disabled:opacity-50'
 
   return (
     <div className={compact ? 'mb-3' : ''}>

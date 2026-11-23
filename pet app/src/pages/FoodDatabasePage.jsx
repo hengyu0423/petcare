@@ -1,7 +1,11 @@
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Link } from 'react-router-dom'
+import FoodIcon from '../components/brand/FoodIcon'
+import PixelBullet from '../components/brand/PixelBullet'
 
 const CAT_LABEL = {
   dry: '乾糧',
@@ -13,12 +17,28 @@ const CAT_LABEL = {
 const CAT_COLOR = {
   dry: 'bg-pine-50 text-pine-700',
   wet: 'bg-[#eaf1f4] text-[#3f6b7a]',
-  snack: 'bg-[#fff3d6] text-[#a5681c]',
-  other: 'bg-[#faf7ef] text-ink-soft'
+  snack: 'bg-honey-100 text-honey-text',
+  other: 'bg-cream text-ink-soft'
+}
+
+// 每個分類的圖示底色與熱量條顏色
+const CAT_TONE = {
+  dry: { tile: 'bg-pine-50', bar: 'bg-pine-700' },
+  wet: { tile: 'bg-[#e6f0f3]', bar: 'bg-[#4f93a8]' },
+  snack: { tile: 'bg-honey-100', bar: 'bg-honey' },
+  other: { tile: 'bg-cream', bar: 'bg-ink-faint' }
+}
+const KCAL_FULL_BAR = 500 // 熱量條以 500 kcal/100g 為滿格
+
+// 450.00 → 450；85.5 → 85.5
+const formatCal = (v) => {
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 
 const inputCls =
-  'w-full border border-[#eae6d8] rounded-xl px-3 py-2.5 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
+  'w-full border border-sand rounded-xl px-3 py-2.5 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
 
 const labelCls = 'mb-1.5 block text-xs font-semibold text-ink-soft'
 
@@ -55,9 +75,9 @@ function LineIcon({ name, size = 16 }) {
 }
 
 const outlineBtn =
-  'inline-flex items-center gap-1.5 rounded-xl border border-[#e8d9bd] bg-plate px-3.5 py-2 text-sm font-bold text-pine-800 transition-colors hover:bg-[#fdf6ea] disabled:opacity-50'
+  'inline-flex items-center gap-1.5 rounded-xl border border-hair-strong bg-plate px-3.5 py-2 text-sm font-bold text-pine-800 transition-colors hover:bg-warm disabled:opacity-50'
 const solidBtn =
-  'inline-flex items-center gap-1.5 rounded-xl bg-[#f5c04a] px-3.5 py-2 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50'
+  'inline-flex items-center gap-1.5 rounded-xl bg-honey px-3.5 py-2 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50'
 
 export default function FoodDatabasePage() {
   const qc = useQueryClient()
@@ -227,6 +247,14 @@ export default function FoodDatabasePage() {
     }
   }
 
+  const visibleFoods = foods.filter((f) => f.category !== 'supplement')
+  const counts = {
+    all: visibleFoods.length,
+    dry: visibleFoods.filter((f) => f.category === 'dry').length,
+    wet: visibleFoods.filter((f) => f.category === 'wet').length,
+    snack: visibleFoods.filter((f) => f.category === 'snack').length
+  }
+
   const filtered = foods.filter((f) => {
     if (f.category === 'supplement') return false // 不再保留保健品分類
     const matchCat = filterCat === 'all' || f.category === filterCat
@@ -239,115 +267,120 @@ export default function FoodDatabasePage() {
   return (
     <>
       <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link to="/diet" className={outlineBtn}>
-              <LineIcon name="back" size={15} />
-              返回
-            </Link>
-            <div>
-              <h1 className="font-brand text-2xl font-extrabold text-pine-900">食物資料庫</h1>
-              <p className="mt-0.5 text-sm text-ink-soft">管理常用食物的營養資訊</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <input
-              id="food-image"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files[0]
-                console.log('[FoodDatabasePage] selected file', {
-                  name: file?.name,
-                  size: file?.size,
-                  type: file?.type,
-                  isFile: file instanceof File
-                })
-                setAiImage(file)
-                setAiResult(null)
-
-                if (prevImageUrlRef.current) {
-                  URL.revokeObjectURL(prevImageUrlRef.current)
-                }
-                if (file) {
-                  const url = URL.createObjectURL(file)
-                  prevImageUrlRef.current = url
-                  setImagePreview(url)
-                } else {
-                  prevImageUrlRef.current = ''
-                  setImagePreview('')
-                }
-              }}
-            />
-            <button
-              onClick={() => document.getElementById('food-image').click()}
-              className={outlineBtn}
-            >
-              <LineIcon name="camera" size={15} />
-              選擇圖片
-            </button>
-            <button
-              onClick={handleImageAnalyze}
-              disabled={!aiImage || aiLoading}
-              className={solidBtn}
-            >
-              <LineIcon name="spark" size={15} />
-              {aiLoading ? '分析中…' : '圖片分析'}
-            </button>
-            {foods.length === 0 && (
-              <button
-                onClick={() => initPresets.mutate()}
-                disabled={initPresets.isPending}
-                className={outlineBtn}
-              >
-                <LineIcon name="box" size={15} />
-                載入預設食物
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setEditingFood(null)
-                setForm(emptyForm)
-                setShowModal(true)
-              }}
-              className={solidBtn}
-            >
-              <LineIcon name="plus" size={15} />
-              新增食物
-            </button>
-          </div>
-        </div>
-
-        {/* AI 文字分析 */}
-        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] p-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-plate text-[#c96f2e]">
-            <LineIcon name="spark" size={20} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="mb-1.5 text-sm font-bold text-[#7a5200]">AI 快速估算食物熱量</p>
-            <div className="flex gap-2">
+        <PageHeader
+          back={{ to: '/diet', label: '返回飲食管理' }}
+          title="食物"
+          accent="資料庫"
+          subtitle={
+            <>
+              管理常用食物的營養資訊
+              {visibleFoods.length > 0 && <span className="ml-2 font-mono text-xs tabular-nums text-ink-mute">· {visibleFoods.length} 種</span>}
+            </>
+          }
+          actions={
+            <>
               <input
-                value={aiName}
-                onChange={(e) => setAiName(e.target.value)}
-                placeholder="輸入食物名稱，AI 自動估算熱量..."
-                className={`${inputCls} flex-1`}
-                onKeyDown={(e) => e.key === 'Enter' && handleAiAnalyze()}
+                id="food-image"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files[0]
+                  console.log('[FoodDatabasePage] selected file', {
+                    name: file?.name,
+                    size: file?.size,
+                    type: file?.type,
+                    isFile: file instanceof File
+                  })
+                  setAiImage(file)
+                  setAiResult(null)
+
+                  if (prevImageUrlRef.current) {
+                    URL.revokeObjectURL(prevImageUrlRef.current)
+                  }
+                  if (file) {
+                    const url = URL.createObjectURL(file)
+                    prevImageUrlRef.current = url
+                    setImagePreview(url)
+                  } else {
+                    prevImageUrlRef.current = ''
+                    setImagePreview('')
+                  }
+                }}
               />
               <button
-                onClick={handleAiAnalyze}
-                disabled={aiLoading || !aiName.trim()}
+                onClick={() => document.getElementById('food-image').click()}
+                className={outlineBtn}
+              >
+                <LineIcon name="camera" size={15} />
+                選擇圖片
+              </button>
+              <button
+                onClick={handleImageAnalyze}
+                disabled={!aiImage || aiLoading}
                 className={solidBtn}
               >
-                {aiLoading ? '分析中…' : '分析'}
+                <LineIcon name="spark" size={15} />
+                {aiLoading ? '分析中…' : '圖片分析'}
               </button>
+              {foods.length === 0 && (
+                <button
+                  onClick={() => initPresets.mutate()}
+                  disabled={initPresets.isPending}
+                  className={outlineBtn}
+                >
+                  <LineIcon name="box" size={15} />
+                  載入預設食物
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setEditingFood(null)
+                  setForm(emptyForm)
+                  setShowModal(true)
+                }}
+                className={solidBtn}
+              >
+                <LineIcon name="plus" size={15} />
+                新增食物
+              </button>
+            </>
+          }
+        />
+
+        {/* AI 文字分析（深綠功能區） */}
+        <div className="forest-band mb-5 rounded-3xl bg-pine-800 px-5 pb-8 pt-8 text-paper shadow-card md:px-6">
+          <div className="relative flex flex-wrap items-center gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10">
+              <PixelBullet size={18} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-brand text-[15px] font-extrabold text-paper">
+                AI 快速估算食物<span className="text-lime">熱量</span>
+              </p>
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={aiName}
+                  onChange={(e) => setAiName(e.target.value)}
+                  placeholder="輸入食物名稱，AI 自動估算熱量..."
+                  className="w-full flex-1 rounded-xl border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-paper placeholder:text-paper/50 focus:border-lime/60 focus:outline-none focus:ring-2 focus:ring-lime/40"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAiAnalyze()}
+                />
+                <button
+                  onClick={handleAiAnalyze}
+                  disabled={aiLoading || !aiName.trim()}
+                  className="btn-lime inline-flex shrink-0 items-center rounded-xl bg-lime px-4 py-2.5 font-brand text-sm font-extrabold text-pine-900 disabled:opacity-50"
+                >
+                  {aiLoading ? '分析中…' : '分析'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* AI 圖片結果 */}
         {(imagePreview || aiResult) && (
-          <div className="mb-5 rounded-2xl border border-[#f3e3cd] bg-plate p-4">
+          <div className="mb-5 rounded-3xl border border-hair bg-plate p-4 shadow-card">
             <div className="flex flex-wrap gap-4">
               {imagePreview && (
                 <img src={imagePreview} alt="食物預覽" className="h-28 w-28 rounded-xl object-cover" />
@@ -396,84 +429,102 @@ export default function FoodDatabasePage() {
               ['dry', '乾糧'],
               ['wet', '濕食'],
               ['snack', '零食']
-            ].map(([val, label]) => (
-              <button
-                key={val}
-                onClick={() => setFilterCat(val)}
-                className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
-                  filterCat === val
-                    ? 'border-pine-700 bg-pine-800 text-[#fdf8ec]'
-                    : 'border-[#eae6d8] bg-plate text-ink-soft hover:border-pine-700/40'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            ].map(([val, label]) => {
+              const active = filterCat === val
+              return (
+                <button
+                  key={val}
+                  onClick={() => setFilterCat(val)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+                    active
+                      ? 'border-pine-700 bg-pine-800 text-warm'
+                      : 'border-sand bg-plate text-ink-soft hover:border-pine-700/40'
+                  }`}
+                >
+                  {label}
+                  <span className={`font-mono text-[10px] tabular-nums ${active ? 'text-lime' : 'text-ink-faint'}`}>
+                    {counts[val]}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
         {/* 食物列表 */}
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-[#faf7ef]" />)}
+            {[0, 1, 2].map((i) => <div key={i} className="skeleton h-[148px]" />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-3xl border-2 border-dashed border-[#e8d9bd] bg-[#faf7ef] py-16 text-center">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-plate text-pine-700">
-              <LineIcon name="archive" size={22} />
-            </span>
-            <p className="mt-3 text-sm text-ink-soft">沒有符合的食物</p>
-          </div>
+          <EmptyState icon="dry" title="沒有符合的食物" desc="換個關鍵字或分類試試。" />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((food) => (
-              <div
-                key={food.id}
-                className="rounded-2xl border border-[#f3e3cd] bg-plate p-4 transition-colors hover:bg-[#fffdf6]"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="min-w-0">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${CAT_COLOR[food.category] || CAT_COLOR.other}`}>
+            {filtered.map((food) => {
+              const tone = CAT_TONE[food.category] || CAT_TONE.other
+              const kcal = Number(food.calories_per_100g)
+              const pct = Number.isFinite(kcal) && kcal > 0 ? Math.min(100, Math.round((kcal / KCAL_FULL_BAR) * 100)) : 0
+              return (
+                <div
+                  key={food.id}
+                  className="card-lift flex flex-col rounded-3xl border border-hair bg-plate p-4 shadow-card"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${tone.tile}`}>
+                      <FoodIcon category={food.category} size={34} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${CAT_COLOR[food.category] || CAT_COLOR.other}`}>
                         {CAT_LABEL[food.category] || food.category}
                       </span>
-                      <p className="mt-1.5 truncate text-sm font-bold text-pine-900">{food.name}</p>
+                      <p className="mt-1 line-clamp-2 font-brand text-[15px] font-extrabold leading-snug text-pine-900">{food.name}</p>
                       {food.brand && <p className="truncate text-xs text-ink-soft">{food.brand}</p>}
                     </div>
 
-                    {/* 熱量方格：靠近食物名稱 */}
-                    <div className="shrink-0 rounded-xl border border-[#f0d9b5] bg-[#fff8e9] px-2.5 py-1.5 text-center">
-                      <p className="text-[10px] font-medium text-[#a5681c]">熱量</p>
-                      <p className="text-base font-extrabold leading-tight text-[#7a5200]">
-                        {food.calories_per_100g ? `${food.calories_per_100g}` : '—'}
-                      </p>
-                      <p className="text-[9px] text-[#a5681c]">kcal/100g</p>
-                    </div>
+                    {!food.is_preset && (
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button
+                          onClick={() => openEdit(food)}
+                          className="rounded-lg p-1.5 text-ink-soft/60 transition-colors hover:bg-pine-50 hover:text-pine-700"
+                          title="修改"
+                          aria-label={`修改 ${food.name}`}
+                        >
+                          <LineIcon name="pencil" size={15} />
+                        </button>
+                        <button
+                          onClick={() => deleteFood.mutate(food.id)}
+                          className="rounded-lg p-1.5 text-ink-soft/60 transition-colors hover:bg-clay-50 hover:text-clay"
+                          title="刪除"
+                          aria-label={`刪除 ${food.name}`}
+                        >
+                          <LineIcon name="trash" size={15} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {!food.is_preset && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        onClick={() => openEdit(food)}
-                        className="rounded-lg p-1.5 text-ink-soft/60 transition-colors hover:bg-pine-50 hover:text-pine-700"
-                        title="修改"
-                        aria-label={`修改 ${food.name}`}
-                      >
-                        <LineIcon name="pencil" size={15} />
-                      </button>
-                      <button
-                        onClick={() => deleteFood.mutate(food.id)}
-                        className="rounded-lg p-1.5 text-ink-soft/60 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f]"
-                        title="刪除"
-                        aria-label={`刪除 ${food.name}`}
-                      >
-                        <LineIcon name="trash" size={15} />
-                      </button>
+                  {/* 熱量：大數字 + 熱量條（500 kcal/100g 為滿格） */}
+                  <div className="mt-4 border-t border-hair pt-3">
+                    <div className="flex items-end justify-between gap-2">
+                      <span className="kicker">熱量</span>
+                      <p className="whitespace-nowrap text-right">
+                        <span className="font-brand text-2xl font-extrabold tabular-nums leading-none text-pine-900">
+                          {formatCal(food.calories_per_100g)}
+                        </span>
+                        <span className="ml-1 font-mono text-[10px] text-ink-mute">kcal/100g</span>
+                      </p>
                     </div>
-                  )}
+                    <div
+                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-hair"
+                      title={`以 ${KCAL_FULL_BAR} kcal/100g 為滿格`}
+                      role="presentation"
+                    >
+                      <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -481,7 +532,7 @@ export default function FoodDatabasePage() {
       {/* 新增／編輯 Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-900/35 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#f0e6d2] bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-hair bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="font-brand text-base font-extrabold text-pine-900">
                 {editingFood ? '編輯食物' : '新增食物'}
@@ -489,7 +540,7 @@ export default function FoodDatabasePage() {
               <button
                 onClick={closeModal}
                 aria-label="關閉"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
               >
                 <LineIcon name="close" size={16} />
               </button>
@@ -550,14 +601,14 @@ export default function FoodDatabasePage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 rounded-xl border border-line bg-plate py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea]"
+                  className="flex-1 rounded-xl border border-line bg-plate py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-warm"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
                   disabled={saveFood.isPending}
-                  className="flex-1 rounded-xl bg-[#f5c04a] py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-honey py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
                 >
                   {saveFood.isPending
                     ? editingFood ? '儲存中…' : '新增中…'

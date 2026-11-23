@@ -145,8 +145,8 @@ export default function Layout() {
   const linkCls = ({ isActive }) =>
     `group flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors ${
       isActive
-        ? 'bg-pine-800 text-[#fdf8ec] shadow-[0_10px_20px_-14px_rgba(24,48,31,0.9)]'
-        : 'text-ink-soft hover:bg-[#fdf6ea] hover:text-pine-900'
+        ? 'bg-pine-800 text-warm shadow-[0_10px_20px_-14px_rgba(24,48,31,0.9)]'
+        : 'text-ink-soft hover:bg-warm hover:text-pine-900'
     }`
 
   const initial = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase()
@@ -167,7 +167,7 @@ export default function Layout() {
       <aside
         id="app-sidebar"
         className={`
-          fixed inset-y-0 left-0 z-50 flex w-[16.5rem] flex-col border-r border-[#eae6d8] bg-plate
+          fixed inset-y-0 left-0 z-50 flex w-[16.5rem] flex-col border-r border-sand bg-plate
           transition-transform duration-200 ease-out
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
           ${open ? 'translate-x-0 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]' : '-translate-x-full'}
@@ -184,7 +184,7 @@ export default function Layout() {
             <button
               onClick={close}
               aria-label="關閉選單"
-              className="rounded-xl p-2 -mr-2 text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900 md:hidden"
+              className="rounded-xl p-2 -mr-2 text-ink-soft transition-colors hover:bg-warm hover:text-pine-900 md:hidden"
             >
               <SvgIcon size={18} strokeWidth={2}>{Icon.close}</SvgIcon>
             </button>
@@ -192,9 +192,9 @@ export default function Layout() {
         </div>
 
         {/* 使用者卡片 */}
-        <div className="mx-3 rounded-2xl border border-[#f0e6d2] bg-[#fdf6ea] p-3">
+        <div className="mx-3 rounded-2xl border border-hair bg-warm p-3 shadow-card">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pine-800 text-[13px] font-extrabold text-[#fdf8ec]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pine-800 text-[13px] font-extrabold text-warm">
               {initial}
             </div>
             <div className="min-w-0 flex-1">
@@ -206,20 +206,25 @@ export default function Layout() {
 
         {/* 導覽 */}
         <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-2">
-          <p className="mb-2 px-2 text-[11px] font-semibold text-ink-soft/80">主要功能</p>
+          <p className="kicker mb-2 px-2 text-[10px]! text-ink-soft/70!">主要功能</p>
           {NAV_ITEMS.map(item => (
             <NavLink key={item.to} to={item.to} onClick={close} className={linkCls}>
-              <SvgIcon>{item.icon}</SvgIcon>
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <SvgIcon>{item.icon}</SvgIcon>
+                  <span className="flex-1">{item.label}</span>
+                  {isActive && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-honey shadow-[0_0_0_3px_rgba(245,192,74,0.28)]" />}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
         {/* 登出 */}
-        <div className="border-t border-[#f0e6d2] p-3">
+        <div className="border-t border-hair p-3">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold text-[#b4552f] transition-colors hover:bg-[#fdeee6] hover:text-[#8f3f1f]"
+            className="flex w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm font-semibold text-clay transition-colors hover:bg-clay-50 hover:text-[#8f3f1f]"
           >
             <SvgIcon>{Icon.logout}</SvgIcon>
             登出
@@ -231,13 +236,13 @@ export default function Layout() {
       <div className="flex min-w-0 flex-1 flex-col">
 
         {/* 手機頂部列：漢堡鈕 + Logo + 通知鈴鐺（電腦版隱藏） */}
-        <header className="box-content flex h-14 shrink-0 items-center gap-2 border-b border-[#eae6d8] bg-plate px-3 pt-[env(safe-area-inset-top)] md:hidden">
+        <header className="box-content flex h-14 shrink-0 items-center gap-2 border-b border-sand bg-plate px-3 pt-[env(safe-area-inset-top)] md:hidden">
           <button
             onClick={() => setOpen(true)}
             aria-label="開啟選單"
             aria-expanded={open}
             aria-controls="app-sidebar"
-            className="rounded-xl p-2 text-pine-900 transition-colors hover:bg-[#fdf6ea] active:bg-[#f8efdd]"
+            className="rounded-xl p-2 text-pine-900 transition-colors hover:bg-warm active:bg-[#f8efdd]"
           >
             <SvgIcon size={22} strokeWidth={2}>{Icon.menu}</SvgIcon>
           </button>
@@ -247,7 +252,7 @@ export default function Layout() {
           <NotificationBell />
         </header>
 
-        <main className="legacy-skin flex-1 overflow-auto">
+        <main className="legacy-skin paw-soft-dots flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>

@@ -1,3 +1,6 @@
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
+import LoadingState from '../components/ui/LoadingState'
 import { useEffect, useMemo, useState } from 'react'
 import {
   buildTimelineWithGaps,
@@ -112,15 +115,15 @@ function MoodIcon({ mood, size = 20 }) {
 
 const moodColor = mood => {
   const key = moodKey(mood)
-  if (key === 'active') return 'bg-[#fff3d6] text-[#c96f2e]'
+  if (key === 'active') return 'bg-honey-100 text-honey-deep'
   if (key === 'curious') return 'bg-[#f3edfa] text-[#7a5a9e]'
-  if (key === 'rest') return 'bg-[#eaf1f4] text-[#3f6b7a]'
+  if (key === 'rest') return 'bg-[#eaf1f4] text-ink-mute'
   if (key === 'calm') return 'bg-pine-50 text-pine-700'
-  if (key === 'alert') return 'bg-[#ffb31f]/20 text-[#a5681c]'
-  return 'bg-[#faf7ef] text-ink-soft'
+  if (key === 'alert') return 'bg-[#ffb31f]/20 text-honey-text'
+  return 'bg-cream text-ink-soft'
 }
 
-const cardCls = 'rounded-3xl border border-[#f3e3cd] bg-plate'
+const cardCls = 'rounded-3xl border border-hair bg-plate shadow-card'
 
 // 貓砂盆：平均上廁所時間顯示
 const formatVisitSeconds = seconds => {
@@ -330,185 +333,216 @@ export default function PetCam({ cameraId = 'cam_1' }) {
   const avgVisitSeconds =
     totalVisitCount > 0 ? totalVisitSeconds / totalVisitCount : null
 
-  return (
-    <div className="w-full min-h-full bg-paper px-4 py-6">
-      <div className="mx-auto flex w-full max-w-[900px] flex-col gap-5">
+  const connLabel =
+    monitor.key === 'present' || monitor.key === 'absent'
+      ? 'LIVE'
+      : monitor.key === 'camera_down'
+        ? 'OFFLINE'
+        : monitor.key === 'service_down'
+          ? 'NO SERVICE'
+          : 'CONNECTING'
+  const frameLabel = cameraError ? 'OFFLINE' : connLabel
+  const frameLive = frameLabel === 'LIVE'
 
-        {/* 標題（通知中心由上方的全域鈴鐺提供，頁面不再重複放置） */}
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-brand text-2xl font-extrabold text-pine-900">即時監控</h2>
-            <span className="rounded-full border border-[#f0d9b5] bg-[#fff8e9] px-2.5 py-0.5 text-xs font-bold text-[#a5681c]">
+  return (
+    <div className="w-full min-h-full px-4 py-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+
+        {/* 標題列 */}
+        <PageHeader
+          title="即時"
+          accent="監控"
+          className="mb-0"
+          badge={
+            <span className="rounded-full border border-honey-200 bg-honey-50 px-2.5 py-0.5 text-xs font-bold text-honey-text">
               {status.cameraName || 'Camera 1'}
             </span>
-          </div>
-          <p className="mt-1 text-xs text-ink-soft">
-            以攝影機為單位獨立運作，依 YOLO 偵測之姿態與活動量推估行為狀態
-          </p>
-        </div>
+          }
+        />
 
-        {/* 攝影機 */}
-        <div className={`${cardCls} overflow-hidden`}>
-          <div className="flex min-h-[350px] w-full items-center justify-center bg-pine-900">
-            {!cameraError ? (
-              <img
-                src={`${CAMERA_API}/video_feed`}
-                alt="寵物即時監控"
-                className="max-h-[600px] w-full object-contain"
-                onLoad={() => setCameraError(false)}
-                onError={() => setCameraError(true)}
-              />
-            ) : (
-              <div className="py-16 text-center text-[#fdf8ec]">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
-                  <MoodIcon mood="未偵測" size={24} />
+        {/* 上半：左 = 監控畫面，右 = 目前狀態（桌機並排，一個畫面就看完） */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
+          <div className="lg:col-span-7">
+            {/* 攝影機 */}
+            <div className="forest-band rounded-3xl bg-pine-800 px-3 pb-8 pt-8 text-paper shadow-card md:px-4">
+              <div className="mb-2.5 flex items-center justify-between px-1.5">
+                <span className="font-mono text-[11px] font-bold tracking-[0.2em] text-paper/70">
+                  {(status.cameraName || 'Camera 1').toUpperCase()}
                 </span>
-                <p className="mt-3 text-sm font-semibold">無法載入攝影機畫面</p>
-                <p className="mt-2 text-xs text-[#fdf8ec]/70">
-                  請確認 Python 攝影機服務是否正在運作
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest ${
+                    frameLive ? 'bg-lime/15 text-lime' : 'bg-white/10 text-paper/60'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${frameLive ? 'animate-pulse bg-lime' : 'bg-paper/40'}`} />
+                  {frameLabel}
+                </span>
+              </div>
+              <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-2xl bg-pine-900">
+                {!cameraError ? (
+                  <img
+                    src={`${CAMERA_API}/video_feed`}
+                    alt="寵物即時監控"
+                    className="h-full w-full object-contain"
+                    onLoad={() => setCameraError(false)}
+                    onError={() => setCameraError(true)}
+                  />
+                ) : (
+                  <div className="py-6 text-center text-warm">
+                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+                      <MoodIcon mood="未偵測" size={24} />
+                    </span>
+                    <p className="mt-3 text-sm font-semibold">無法載入攝影機畫面</p>
+                    <p className="mt-2 text-xs text-warm/70">
+                      請確認 Python 攝影機服務是否正在運作
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 space-y-1 px-1.5">
+                {liveAvailable && (
+                  <p className="text-[11px] tabular-nums text-paper/75">
+                    辨識信心度 {status.confidence}% · 身體長寬比 {status.aspectRatio} · 移動量 {status.movement}
+                  </p>
+                )}
+                <p className="text-[11px] leading-relaxed text-paper/55">
+                  以攝影機為單位獨立運作，依 YOLO 偵測之姿態與活動量推估行為狀態
                 </p>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+          <div className="flex flex-col gap-4 lg:col-span-5">
+            {/* 是否在鏡頭內 */}
+            <div
+              className={`rounded-3xl border p-4 ${
+                monitor.key === 'present'
+                  ? 'border-pine-100 bg-pine-50'
+                  : monitor.key === 'absent'
+                    ? 'border-honey-200 bg-honey-50'
+                    : monitor.key === 'camera_down'
+                      ? 'border-clay-200 bg-clay-50'
+                      : 'border-sand bg-cream'
+              }`}
+            >
+              {monitor.key === 'present' ? (
+                <>
+                  <p className="flex items-center gap-2 font-bold text-pine-800">
+                    <MoodIcon mood={status.detectedType === 'cat' ? '觀察' : status.detectedType === 'dog' ? '活躍' : status.mood} size={18} />
+                    {status.detectedType === 'cat' ? '偵測到貓咪在鏡頭中' : status.detectedType === 'dog' ? '偵測到狗狗在鏡頭中' : '目前畫面中有偵測到目標'}
+                  </p>
+                  <p className="mt-2 text-xs text-pine-700/80">
+                    最後偵測：{formatTime(status.lastSeenAt)}
+                  </p>
+                </>
+              ) : monitor.key === 'absent' ? (
+                <>
+                  <p className="flex items-center gap-2 font-bold text-honey-ink">
+                    <MoodIcon mood="未偵測" size={18} />
+                    目前鏡頭範圍內未偵測到寵物
+                  </p>
+                  <p className="mt-2 text-xs text-honey-text">
+                    攝影機運作中，只是畫面中沒有偵測到寵物或動態
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+                    <p className="text-xs text-honey-text">最後偵測：{formatTime(status.lastSeenAt)}</p>
+                    <p className="text-xs text-honey-text">離開鏡頭時間：{formatMissing()}</p>
+                  </div>
+                  {status.missingMinutes >= 20 && (
+                    <div className="mt-3 rounded-xl border border-honey-200 bg-plate/80 p-3">
+                      <p className="text-xs font-bold text-honey-ink">已有一段時間未偵測到寵物</p>
+                      <p className="mt-1 text-xs text-honey-text">
+                        寵物可能位於攝影機範圍外，可查看即時畫面確認狀況。
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className={`flex items-center gap-2 font-bold ${monitor.key === 'camera_down' ? 'text-clay' : 'text-ink'}`}>
+                    <MoodIcon mood="未偵測" size={18} />
+                    {monitor.label}
+                  </p>
+                  {monitor.detail && <p className="mt-2 text-xs text-ink-soft">{monitor.detail}</p>}
+                </>
+              )}
+            </div>
 
-        {/* 是否在鏡頭內 */}
-        <div
-          className={`rounded-3xl border p-5 ${
-            monitor.key === 'present'
-              ? 'border-pine-100 bg-pine-50'
-              : monitor.key === 'absent'
-                ? 'border-[#f0d9b5] bg-[#fff8e9]'
-                : monitor.key === 'camera_down'
-                  ? 'border-[#f3c2b8] bg-[#fdf0ec]'
-                  : 'border-[#eae6d8] bg-[#faf7ef]'
-          }`}
-        >
-          {monitor.key === 'present' ? (
-            <>
-              <p className="flex items-center gap-2 font-bold text-pine-800">
-                <MoodIcon mood={status.detectedType === 'cat' ? '觀察' : status.detectedType === 'dog' ? '活躍' : status.mood} size={18} />
-                {status.detectedType === 'cat' ? '偵測到貓咪在鏡頭中' : status.detectedType === 'dog' ? '偵測到狗狗在鏡頭中' : '目前畫面中有偵測到目標'}
-              </p>
-              <p className="mt-2 text-xs text-pine-700/80">
-                最後偵測：{formatTime(status.lastSeenAt)}
-              </p>
-            </>
-          ) : monitor.key === 'absent' ? (
-            <>
-              <p className="flex items-center gap-2 font-bold text-[#7a5200]">
-                <MoodIcon mood="未偵測" size={18} />
-                目前鏡頭範圍內未偵測到寵物
-              </p>
-              <p className="mt-2 text-xs text-[#a5681c]">
-                攝影機運作中，只是畫面中沒有偵測到寵物或動態
-              </p>
-              <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-                <p className="text-xs text-[#a5681c]">最後偵測：{formatTime(status.lastSeenAt)}</p>
-                <p className="text-xs text-[#a5681c]">離開鏡頭時間：{formatMissing()}</p>
+            {/* 當前行為 */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-3xl border border-hair bg-plate p-4 shadow-card">
+                <p className="flex items-center gap-2 text-xs font-bold text-ink-soft"><span className="font-mono text-[11px] text-honey-deep">01</span>當前行為</p>
+                <p className={`mt-2 text-lg font-extrabold ${liveAvailable ? 'text-pine-900' : 'text-ink-soft/70'}`}>
+                  {liveAvailable ? status.behavior : noDataText(monitor.key)}
+                </p>
               </div>
-              {status.missingMinutes >= 20 && (
-                <div className="mt-3 rounded-xl border border-[#f0d9b5] bg-plate/80 p-3">
-                  <p className="text-xs font-bold text-[#7a5200]">已有一段時間未偵測到寵物</p>
-                  <p className="mt-1 text-xs text-[#a5681c]">
-                    寵物可能位於攝影機範圍外，可查看即時畫面確認狀況。
+              <div className="rounded-3xl border border-honey-200 bg-honey-50 p-4">
+                <p className="flex items-center gap-2 text-xs font-bold text-honey-text"><span className="font-mono text-[11px] text-honey-deep">02</span>推測活動狀態</p>
+                <p className={`mt-2 flex items-center gap-1.5 text-lg font-extrabold ${liveAvailable ? 'text-honey-ink' : 'text-ink-soft/70'}`}>
+                  {liveAvailable ? <><MoodIcon mood={status.mood} size={19} /> {status.mood}</> : noDataText(monitor.key)}
+                </p>
+                <p className="mt-2 text-[11px] text-honey-text/90">
+                  此結果依攝影機偵測到的姿態與活動量推測，不代表寵物實際心理或醫療狀態。
+                </p>
+              </div>
+            </div>
+
+            {/* 今日貓砂盆使用：如廁次數與如廁時間分開展示 */}
+            <div className={`${cardCls} px-5 py-4`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-honey-100 text-honey-deep">
+                    <MoodIcon mood="paw" size={17} />
+                  </span>
+                  <span className="text-sm font-bold text-pine-800">
+                    <span className="mr-2 font-mono text-[11px] text-honey-deep">03</span>今日貓砂盆使用
+                  </span>
+                  {catStats.isPresent && (
+                    <span className="rounded-full bg-pine-50 px-2 py-0.5 text-[10px] font-bold text-pine-700">
+                      目前在內
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-hair bg-cream px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-ink-mute">
+                    <MoodIcon mood="paw" size={14} />
+                    如廁次數
+                  </p>
+                  <p className="mt-0.5">
+                    <span className="text-xl font-extrabold text-pine-900">
+                      {totalVisitCount}
+                    </span>
+                    <span className="ml-1 text-xs text-ink-soft">次</span>
                   </p>
                 </div>
-              )}
-            </>
-          ) : (
-            <>
-              <p className={`flex items-center gap-2 font-bold ${monitor.key === 'camera_down' ? 'text-[#b4552f]' : 'text-ink'}`}>
-                <MoodIcon mood="未偵測" size={18} />
-                {monitor.label}
-              </p>
-              {monitor.detail && <p className="mt-2 text-xs text-ink-soft">{monitor.detail}</p>}
-            </>
-          )}
-        </div>
-        {/* 當前行為 */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-3xl border border-[#d5e4ea] bg-[#eaf1f4] p-5">
-            <p className="text-xs font-bold text-[#3f6b7a]">當前行為</p>
-            <p className={`mt-2 text-lg font-extrabold ${liveAvailable ? 'text-pine-900' : 'text-ink-soft/70'}`}>
-              {liveAvailable ? status.behavior : noDataText(monitor.key)}
-            </p>
-          </div>
-          <div className="rounded-3xl border border-[#f0d9b5] bg-[#fff8e9] p-5">
-            <p className="text-xs font-bold text-[#a5681c]">推測活動狀態</p>
-            <p className={`mt-2 flex items-center gap-1.5 text-lg font-extrabold ${liveAvailable ? 'text-[#7a5200]' : 'text-ink-soft/70'}`}>
-              {liveAvailable ? <><MoodIcon mood={status.mood} size={19} /> {status.mood}</> : noDataText(monitor.key)}
-            </p>
-            <p className="mt-2 text-[11px] text-[#a5681c]/90">
-              此結果依攝影機偵測到的姿態與活動量推測，不代表寵物實際心理或醫療狀態。
-            </p>
-          </div>
-        </div>
 
-        {/* 今日貓砂盆使用：如廁次數與如廁時間分開展示 */}
-        <div className={`${cardCls} px-5 py-4`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff3d6] text-[#c96f2e]">
-                <MoodIcon mood="paw" size={17} />
-              </span>
-              <span className="text-sm font-bold text-pine-800">
-                今日貓砂盆使用
-              </span>
-              {catStats.isPresent && (
-                <span className="rounded-full bg-pine-50 px-2 py-0.5 text-[10px] font-bold text-pine-700">
-                  目前在內
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-[#d5e4ea] bg-[#eaf1f4] px-3 py-2.5">
-              <p className="flex items-center gap-1.5 text-xs font-bold text-[#3f6b7a]">
-                <MoodIcon mood="paw" size={14} />
-                如廁次數
-              </p>
-              <p className="mt-0.5">
-                <span className="text-xl font-extrabold text-pine-900">
-                  {totalVisitCount}
-                </span>
-                <span className="ml-1 text-xs text-ink-soft">次</span>
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-[#f0d9b5] bg-[#fff8e9] px-3 py-2.5">
-              <p className="flex items-center gap-1.5 text-xs font-bold text-[#a5681c]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
-                  <circle cx="12" cy="12" r="8.5" />
-                  <path d="M12 7.5V12l3 2" />
-                </svg>
-                如廁時間
-              </p>
-              <p className="mt-0.5">
-                <span className="text-xl font-extrabold text-[#7a5200]">
-                  {formatVisitSeconds(avgVisitSeconds)}
-                </span>
-                <span className="ml-1 text-xs text-[#a5681c]">平均</span>
-              </p>
+                <div className="rounded-2xl border border-honey-200 bg-honey-50 px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-honey-text">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+                      <circle cx="12" cy="12" r="8.5" />
+                      <path d="M12 7.5V12l3 2" />
+                    </svg>
+                    如廁時間
+                  </p>
+                  <p className="mt-0.5">
+                    <span className="text-xl font-extrabold text-honey-ink">
+                      {formatVisitSeconds(avgVisitSeconds)}
+                    </span>
+                    <span className="ml-1 text-xs text-honey-text">平均</span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* 數值 */}
-        {liveAvailable && (
-          <div className={`${cardCls} px-4 py-3`}>
-            <p className="text-center text-xs text-ink-soft">
-              辨識信心度 {status.confidence}% · 身體長寬比 {status.aspectRatio} · 移動量 {status.movement}
-            </p>
-          </div>
-        )}
 
         {/* 行為時間軸 */}
         <div className={`${cardCls} p-5`}>
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="font-brand text-base font-extrabold text-pine-900">行為變化</h3>
+              <h3 className="font-brand text-base font-extrabold text-pine-900"><span className="mr-2 font-mono text-[11px] text-honey-deep">04</span>行為變化</h3>
               <p className="mt-1 text-xs text-ink-soft">查看不同時間內攝影機推測的行為狀態</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -518,8 +552,8 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                   onClick={() => setRange(key)}
                   className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                     range === key
-                      ? 'bg-pine-800 text-[#fdf8ec]'
-                      : 'bg-[#faf7ef] text-ink-soft hover:bg-[#f2ead8]'
+                      ? 'bg-pine-800 text-warm'
+                      : 'bg-cream text-ink-soft hover:bg-[#f2ead8]'
                   }`}
                 >
                   {item.label}
@@ -529,12 +563,9 @@ export default function PetCam({ cameraId = 'cam_1' }) {
           </div>
 
           {timelineLoading ? (
-            <p className="py-10 text-center text-xs text-ink-soft">載入行為紀錄中...</p>
+            <LoadingState compact label="載入行為紀錄中…" />
           ) : displayTimeline.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-sm text-ink-soft">目前沒有這段時間的行為資料</p>
-              <p className="mt-1 text-xs text-ink-soft/70">攝影機持續運作後會自動累積紀錄</p>
-            </div>
+            <EmptyState compact icon="camera" title="目前沒有這段時間的行為資料" desc="攝影機持續運作後會自動累積紀錄" />
           ) : (
             <div className="overflow-x-auto pb-2">
               <div className="flex min-w-max">
@@ -545,7 +576,7 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                         <p className="text-[11px] tabular-nums text-ink-soft/80">
                           {formatTime(item.time)}–{formatTime(item.endTime)}
                         </p>
-                        <div className="mx-auto my-2 flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-[#ddd8c8] bg-[#faf7ef] text-ink-soft/60">
+                        <div className="mx-auto my-2 flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-[#ddd8c8] bg-cream text-ink-soft/60">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                             <path d="M6 12h12" />
                           </svg>
@@ -566,7 +597,7 @@ export default function PetCam({ cameraId = 'cam_1' }) {
                       </>
                     )}
                     {index < displayTimeline.length - 1 && (
-                      <div className="absolute left-[87px] top-[39px] -z-0 h-[2px] w-[86px] bg-[#eae6d8]" />
+                      <div className="absolute left-[87px] top-[39px] -z-0 h-[2px] w-[86px] bg-sand" />
                     )}
                   </div>
                 ))}
@@ -583,27 +614,6 @@ export default function PetCam({ cameraId = 'cam_1' }) {
           )}
         </div>
 
-        {/* 攝影機連線 */}
-        <div className="flex items-center justify-center gap-2 pb-3">
-          <span
-            className={`h-2 w-2 rounded-full ${
-              monitor.key === 'present' || monitor.key === 'absent'
-                ? 'bg-pine-700'
-                : monitor.key === 'camera_down'
-                  ? 'bg-[#b4552f]'
-                  : 'bg-ink-soft/60'
-            }`}
-          />
-          <span className="text-xs text-ink-soft">
-            {monitor.key === 'present' || monitor.key === 'absent'
-              ? '攝影機連線正常'
-              : monitor.key === 'camera_down'
-                ? '攝影機未連線'
-                : monitor.key === 'service_down'
-                  ? '無法連線到攝影機服務'
-                  : '連線中…'}
-          </span>
-        </div>
       </div>
     </div>
   )

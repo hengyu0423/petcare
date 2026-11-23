@@ -2,25 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuthStore } from '../store/authStore'
-import MascotCat from '../components/brand/MascotCat'
-
-function PawMark({ size = 20, className = '' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="currentColor" className={className} aria-hidden="true">
-      <ellipse cx="24" cy="31" rx="10.5" ry="8" />
-      <circle cx="12.5" cy="20" r="4" />
-      <circle cx="20" cy="13" r="4" />
-      <circle cx="28" cy="13" r="4" />
-      <circle cx="35.5" cy="20" r="4" />
-    </svg>
-  )
-}
-
-const FEATURES = [
-  '新增第一隻寵物只需幾秒鐘',
-  '體重・餵食・花費，一本帳記完',
-  '異常提醒跟健康問診，隨時待命'
-]
+import BrandPanel from '../components/brand/BrandPanel'
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '' })
@@ -44,56 +26,26 @@ export default function RegisterPage() {
   return (
     <div className="min-h-dvh paw-soft-dots flex items-center justify-center p-4 sm:p-6">
 
-      <div className="card-shadow-warm w-full max-w-4xl overflow-hidden rounded-[2rem] border border-[#f3e3cd] bg-[#fffdf6]">
+      <div className="card-shadow-warm w-full max-w-4xl overflow-hidden rounded-[2rem] border border-hair bg-plate">
         <div className="grid lg:grid-cols-2">
 
           {/* ===== 左側：品牌面板 ===== */}
-          <div className="relative overflow-hidden bg-pine-800 px-6 py-7 lg:px-9 lg:py-10 flex flex-col">
-            <div aria-hidden="true" className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/5" />
-            <div aria-hidden="true" className="absolute -left-20 bottom-16 h-40 w-40 rounded-full bg-white/5" />
-
-            <Link to="/login" className="relative flex items-center gap-2.5 self-start">
-              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#f5c04a]">
-                <PawMark size={20} className="text-pine-900" />
-              </span>
-              <span className="font-brand text-xl font-bold tracking-tight text-[#f4f1e8]">
-                PawCare
-              </span>
-            </Link>
-
-            <div className="relative mt-6 lg:mt-auto lg:pt-8 flex flex-col items-center text-center lg:items-start lg:text-left">
-              <div className="flex items-center gap-4 lg:gap-6">
-                <MascotCat size={128} className="lg:hidden shrink-0" />
-                <div>
-                  <h1 className="font-brand text-2xl sm:text-3xl xl:text-4xl font-extrabold leading-[1.15] text-[#f4f1e8]">
-                    一起開始，<br />
-                    好好照顧牠。
-                  </h1>
-                  <p className="mt-2.5 text-xs sm:text-sm text-[#f4f1e8]/70">
-                    註冊只需 30 秒，阿橘會陪你和毛孩。
-                  </p>
-                </div>
-              </div>
-
-              <MascotCat size={210} className="hidden lg:block mt-8 self-center" />
-
-              <ul className="relative mt-6 space-y-2 text-left">
-                {FEATURES.map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[11px] lg:text-xs text-[#f4f1e8]/85">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f5c04a]">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#18301f" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4.5 4.5L19 8" /></svg>
-                    </span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <BrandPanel
+            lines={['一起開始，', '好好照顧牠。']}
+            sub="註冊只需 30 秒，阿橘會陪你和毛孩。"
+            features={[
+              { t: '幾秒就開始', d: '新增第一隻寵物只需要幾秒鐘' },
+              { t: '一本帳記完', d: '體重、餵食、花費，都記在同一處' },
+              { t: '隨時待命', d: '異常提醒與健康問診，半夜也不用擔心' }
+            ]}
+            catSays="喵～加入我們！"
+            dogSays="汪！一起玩"
+          />
 
           {/* ===== 右側：註冊表單 ===== */}
           <div className="px-6 py-7 sm:px-10 lg:py-10 flex flex-col justify-center">
             <div className="max-w-sm w-full mx-auto lg:mx-0">
-              <p className="font-brand text-[11px] font-bold tracking-[0.2em] text-[#c96f2e]">
+              <p className="font-brand text-[11px] font-bold tracking-[0.2em] text-honey-deep">
                 JOIN PAWCARE
               </p>
               <h2 className="font-brand mt-1.5 text-2xl sm:text-3xl font-extrabold tracking-tight text-pine-900">
@@ -106,7 +58,7 @@ export default function RegisterPage() {
               {error && (
                 <div
                   role="alert"
-                  className="mt-5 rounded-2xl border border-[#f3c2b8] bg-[#fdf0ec] px-4 py-3 text-xs sm:text-sm text-[#b3402a]"
+                  className="mt-5 rounded-2xl border border-clay-200 bg-clay-50 px-4 py-3 text-xs sm:text-sm text-[#b3402a]"
                 >
                   {error}
                 </div>
@@ -124,7 +76,7 @@ export default function RegisterPage() {
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="你的名字"
-                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-[#f5c04a]/30"
+                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-honey/30"
                   />
                 </div>
                 <div>
@@ -139,7 +91,7 @@ export default function RegisterPage() {
                     value={form.email}
                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="you@example.com"
-                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-[#f5c04a]/30"
+                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-honey/30"
                   />
                 </div>
                 <div>
@@ -155,13 +107,13 @@ export default function RegisterPage() {
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     placeholder="至少 6 個字元"
-                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-[#f5c04a]/30"
+                    className="w-full rounded-2xl border border-line bg-sand/50 px-4 py-3 text-sm text-ink placeholder-ink-soft/60 outline-none transition-all focus:border-[#e8a33d] focus:bg-white focus:ring-4 focus:ring-honey/30"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-2xl bg-[#f0a04b] hover:bg-[#e8853d] active:translate-y-px text-pine-900 font-brand font-extrabold py-3.5 text-sm sm:text-base tracking-wide transition-all disabled:opacity-60 shadow-[0_6px_0_#c96f2e] hover:shadow-[0_4px_0_#c96f2e]"
+                  className="w-full rounded-2xl bg-[#f0a04b] hover:bg-[#e8853d] active:translate-y-px text-pine-900 font-brand font-extrabold py-3.5 text-sm sm:text-base tracking-wide transition-all disabled:opacity-60 shadow-press hover:shadow-press"
                 >
                   {loading ? '建立中…' : '建立帳號'}
                 </button>
@@ -169,7 +121,7 @@ export default function RegisterPage() {
 
               <p className="mt-6 text-center text-xs sm:text-sm text-ink-soft">
                 已有帳號？{' '}
-                <Link to="/login" className="font-bold text-pine-800 hover:text-pine-900 underline underline-offset-4 decoration-[#f5c04a] decoration-2">
+                <Link to="/login" className="font-bold text-pine-800 hover:text-pine-900 underline underline-offset-4 decoration-honey decoration-2">
                   返回登入
                 </Link>
               </p>

@@ -1,3 +1,5 @@
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -13,10 +15,10 @@ const GENDER  = [['male','男'],['female','女'],['unknown','不明']]
 const STAGE_CLS = {
   young:  'bg-[#eaf1f4] text-[#3f6b7a] border-[#d5e4ea]',
   adult:  'bg-pine-50 text-pine-700 border-pine-100',
-  senior: 'bg-[#fdf3e3] text-[#c96f2e] border-[#f0d9b5]'
+  senior: 'bg-warm text-honey-deep border-honey-200'
 }
 
-const fieldCls = "w-full border border-[#eae6d8] rounded-xl px-3 py-2.5 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all"
+const fieldCls = "w-full border border-sand rounded-xl px-3 py-2.5 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all"
 
 // 卡片上的小標籤：生命階段、體重、快到的生日
 function PetChips({ pet }) {
@@ -35,12 +37,12 @@ function PetChips({ pet }) {
         </span>
       )}
       {pet.weight && (
-        <span className="rounded-full border border-line bg-[#faf7ef] px-2 py-0.5 text-[11px] text-ink-soft">
+        <span className="rounded-full border border-line bg-cream px-2 py-0.5 text-[11px] text-ink-soft">
           {formatKg(pet.weight)} kg
         </span>
       )}
       {soon && (
-        <span className="rounded-full border border-[#f0d9b5] bg-[#fdf3e3] px-2 py-0.5 text-[11px] font-semibold text-[#c96f2e]">
+        <span className="rounded-full border border-honey-200 bg-warm px-2 py-0.5 text-[11px] font-semibold text-honey-deep">
           {birthday.isToday ? '今天生日' : `${birthday.daysUntil} 天後生日`}
         </span>
       )}
@@ -55,7 +57,7 @@ function PetModal({ onClose, onSave, saving }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-900/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-[#f0e6d2] bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
+      <div className="w-full max-w-md rounded-3xl border border-hair bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-pine-900">新增寵物</h2>
@@ -64,7 +66,7 @@ function PetModal({ onClose, onSave, saving }) {
           <button
             onClick={onClose}
             aria-label="關閉"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
@@ -113,14 +115,14 @@ function PetModal({ onClose, onSave, saving }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea]"
+              className="flex-1 rounded-xl border border-line py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-warm"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-xl bg-[#f5c04a] py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+              className="flex-1 rounded-xl bg-honey py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
             >
               {saving ? '新增中...' : '新增'}
             </button>
@@ -158,47 +160,52 @@ export default function PetsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-pine-900 md:text-[26px]">我的寵物</h1>
-          <p className="mt-1 text-[13px] text-ink-soft">
-            {pets.length > 0
-              ? `共 ${pets.length} 隻・點進去可以看體重成長曲線與健康紀錄`
-              : '管理你的毛孩子資料'}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 rounded-2xl bg-[#f5c04a] px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          新增寵物
-        </button>
-      </header>
+      <PageHeader
+        title="我的"
+        accent="寵物"
+        className="mb-0"
+        subtitle={
+          pets.length > 0
+            ? `共 ${pets.length} 隻・點進去可以看體重成長曲線與健康紀錄`
+            : '管理你的毛孩子資料'
+        }
+        actions={
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 rounded-2xl bg-honey px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              新增寵物
+            </button>
+        }
+      />
 
       {showModal && <PetModal onClose={() => setShowModal(false)} onSave={d => addPet.mutate(d)} saving={addPet.isPending} />}
 
       {isLoading ? (
-        <p className="mt-8 text-sm text-ink-soft">載入中...</p>
-      ) : pets.length === 0 ? (
-        <div className="mt-6 rounded-3xl border border-dashed border-[#e3d9c2] bg-[#fbf7ee] px-6 py-20 text-center">
-          <div className="mx-auto w-fit">
-            <PetIcon species="other" size={64} />
-          </div>
-          <p className="mt-4 text-sm text-ink-soft">還沒有寵物，點右上角按鈕新增！</p>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="載入中">
+          {[0, 1, 2].map(i => <div key={i} className="skeleton h-[92px]" />)}
         </div>
+      ) : pets.length === 0 ? (
+        <EmptyState
+          className="mt-6"
+          icon="paw"
+          title="還沒有寵物"
+          desc="把第一位家人加進來，就能開始記錄體重、飲食和健康。"
+          action={{ label: '新增寵物', onClick: () => setShowModal(true) }}
+        />
       ) : (
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {pets.map(pet => (
             <div
               key={pet.id}
-              className="group rounded-3xl border border-[#f3e3cd] bg-plate p-4 transition-colors hover:border-[#e8d4b3] hover:bg-[#fffdf6]"
+              className="group card-lift rounded-3xl border border-hair bg-plate p-4 shadow-card hover:border-hair-strong"
             >
               <div className="flex items-start justify-between gap-2">
                 <Link to={`/pets/${pet.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                  <PetIcon species={pet.species} size={52} className="h-13 w-13 shrink-0" />
+                  <PetIcon species={pet.species} breed={pet.breed} size={52} className="h-13 w-13 shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[15px] font-bold text-pine-900">{pet.name}</p>
                     <p className="truncate text-xs text-ink-soft">
@@ -211,7 +218,7 @@ export default function PetsPage() {
                 <button
                   onClick={() => { if(confirm(`確定刪除 ${pet.name}？`)) deletePet.mutate(pet.id) }}
                   aria-label={`刪除 ${pet.name}`}
-                  className="shrink-0 rounded-xl p-1.5 text-ink-soft/50 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f]"
+                  className="shrink-0 rounded-xl p-1.5 text-ink-soft/50 transition-colors hover:bg-clay-50 hover:text-clay"
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M4 7h16M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7" />

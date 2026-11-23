@@ -1,3 +1,5 @@
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -15,7 +17,7 @@ const CATEGORIES = [
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.value, c.label]))
 
 const fieldCls =
-  'w-full border border-[#eae6d8] rounded-xl px-3 py-2.5 text-sm bg-[#faf7ef] text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
+  'w-full border border-sand rounded-xl px-3 py-2.5 text-sm bg-cream text-ink placeholder:text-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine-700/35 focus:border-pine-700/40 focus:bg-plate transition-all'
 
 const labelCls = 'mb-1.5 block text-[12px] font-semibold text-ink-soft'
 
@@ -70,13 +72,13 @@ function AddExpenseModal({ pets, onClose, onSave, saving }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-900/35 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[#f0e6d2] bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-hair bg-plate p-6 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-brand text-xl font-extrabold text-pine-900">新增支出</h2>
           <button
             onClick={onClose}
             aria-label="關閉"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-[#fdf6ea] hover:text-pine-900"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
           >
             <LineIcon name="close" size={16} />
           </button>
@@ -106,8 +108,8 @@ function AddExpenseModal({ pets, onClose, onSave, saving }) {
                   onClick={() => set('category', cat.value)}
                   className={`inline-flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-semibold transition-colors ${
                     form.category === cat.value
-                      ? 'border-pine-700 bg-pine-800 text-[#fdf8ec]'
-                      : 'border-[#eae6d8] bg-[#faf7ef] text-ink-soft hover:border-pine-700/40'
+                      ? 'border-pine-700 bg-pine-800 text-warm'
+                      : 'border-sand bg-cream text-ink-soft hover:border-pine-700/40'
                   }`}
                 >
                   <LineIcon name={cat.value} size={17} />
@@ -142,14 +144,14 @@ function AddExpenseModal({ pets, onClose, onSave, saving }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-line bg-plate py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-[#fdf6ea]"
+              className="flex-1 rounded-xl border border-line bg-plate py-2.5 text-sm font-semibold text-ink-soft transition-colors hover:bg-warm"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-xl bg-[#f5c04a] py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+              className="flex-1 rounded-xl bg-honey py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
             >
               {saving ? '新增中…' : '新增支出'}
             </button>
@@ -202,29 +204,30 @@ export default function ExpensesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-brand text-2xl font-extrabold text-pine-900 md:text-3xl">財務管理</h1>
-          <p className="mt-1 text-sm text-ink-soft">記錄每隻寵物的花費</p>
-        </div>
-        <div className="flex flex-wrap gap-2.5">
-          <Link
-            to="/expense-report"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#e8d9bd] bg-plate px-3.5 py-2.5 text-sm font-bold text-pine-800 transition-colors hover:bg-[#fdf6ea]"
-          >
-            <LineIcon name="chart" size={15} />
-            查看報表
-          </Link>
-          <button
-            onClick={() => setShowModal(true)}
-            disabled={pets.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#f5c04a] px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-[0_5px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50"
-          >
-            <LineIcon name="plus" size={15} />
-            新增支出
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="財務"
+        accent="管理"
+        subtitle="記錄每隻寵物的花費"
+        actions={
+          <>
+              <Link
+                to="/expense-report"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-hair-strong bg-plate px-3.5 py-2.5 text-sm font-bold text-pine-800 transition-colors hover:bg-warm"
+              >
+                <LineIcon name="chart" size={15} />
+                查看報表
+              </Link>
+              <button
+                onClick={() => setShowModal(true)}
+                disabled={pets.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-honey px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+              >
+                <LineIcon name="plus" size={15} />
+                新增支出
+              </button>
+          </>
+        }
+      />
 
       {/* 篩選 + 總計 */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -232,8 +235,8 @@ export default function ExpensesPage() {
           <option value="all">全部寵物</option>
           {pets.map(p => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
         </select>
-        <div className="ml-auto flex items-center gap-2.5 rounded-2xl border border-[#f3e3cd] bg-plate px-4 py-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff3d6] text-[#c96f2e]">
+        <div className="ml-auto flex items-center gap-2.5 rounded-2xl border border-hair bg-plate px-4 py-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-honey-100 text-honey-deep">
             <LineIcon name="wallet" size={16} />
           </span>
           <div>
@@ -254,22 +257,20 @@ export default function ExpensesPage() {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[0, 1, 2].map(i => <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#faf7ef]" />)}
+          {[0, 1, 2].map(i => <div key={i} className="skeleton h-20" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-[#e8d9bd] bg-[#faf7ef] px-4 py-16 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-plate text-pine-700">
-            <LineIcon name="wallet" size={26} />
-          </span>
-          <p className="mt-3 text-sm font-semibold text-pine-900">還沒有支出記錄</p>
-          <p className="mt-1 text-xs text-ink-soft">新增第一筆，就能在報表裡看到花費分布。</p>
-        </div>
+        <EmptyState
+          icon="coin"
+          title="還沒有支出記錄"
+          desc="新增第一筆，就能在報表裡看到花費分布。"
+        />
       ) : (
         <ul className="space-y-2.5">
           {filtered.map(exp => (
             <li
               key={exp.id}
-              className="flex items-center gap-3.5 rounded-2xl border border-[#f3e3cd] bg-plate px-4 py-3.5 transition-colors hover:bg-[#fffdf6]"
+              className="flex items-center gap-3.5 rounded-2xl border border-hair bg-plate px-4 py-3.5 transition-colors hover:bg-plate"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pine-50 text-pine-700">
                 <LineIcon name={exp.category} size={19} />
@@ -288,7 +289,7 @@ export default function ExpensesPage() {
                 onClick={() => { if (confirm('確定刪除？')) deleteExpense.mutate(exp.id) }}
                 disabled={deleteExpense.isPending}
                 aria-label={`刪除 ${exp.title}`}
-                className="shrink-0 rounded-lg p-2 text-ink-soft/60 transition-colors hover:bg-[#fdeee6] hover:text-[#b4552f] disabled:opacity-50"
+                className="shrink-0 rounded-lg p-2 text-ink-soft/60 transition-colors hover:bg-clay-50 hover:text-clay disabled:opacity-50"
               >
                 <LineIcon name="trash" size={16} />
               </button>
@@ -298,12 +299,12 @@ export default function ExpensesPage() {
       )}
 
       {addExpense.isError && (
-        <p role="alert" className="mt-3 text-xs text-[#b4552f]">
+        <p role="alert" className="mt-3 text-xs text-clay">
           {addExpense.error?.response?.data?.error || '新增失敗，請稍後再試'}
         </p>
       )}
       {deleteExpense.isError && (
-        <p role="alert" className="mt-3 text-xs text-[#b4552f]">刪除失敗，請稍後再試</p>
+        <p role="alert" className="mt-3 text-xs text-clay">刪除失敗，請稍後再試</p>
       )}
     </div>
   )

@@ -33,10 +33,10 @@ function LineIcon({ name, size = 16, className = '' }) {
 }
 
 const actionClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#e8d9bd] bg-[#faf7ef] px-4 py-2.5 text-sm font-bold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-[#fdf6ea] disabled:opacity-50'
+  'inline-flex items-center justify-center gap-1.5 rounded-xl border border-hair-strong bg-cream px-4 py-2.5 text-sm font-bold text-pine-800 transition-colors hover:border-pine-700/30 hover:bg-warm disabled:opacity-50'
 
 const primaryClass =
-  'inline-flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-[#f5c04a] px-5 py-3 text-sm font-extrabold text-pine-900 shadow-[0_4px_0_#c96f2e] transition-all hover:bg-[#f0b23a] active:translate-y-[3px] active:shadow-none disabled:opacity-50'
+  'inline-flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-honey px-5 py-3 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50'
 
 export default function PetEmotion({ embedded = false }) {
   const videoRef = useRef(null);
@@ -231,15 +231,15 @@ export default function PetEmotion({ embedded = false }) {
 
   return (
     <div className={embedded ? 'p-5 sm:p-6' : 'min-h-screen bg-paper p-4 font-sans sm:p-6'}>
-      <div className="mx-auto max-w-3xl rounded-3xl border border-[#f3e3cd] bg-plate p-5 shadow-[0_20px_50px_-30px_rgba(87,54,17,0.45)] sm:p-6">
+      <div className="mx-auto max-w-3xl rounded-3xl border border-hair bg-plate p-5 shadow-[0_20px_50px_-30px_rgba(87,54,17,0.45)] sm:p-6">
         {/* 放在健康諮詢頁時，上方已經有標題列，這裡就不重複 */}
         {!embedded && (
           <div className="mb-6 text-center">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-pine-800 text-[#f5c04a]">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-pine-800 text-honey">
               <LineIcon name="paw" size={24} />
             </span>
             <h1 className="mt-3 font-brand text-xl font-extrabold text-pine-900">
-              AI 寵物心情辨識
+              AI 寵物<span className="hl">心情</span>辨識
             </h1>
             <p className="mt-1 text-sm text-ink-soft">
               拍攝或上傳寵物照片，讓 AI 分析牠可能的心情
@@ -327,7 +327,7 @@ export default function PetEmotion({ embedded = false }) {
             <img
               src={preview}
               alt="寵物照片"
-              className="mx-auto w-full max-w-md rounded-2xl border border-[#f0e6d2]"
+              className="mx-auto w-full max-w-md rounded-2xl border border-hair"
             />
           </div>
         )}
@@ -347,7 +347,7 @@ export default function PetEmotion({ embedded = false }) {
 
         {/* 錯誤訊息 */}
         {error && (
-          <p className="mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold text-[#b4552f]">
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold text-clay">
             <LineIcon name="alert" size={14} />
             {error}
           </p>
