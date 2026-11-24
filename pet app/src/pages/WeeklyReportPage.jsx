@@ -1,297 +1,373 @@
-  import { useEffect, useState } from 'react'
-  import { useQuery, useQueryClient } from '@tanstack/react-query'
-  import ReactMarkdown from 'react-markdown'
-  import remarkGfm from 'remark-gfm'
-  import { api } from '../lib/api'
-  import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
+import EmptyState from '../components/ui/EmptyState'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { api } from '../lib/api'
+import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
+import PetIcon from '../components/brand/PetIcon'
 
-  const EMOJI={dog:'🐶',cat:'🐱',bird:'🐦',rabbit:'🐰',fish:'🐟',other:'🐾'}
-  const COLOR={dog:'from-amber-400 to-orange-500',cat:'from-purple-400 to-pink-500',bird:'from-sky-400 to-blue-500',rabbit:'from-pink-400 to-rose-500',fish:'from-cyan-400 to-teal-500',other:'from-green-400 to-emerald-500'}
+const getDate = d => new Date(d).toISOString().slice(0, 10)
+const formatDate = d => new Date(d).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })
+const getMonday = d => {
+  const x = new Date(d), day = x.getDay()
+  x.setDate(x.getDate() - (day === 0 ? 6 : day - 1))
+  return getDate(x)
+}
+const addDays = (date, n) => {
+  const d = new Date(date); d.setDate(d.getDate() + n); return getDate(d)
+}
+const cleanReport = text => {
+  if (!text) return ''
+  return text.replace(/\\([#*-])/g, '$1').trim()
+}
+const previewReport = text => cleanReport(text)
+  .replace(/^#{1,6}\s*/gm, '')
+  .replace(/\*\*/g, '')
+  .replace(/^[-*]\s+/gm, '')
+  .replace(/\n+/g, ' ')
+  .trim()
+const normalizeReport = r => ({
+  id: r.id ?? r.reportId,
+  pet_id: r.pet_id ?? r.petId,
+  week_start: r.week_start ?? r.weekStart,
+  week_end: r.week_end ?? r.weekEnd,
+  report: r.report ?? '',
+  created_at: r.created_at ?? r.createdAt ?? r.updated_at ?? r.updatedAt ?? new Date().toISOString(),
+  updated_at: r.updated_at ?? r.updatedAt ?? r.created_at ?? r.createdAt
+})
 
-  const getDate=d=>new Date(d).toISOString().slice(0,10)
-  const formatDate=d=>new Date(d).toLocaleDateString('zh-TW',{month:'long',day:'numeric'})
-  const getMonday=d=>{
-    const x=new Date(d),day=x.getDay()
-    x.setDate(x.getDate()-(day===0?6:day-1))
-    return getDate(x)
-  }
-  const addDays=(date,n)=>{
-    const d=new Date(date);d.setDate(d.getDate()+n);return getDate(d)
-  }
-  const cleanReport=text=>{
-    if(!text)return ''
-    return text.replace(/\\([#*\-])/g,'$1').trim()
-  }
-  const previewReport=text=>cleanReport(text)
-    .replace(/^#{1,6}\s*/gm,'')
-    .replace(/\*\*/g,'')
-    .replace(/^[-*]\s+/gm,'')
-    .replace(/\n+/g,' ')
-    .trim()
-  const normalizeReport=r=>({
-    id:r.id??r.reportId,
-    pet_id:r.pet_id??r.petId,
-    week_start:r.week_start??r.weekStart,
-    week_end:r.week_end??r.weekEnd,
-    report:r.report??'',
-    created_at:r.created_at??r.createdAt??r.updated_at??r.updatedAt??new Date().toISOString(),
-    updated_at:r.updated_at??r.updatedAt??r.created_at??r.createdAt
+const ICON = {
+  left: <path d="M15 6l-6 6 6 6" />,
+  right: <path d="M9 6l6 6-6 6" />,
+  spark: <><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3Z" /><path d="M18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1Z" /></>,
+  book: <><path d="M5 4.5h6a2.5 2.5 0 0 1 2.5 2.5v12A2.5 2.5 0 0 0 11 16.5H5Z" /><path d="M19 4.5h-6A2.5 2.5 0 0 0 10.5 7v12A2.5 2.5 0 0 1 13 16.5h6Z" /></>,
+  clock: <><circle cx="12" cy="12" r="8" /><path d="M12 7.5V12l3 2" /></>,
+  alert: <><path d="M12 4.5 21 19.5H3L12 4.5Z" /><path d="M12 10v4M12 17h.01" /></>,
+  inbox: <><path d="M4 13.5 6 5h12l2 8.5" /><path d="M4 13.5h4l1.5 2.5h5L16 13.5h4V19H4Z" /></>,
+  clipboard: <><rect x="5" y="4.5" width="14" height="16" rx="2" /><path d="M9 4.5V3h6v1.5" /><path d="M9 10h6M9 14h6M9 17.5h3" /></>,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />
+}
+
+function LineIcon({ name, size = 16 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      {ICON[name] || ICON.clipboard}
+    </svg>
+  )
+}
+
+const cardCls = 'rounded-3xl border border-hair bg-plate'
+
+const MarkdownReport = ({ text }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    components={{
+      h1: ({ children }) => <h1 className="mt-7 mb-3 text-xl font-extrabold text-pine-900">{children}</h1>,
+      h2: ({ children }) => <h2 className="mt-7 mb-3 border-b border-hair pb-2 text-base font-bold text-pine-900 first:mt-0">{children}</h2>,
+      h3: ({ children }) => <h3 className="mt-5 mb-2 text-sm font-bold text-pine-800">{children}</h3>,
+      p: ({ children }) => <p className="mb-3 text-sm leading-7 text-ink">{children}</p>,
+      ul: ({ children }) => <ul className="ml-6 mb-4 space-y-1.5 text-ink">{children}</ul>,
+      ol: ({ children }) => <ol className="ml-6 mb-4 space-y-2 text-ink">{children}</ol>,
+      li: ({ children }) => <li className="pl-1 text-sm leading-6">{children}</li>,
+      strong: ({ children }) => <strong className="font-bold text-pine-900">{children}</strong>,
+      blockquote: ({ children }) => <blockquote className="my-4 rounded-r-xl border-l-4 border-honey-500 bg-honey-50 px-4 py-3 text-sm text-honey-ink">{children}</blockquote>,
+      hr: () => <hr className="my-6 border-hair" />
+    }}
+  >
+    {cleanReport(text)}
+  </ReactMarkdown>
+)
+
+export default function WeeklyReportPage() {
+  const [selectedPet, setSelectedPet] = useState(null)
+  const [petOpen, setPetOpen] = useState(true) // 一開始沒選寵物，所以先展開
+  const [weekStart, setWeekStart] = useState(getMonday(new Date()))
+  const [report, setReport] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const queryClient = useQueryClient()
+  const weekEnd = addDays(weekStart, 6)
+
+  const { data: pets = [] } = useQuery({
+    queryKey: ['pets'],
+    queryFn: () => api.get('/pets').then(r => r.data.data || [])
   })
 
-  const MarkdownReport=({text})=>(
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        h1:({children})=><h1 className="text-xl font-bold text-gray-900 mt-7 mb-3">{children}</h1>,
-        h2:({children})=><h2 className="text-base font-bold text-gray-800 mt-7 mb-3 pb-2 border-b border-gray-100 first:mt-0">{children}</h2>,
-        h3:({children})=><h3 className="text-sm font-bold text-gray-700 mt-5 mb-2">{children}</h3>,
-        p:({children})=><p className="text-sm text-gray-600 leading-7 mb-3">{children}</p>,
-        ul:({children})=><ul className="list-disc ml-6 space-y-1.5 mb-4 text-gray-600">{children}</ul>,
-        ol:({children})=><ol className="list-decimal ml-6 space-y-2 mb-4 text-gray-600">{children}</ol>,
-        li:({children})=><li className="text-sm leading-6 pl-1">{children}</li>,
-        strong:({children})=><strong className="font-semibold text-gray-900">{children}</strong>,
-        blockquote:({children})=><blockquote className="border-l-4 border-amber-300 bg-amber-50 rounded-r-xl px-4 py-3 my-4 text-sm text-amber-900">{children}</blockquote>,
-        hr:()=> <hr className="my-6 border-gray-100"/>
-      }}
-    >
-      {cleanReport(text)}
-    </ReactMarkdown>
-  )
+  const {
+    data: reports = [],
+    isLoading: reportsLoading,
+    isError: reportsError
+  } = useQuery({
+    queryKey: ['weekly-reports', selectedPet?.id],
+    queryFn: async () => {
+      const { data } = await api.get(`/ai/weekly-report/${selectedPet.id}`)
+      const raw = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.reports)
+          ? data.reports
+          : Array.isArray(data)
+            ? data
+            : []
+      return raw.map(normalizeReport)
+    },
+    enabled: !!selectedPet?.id,
+    retry: 1
+  })
 
-  export default function WeeklyReportPage(){
-    const [selectedPet,setSelectedPet]=useState(null)
-    const [petOpen,setPetOpen]=useState(true) // 手機寵物抽屜：一開始沒選寵物，所以先展開
-    const [weekStart,setWeekStart]=useState(getMonday(new Date()))
-    const [report,setReport]=useState('')
-    const [loading,setLoading]=useState(false)
-    const [error,setError]=useState('')
-    const queryClient=useQueryClient()
-    const weekEnd=addDays(weekStart,6)
+  // 用推導代替在 effect 裡 setState：切換週次時自動帶出該週已保存的週報
+  const savedReport = reports.find(r => r.week_start && getDate(r.week_start) === weekStart)
+  const displayReport = report || savedReport?.report || ''
 
-    const {data:pets=[]}=useQuery({
-      queryKey:['pets'],
-      queryFn:()=>api.get('/pets').then(r=>r.data.data||[])
-    })
+  const generateReport = async () => {
+    if (!selectedPet) return
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await api.post('/ai/weekly-report', {
+        petId: selectedPet.id,
+        weekStart,
+        weekEnd
+      })
+      const generated = data?.data?.report
+      if (!generated) throw new Error('後端沒有回傳週報內容')
+      setReport(generated)
 
-    const {
-      data:reports=[],
-      isLoading:reportsLoading,
-      isError:reportsError
-    }=useQuery({
-      queryKey:['weekly-reports',selectedPet?.id],
-      queryFn:async()=>{
-        const {data}=await api.get(`/ai/weekly-report/${selectedPet.id}`)
-        const raw=Array.isArray(data?.data)
-          ?data.data
-          :Array.isArray(data?.reports)
-            ?data.reports
-            :Array.isArray(data)
-              ?data
-              :[]
-        return raw.map(normalizeReport)
-      },
-      enabled:!!selectedPet?.id,
-      retry:1
-    })
+      const saved = normalizeReport({
+        id: data.data.reportId,
+        petId: selectedPet.id,
+        weekStart: data.data.weekStart || weekStart,
+        weekEnd: data.data.weekEnd || weekEnd,
+        report: generated,
+        createdAt: new Date().toISOString()
+      })
 
-    useEffect(()=>{
-      if(!selectedPet||report||!reports.length)return
-      const saved=reports.find(r=>r.week_start&&getDate(r.week_start)===weekStart)
-      if(saved)setReport(saved.report)
-    },[reports,weekStart,selectedPet,report])
-
-    const generateReport=async()=>{
-      if(!selectedPet)return
-      setLoading(true)
-      setError('')
-      try{
-        const {data}=await api.post('/ai/weekly-report',{
-          petId:selectedPet.id,
-          weekStart,
-          weekEnd
-        })
-        const generated=data?.data?.report
-        if(!generated)throw new Error('後端沒有回傳週報內容')
-        setReport(generated)
-
-        const saved=normalizeReport({
-          id:data.data.reportId,
-          petId:selectedPet.id,
-          weekStart:data.data.weekStart||weekStart,
-          weekEnd:data.data.weekEnd||weekEnd,
-          report:generated,
-          createdAt:new Date().toISOString()
-        })
-
-        queryClient.setQueryData(['weekly-reports',selectedPet.id],old=>{
-          const list=Array.isArray(old)?old:[]
-          const filtered=list.filter(r=>!(r.week_start&&getDate(r.week_start)===getDate(saved.week_start)))
-          return [saved,...filtered]
-        })
-        await queryClient.invalidateQueries({queryKey:['weekly-reports',selectedPet.id]})
-      }catch(err){
-        console.error('生成週報失敗：',err)
-        setError(err?.response?.data?.error||'生成失敗，請稍後再試')
-      }finally{
-        setLoading(false)
-      }
+      queryClient.setQueryData(['weekly-reports', selectedPet.id], old => {
+        const list = Array.isArray(old) ? old : []
+        const filtered = list.filter(r => !(r.week_start && getDate(r.week_start) === getDate(saved.week_start)))
+        return [saved, ...filtered]
+      })
+      await queryClient.invalidateQueries({ queryKey: ['weekly-reports', selectedPet.id] })
+    } catch (err) {
+      console.error('生成週報失敗：', err)
+      setError(err?.response?.data?.error || '生成失敗，請稍後再試')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    const selectReport=r=>{
-      setWeekStart(getDate(r.week_start))
-      setReport(r.report)
-      setError('')
-    }
-    const changePet=pet=>{
-      setSelectedPet(pet)
-      setPetOpen(false) 
-      setWeekStart(getMonday(new Date()))
-      setReport('')
-      setError('')
-    }
-    const changeWeek=start=>{
-      setWeekStart(start)
-      setReport('')
-      setError('')
-    }
+  const selectReport = r => {
+    setWeekStart(getDate(r.week_start))
+    setReport(r.report)
+    setError('')
+  }
+  const changePet = pet => {
+    setSelectedPet(pet)
+    setPetOpen(false)
+    setWeekStart(getMonday(new Date()))
+    setReport('')
+    setError('')
+  }
+  const changeWeek = start => {
+    setWeekStart(start)
+    setReport('')
+    setError('')
+  }
 
-    return(
-      <div className="flex h-full overflow-hidden bg-gray-50">                          {/* ← h-screen 改 h-full */}
-        <PetDrawer open={petOpen} onClose={()=>setPetOpen(false)} widthClass="md:w-56"> {/* ← 原本的 <aside ...> */}
-          <div className="px-4 py-5 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-800">選擇寵物</h2>
-            <p className="text-xs text-gray-400 mt-1">查看健康週報</p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {pets.map(pet=>(
-              <button key={pet.id} onClick={()=>changePet(pet)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition ${selectedPet?.id===pet.id?'bg-green-50 border-green-300 shadow-sm':'bg-gray-50 border-gray-100 hover:bg-green-50'}`}>
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${COLOR[pet.species]||COLOR.other} flex items-center justify-center text-xl`}>{EMOJI[pet.species]||'🐾'}</div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{pet.name}</p>
-                  <p className="text-xs text-gray-400">{pet.breed||pet.species}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </PetDrawer>                                                                    {/* ← 原本的 </aside> */}
+  return (
+    <div className="flex h-full overflow-hidden">
+      <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-56">
+        <div className="border-b border-hair px-4 py-5">
+          <h2 className="text-sm font-bold text-pine-900">選擇寵物</h2>
+          <p className="mt-1 text-xs text-ink-soft">查看健康週報</p>
+        </div>
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">
+          {pets.map(pet => (
+            <button
+              key={pet.id}
+              onClick={() => changePet(pet)}
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                selectedPet?.id === pet.id
+                  ? 'border-pine-700/35 bg-pine-50'
+                  : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
+              }`}
+            >
+              <PetIcon species={pet.species} breed={pet.breed} size={40} className="h-10 w-10 shrink-0" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-pine-900">{pet.name}</p>
+                <p className="truncate text-xs text-ink-soft">{pet.breed || pet.species}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </PetDrawer>
 
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">                  {/* ← 新增 */}
-        <PetPickerBar                                                                   
-          emoji={selectedPet?(EMOJI[selectedPet.species]||'🐾'):''}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <PetPickerBar
+          icon={selectedPet ? <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={28} className="h-7 w-7 shrink-0" /> : null}
           name={selectedPet?.name}
-          sub={selectedPet?(selectedPet.breed||selectedPet.species):''}
-          onOpen={()=>setPetOpen(true)}
-      />
+          sub={selectedPet ? (selectedPet.breed || selectedPet.species) : ''}
+          onOpen={() => setPetOpen(true)}
+        />
 
-      
-
-        {!selectedPet?(
-          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-            <div className="text-5xl mb-4">📋</div>
-            <p className="font-bold text-gray-600">健康週報</p>
-            <p className="text-sm text-gray-400 mt-1">請選擇寵物</p>
+        {!selectedPet ? (
+          <main className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warm text-pine-700">
+              <LineIcon name="clipboard" size={26} />
+            </span>
+            <p className="mt-3 font-bold text-pine-900">健康週報</p>
+            <p className="mt-1 text-sm text-ink-soft">請選擇寵物</p>
           </main>
-        ):(
-          <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
-            <div className="h-full overflow-y-auto xl:overflow-visible grid grid-cols-1 content-start xl:content-normal xl:grid-cols-[minmax(0,1fr)_360px] gap-4 xl:gap-5 p-3 sm:p-5 max-w-[1400px] mx-auto">
+        ) : (
+          <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div className="mx-auto grid h-full grid-cols-1 content-start gap-4 overflow-y-auto p-3 sm:p-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:content-normal xl:overflow-visible">
               <section className="min-w-0 xl:overflow-y-auto xl:pr-1">
-                <div className={`bg-gradient-to-br ${COLOR[selectedPet.species]||COLOR.other} rounded-2xl p-5 mb-4 text-white shadow-sm`}>
+                <div className="forest-band mb-4 rounded-3xl bg-pine-800 px-5 py-8 text-warm shadow-card">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-3xl">{EMOJI[selectedPet.species]||'🐾'}</div>
-                    <div>
-                      <p className="text-xs text-white/70">AI 健康週報</p>
-                      <h1 className="text-xl font-bold">{selectedPet.name}</h1>
-                      <p className="text-sm text-white/80">{formatDate(weekStart)} ～ {formatDate(weekEnd)}</p>
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-honey text-pine-900">
+                      <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={32} className="h-8 w-8" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-mono text-[11px] font-bold tracking-[0.16em] text-lime">AI 健康週報</p>
+                      <h1 className="font-brand text-2xl font-extrabold leading-tight md:text-3xl">{selectedPet.name}</h1>
+                      <p className="text-xs text-warm/80">{formatDate(weekStart)} ～ {formatDate(weekEnd)}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4 shadow-sm">
+                <div className={`${cardCls} mb-4 p-4`}>
                   <div className="flex items-center justify-between gap-3">
-                    <button onClick={()=>changeWeek(addDays(weekStart,-7))} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 text-lg">←</button>
-                    <input type="date" value={weekStart} onChange={e=>changeWeek(getMonday(e.target.value))} className="border rounded-lg px-3 py-2 text-sm"/>
-                    <button onClick={()=>changeWeek(addDays(weekStart,7))} className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 text-lg">→</button>
+                    <button
+                      onClick={() => changeWeek(addDays(weekStart, -7))}
+                      aria-label="上一週"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-hair"
+                    >
+                      <LineIcon name="left" size={18} />
+                    </button>
+                    <input
+                      type="date"
+                      value={weekStart}
+                      onChange={e => changeWeek(getMonday(e.target.value))}
+                      className="rounded-xl border border-sand bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
+                    />
+                    <button
+                      onClick={() => changeWeek(addDays(weekStart, 7))}
+                      aria-label="下一週"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-cream text-pine-800 transition-colors hover:bg-hair"
+                    >
+                      <LineIcon name="right" size={18} />
+                    </button>
                   </div>
-                  <button onClick={generateReport} disabled={loading}
-                    className={`w-full mt-3 py-3 rounded-xl text-white font-semibold bg-gradient-to-r ${COLOR[selectedPet.species]||COLOR.other} disabled:opacity-50 hover:shadow-md transition`}>
-                    {loading?'✨ AI 分析中...':'✨ 生成這一週的 AI 健康週報'}
+                  <button
+                    onClick={generateReport}
+                    disabled={loading}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-honey py-3 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-50"
+                  >
+                    <LineIcon name="spark" size={17} />
+                    {loading ? 'AI 分析中…' : '生成這一週的 AI 健康週報'}
                   </button>
                 </div>
 
-                {error&&<div className="bg-red-50 border border-red-100 text-red-500 rounded-xl p-4 mb-4 text-sm">{error}</div>}
+                {error && (
+                  <div role="alert" className="mb-4 rounded-xl border border-clay-200 bg-clay-50 p-4 text-sm text-clay">
+                    {error}
+                  </div>
+                )}
 
-                {report?(
-                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                    <div className={`bg-gradient-to-r ${COLOR[selectedPet.species]||COLOR.other} px-5 py-4 text-white`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-xs text-white/70 mb-1">AI 分析結果</p>
-                          <p className="font-bold">{selectedPet.name} 的健康週報</p>
-                        </div>
-                        <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full shrink-0">{formatDate(weekStart)} ～ {formatDate(weekEnd)}</span>
+                {displayReport ? (
+                  <div className={`${cardCls} overflow-hidden`}>
+                    <div className="flex items-center justify-between gap-3 bg-pine-700 px-5 py-4 text-warm">
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold text-honey">AI 分析結果</p>
+                        <p className="font-bold">{selectedPet.name} 的健康週報</p>
                       </div>
+                      <span className="shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-xs">
+                        {formatDate(weekStart)} ～ {formatDate(weekEnd)}
+                      </span>
                     </div>
                     <div className="p-4 sm:p-6 md:p-7">
-                      <MarkdownReport text={report}/>
-                      <div className="mt-7 pt-4 border-t border-gray-100 text-[11px] leading-5 text-gray-400">
+                      <MarkdownReport text={displayReport} />
+                      <div className="mt-7 border-t border-hair pt-4 text-[11px] leading-5 text-ink-soft/80">
                         AI 週報依 PawCare 系統中的紀錄進行整理與分析；攝影機狀態屬於姿態與活動量推測，不等同醫療診斷。
                       </div>
                     </div>
                   </div>
-                ):(
-                  <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-12 text-center">
-                    <div className="text-4xl mb-3">📋</div>
-                    <p className="font-semibold text-gray-600">尚未顯示週報</p>
-                    <p className="text-xs text-gray-400 mt-1">若這週曾生成過，會自動載入；也可以點擊上方按鈕重新分析</p>
-                  </div>
+                ) : (
+                  <EmptyState
+                    icon="note"
+                    title="尚未顯示週報"
+                    desc="若這週曾生成過，會自動載入；也可以點擊上方按鈕重新分析"
+                  />
                 )}
               </section>
 
-              <aside className="min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden max-h-[32rem] xl:max-h-none">
-                <div className="px-5 py-4 border-b border-gray-100 shrink-0">
+              <aside className={`${cardCls} flex max-h-[32rem] min-w-0 flex-col overflow-hidden shadow-sm xl:max-h-none`}>
+                <div className="shrink-0 border-b border-hair px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h2 className="font-bold text-gray-800">📚 歷史週報</h2>
-                      <p className="text-xs text-gray-400 mt-1">點擊即可查看過往週報</p>
+                      <h2 className="flex items-center gap-1.5 font-bold text-pine-900">
+                        <LineIcon name="book" size={16} />
+                        歷史週報
+                      </h2>
+                      <p className="mt-1 text-xs text-ink-soft">點擊即可查看過往週報</p>
                     </div>
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full shrink-0">
-                      {reportsLoading?'讀取中':reportsError?'讀取失敗':`${reports.length} 份`}
+                    <span className="shrink-0 rounded-full bg-pine-50 px-2.5 py-1 text-xs font-semibold text-pine-700">
+                      {reportsLoading ? '讀取中' : reportsError ? '讀取失敗' : `${reports.length} 份`}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {reportsLoading?(
-                    <div className="h-full flex flex-col items-center justify-center text-center px-5">
-                      <div className="text-3xl mb-3">⏳</div>
-                      <p className="text-sm text-gray-500">正在讀取歷史週報...</p>
+                <div className="flex-1 space-y-3 overflow-y-auto p-3">
+                  {reportsLoading ? (
+                    <div className="flex h-full flex-col items-center justify-center px-5 text-center">
+                      <span className="text-pine-700"><LineIcon name="clock" size={26} /></span>
+                      <p className="mt-3 text-sm text-ink-soft">正在讀取歷史週報...</p>
                     </div>
-                  ):reportsError?(
-                    <div className="h-full flex flex-col items-center justify-center text-center px-5">
-                      <div className="text-4xl mb-3">⚠️</div>
-                      <p className="text-sm font-medium text-red-500">歷史週報讀取失敗</p>
-                      <p className="text-xs text-gray-400 mt-1">請確認後端有 GET /api/ai/weekly-report/:petId</p>
+                  ) : reportsError ? (
+                    <div className="flex h-full flex-col items-center justify-center px-5 text-center">
+                      <span className="text-clay"><LineIcon name="alert" size={26} /></span>
+                      <p className="mt-3 text-sm font-semibold text-clay">歷史週報讀取失敗</p>
+                      <p className="mt-1 text-xs text-ink-soft">請確認後端有 GET /api/ai/weekly-report/:petId</p>
                     </div>
-                  ):reports.length===0?(
-                    <div className="h-full flex flex-col items-center justify-center text-center px-5">
-                      <div className="text-4xl mb-3">📭</div>
-                      <p className="text-sm font-medium text-gray-500">目前還沒有歷史週報</p>
-                      <p className="text-xs text-gray-400 mt-1">生成週報後會自動保存並顯示在這裡</p>
+                  ) : reports.length === 0 ? (
+                    <div className="flex h-full items-center justify-center p-4">
+                      <EmptyState compact icon="note" title="目前還沒有歷史週報" desc="生成週報後會自動保存並顯示在這裡" />
                     </div>
-                  ):reports.map(r=>(
-                    <button key={r.id||`${r.week_start}-${r.created_at}`} onClick={()=>selectReport(r)}
-                      className={`w-full text-left rounded-xl border overflow-hidden transition hover:shadow-sm ${r.week_start&&getDate(r.week_start)===weekStart?'border-green-400 bg-green-50/40':'border-gray-200 bg-white hover:border-green-300'}`}>
-                      <div className="px-4 py-3 border-b border-gray-100">
+                  ) : reports.map(r => (
+                    <button
+                      key={r.id || `${r.week_start}-${r.created_at}`}
+                      onClick={() => selectReport(r)}
+                      className={`w-full overflow-hidden rounded-xl border text-left transition-colors hover:bg-warm ${
+                        r.week_start && getDate(r.week_start) === weekStart
+                          ? 'border-pine-700/40 bg-pine-50'
+                          : 'border-sand bg-cream hover:border-pine-700/30'
+                      }`}
+                    >
+                      <div className="border-b border-hair px-4 py-3">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-sm text-gray-700">{formatDate(r.week_start)} ～ {formatDate(r.week_end)}</p>
-                          {r.week_start&&getDate(r.week_start)===weekStart&&<span className="text-[10px] text-green-600 bg-green-100 px-2 py-0.5 rounded-full shrink-0">目前</span>}
+                          <p className="text-sm font-bold text-pine-900">{formatDate(r.week_start)} ～ {formatDate(r.week_end)}</p>
+                          {r.week_start && getDate(r.week_start) === weekStart && (
+                            <span className="shrink-0 rounded-full bg-pine-800 px-2 py-0.5 text-[10px] font-bold text-warm">目前</span>
+                          )}
                         </div>
-                        <p className="text-[11px] text-gray-400 mt-1">生成於 {new Date(r.created_at).toLocaleDateString('zh-TW')}</p>
+                        <p className="mt-1 text-[11px] text-ink-soft">生成於 {new Date(r.created_at).toLocaleDateString('zh-TW')}</p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{previewReport(r.report)}</p>
-                        <p className="text-xs text-green-600 font-medium mt-2">查看週報 →</p>
+                        <p className="line-clamp-3 text-xs leading-relaxed text-ink-soft">{previewReport(r.report)}</p>
+                        <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-pine-700">
+                          查看週報 <LineIcon name="arrow" size={13} />
+                        </p>
                       </div>
                     </button>
                   ))}
@@ -301,6 +377,6 @@
           </main>
         )}
       </div>
-    </div>  
+    </div>
   )
 }

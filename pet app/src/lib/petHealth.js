@@ -61,7 +61,13 @@ export function upcomingReminders(records, today = todayString()) {
 export function useHealthRecords(petId) {
     return useQuery({
         queryKey: ['pet-health', petId],
-        queryFn: async () => (await api.get(`/health-records/pet/${petId}`)).data.data,
+        queryFn: async () => {
+            const res = await api.get(`/health-records/pet/${petId}`)
+            const d = res.data?.data
+            if (Array.isArray(d)) return d
+            if (Array.isArray(d?.rows)) return d.rows
+            return []
+        },
         enabled: petId !== undefined && petId !== null // 寵物資料還沒載入時不要送出 /pet/undefined
     })
 }

@@ -1,36 +1,33 @@
-import { useState, useEffect, useRef } from 'react'
+import PageHeader from '../components/ui/PageHeader'
+import EmptyState from '../components/ui/EmptyState'
+import PixelIcon from '../components/brand/PixelIcon'
+import PixelAssistant from '../components/brand/PixelAssistant'
+import AlertIcon from '../components/ui/AlertIcon'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
+import PetIcon from '../components/brand/PetIcon'
 import DietPreferencesModal from '../components/diet/DietPreferencesModal'
 import FoodCheckSteps from '../components/diet/FoodCheckSteps'
 import DietTodayTab from '../components/diet/DietTodayTab'
 import DietTrendTab from '../components/diet/DietTrendTab'
 import DietAdviceTab from '../components/diet/DietAdviceTab'
 
-const EMOJI = {
-  dog: '🐶',
-  cat: '🐱',
-  bird: '🐦',
-  rabbit: '🐰',
-  fish: '🐟',
-  other: '🐾'
-}
-
 // 健康事件嚴重程度（與健康諮詢頁一致）
 const HEALTH_SEVERITY = {
   normal: {
     label: '一般',
-    className: 'bg-green-50 text-green-600 border-green-200'
+    className: 'bg-pine-50 text-pine-700 border-pine-100'
   },
   urgent: {
     label: '建議儘快就醫',
-    className: 'bg-amber-50 text-amber-600 border-amber-200'
+    className: 'bg-honey-50 text-honey-text border-honey-200'
   },
   emergency: {
     label: '緊急',
-    className: 'bg-red-50 text-red-600 border-red-200'
+    className: 'bg-clay-50 text-clay border-clay-200'
   }
 }
 
@@ -99,7 +96,7 @@ export default function DietPage() {
   // 通知鈴鐺點過來時會帶 ?petId=，用來選到通知那隻寵物
   const [searchParams] = useSearchParams()
 
-  const [selectedPet, setSelectedPet] = useState(null)
+  const [chosenPet, setChosenPet] = useState(null)
   const [petOpen, setPetOpen] = useState(false) // 手機寵物抽屜
   const [showPastHealthEvents, setShowPastHealthEvents] = useState(false) // 展開已過注意期的健康事件
   const [selectedDate, setSelectedDate] = useState(today)
@@ -162,15 +159,12 @@ export default function DietPage() {
     queryFn: () => api.get('/pets').then(r => r.data.data)
   })
 
+  // 沒手動挑選時，直接以第一隻寵物為目前對象（用推導取代 effect 內 setState）
   // 通知鈴鐺跳過來時 URL 會帶 ?petId=，停在通知那隻寵物的畫面；
-  // 沒帶或找不到就一樣選第一隻。
-  useEffect(() => {
-    if (pets.length === 0 || selectedPet) return
-
-    const wanted = Number(searchParams.get('petId'))
-
-    setSelectedPet(pets.find(p => p.id === wanted) || pets[0])
-  }, [pets, searchParams])
+  // 沒帶或找不到就一樣選第一隻（沒手動挑選時以推導取代 effect 內 setState）
+  const wantedPetId = Number(searchParams.get('petId'))
+  const selectedPet =
+    chosenPet || pets.find(p => p.id === wantedPetId) || pets[0] || null
 
   const { data: foods = [] } = useQuery({
     queryKey: ['foods'],
@@ -1238,7 +1232,7 @@ export default function DietPage() {
       : null
 
   const inputCls =
-    'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all'
+    'w-full rounded-xl border border-sand bg-cream px-3 py-2.5 text-sm text-ink transition-all placeholder:text-ink-soft/60 focus:border-pine-700/40 focus:bg-plate focus:outline-none focus:ring-2 focus:ring-pine-700/35'
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -1246,19 +1240,17 @@ export default function DietPage() {
       {/* 左側：選擇寵物 */}
       <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-52">
 
-        <div className="px-4 py-4 border-b border-gray-100">
-          <h2 className="text-sm font-bold text-gray-800">
-            選擇寵物
-          </h2>
+        <div className="border-b border-hair px-4 py-5">
+          <h2 className="text-sm font-bold text-pine-900">選擇寵物</h2>
+          <p className="mt-1 text-xs text-ink-soft">查看飲食紀錄</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {pets.map(pet => (
             <button
               key={pet.id}
               onClick={() => {
-                setSelectedPet(pet)
+                setChosenPet(pet)
                 setDietAdvice('')
                 setAdviceError('')
                 setAdviceSources([])
@@ -1266,159 +1258,123 @@ export default function DietPage() {
                 setAdviceQuestion('')
                 setPetOpen(false)
               }}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                 selectedPet?.id === pet.id
-                  ? 'bg-green-50 border-green-300'
-                  : 'bg-gray-50 border-gray-100 hover:border-green-200'
+                  ? 'border-pine-700/35 bg-pine-50'
+                  : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
               }`}
             >
-              <span className="text-xl">
-                {EMOJI[pet.species] || '🐾'}
-              </span>
-
+              <PetIcon species={pet.species} breed={pet.breed} size={40} className="h-10 w-10 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">
-                  {pet.name}
-                </p>
-
-                <p className="text-xs text-gray-400">
-                  {pet.weight
-                    ? `${pet.weight}kg`
-                    : pet.species}
+                <p className="truncate text-sm font-bold text-pine-900">{pet.name}</p>
+                <p className="truncate text-xs text-ink-soft">
+                  {pet.weight ? `${pet.weight}kg` : pet.species}
                 </p>
               </div>
             </button>
           ))}
-
         </div>
 
-        <div className="p-3 border-t border-gray-100">
-  <Link
-    to="/food-database"
-    className="group block w-full rounded-xl border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-3 hover:border-green-300 hover:shadow-sm transition-all"
-  >
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-white border border-green-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
-        🗄️
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-gray-700 group-hover:text-green-600 transition-colors">
-          食物資料庫
-        </p>
-        <p className="text-[11px] text-gray-400 mt-0.5">
-          查看食物營養資訊
-        </p>
-      </div>
-      <span className="text-green-500 group-hover:translate-x-0.5 transition-transform">
-        →
-      </span>
-    </div>
-  </Link>
-</div>
+        <div className="border-t border-hair p-3">
+          <Link
+            to="/food-database"
+            className="group flex w-full items-center gap-3 rounded-2xl border border-hair bg-honey-50 p-3 transition-colors hover:border-pine-700/30"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-plate">
+              <PixelIcon name="dry" size={28} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-pine-900">食物資料庫</span>
+              <span className="mt-0.5 block text-[11px] text-ink-soft">查看食物營養資訊</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-pine-700 transition-transform group-hover:translate-x-0.5">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </Link>
+        </div>
       </PetDrawer>
 
       {/* 右側主要內容 */}
       <div className="flex-1 min-w-0 overflow-y-auto">
 
         <PetPickerBar
-          emoji={selectedPet ? (EMOJI[selectedPet.species] || '🐾') : ''}
+          icon={selectedPet ? <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={28} className="h-7 w-7 shrink-0" /> : null}
           name={selectedPet?.name}
           sub={selectedPet ? (selectedPet.weight ? `${selectedPet.weight}kg` : selectedPet.species) : ''}
           onOpen={() => setPetOpen(true)}
         />
 
         {!selectedPet ? (
-          <div className="flex items-center justify-center h-full flex-col gap-3 text-gray-400">
-
-            <span className="text-5xl">
-              🍽️
-            </span>
-
-            <p className="text-gray-500 font-semibold">
-              請選擇寵物
-            </p>
-
+          <div className="flex h-full items-center justify-center p-6">
+            <EmptyState icon="paw" title="請選擇寵物" desc="從左邊清單挑一隻，開始記錄今天的飲食" />
           </div>
         ) : (
           <div className="p-4 sm:p-6 max-w-4xl">
 
             {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <PageHeader
+              leading={<PetIcon species={selectedPet.species} breed={selectedPet.breed} size={52} className="h-[52px] w-[52px] shrink-0" />}
+              title={`${selectedPet.name} 的`}
+              accent="飲食管理"
+              subtitle="記錄和分析每日餵食狀況"
+              actions={
+                <>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => goDay(-1)}
+                        aria-label="前一天"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-sand bg-plate text-pine-700 transition-colors hover:bg-warm"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M15 6l-6 6 6 6" />
+                        </svg>
+                      </button>
 
-              <div>
-                <h1 className="text-xl font-bold text-gray-800">
-                  {EMOJI[selectedPet.species]}{' '}
-                  {selectedPet.name} 的飲食管理
-                </h1>
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={e => setSelectedDate(e.target.value)}
+                        className="rounded-xl border border-sand bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
+                      />
 
-                <p className="text-sm text-gray-400 mt-0.5">
-                  記錄和分析每日餵食狀況
-                </p>
-              </div>
+                      <button
+                        onClick={() => goDay(1)}
+                        disabled={selectedDate >= today}
+                        aria-label="後一天"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-sand bg-plate text-pine-700 transition-colors hover:bg-warm disabled:opacity-30"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
+                      </button>
 
-              <div className="flex flex-wrap items-center gap-3">
+                      {selectedDate !== today && (
+                        <button
+                          onClick={() => setSelectedDate(today)}
+                          className="rounded-full bg-warm px-2.5 py-1 text-xs font-bold text-pine-700 transition-colors hover:bg-honey-150"
+                        >
+                          今天
+                        </button>
+                      )}
+                    </div>
 
-                <div className="flex items-center gap-1.5">
-
-                  <button
-                    onClick={() => goDay(-1)}
-                    className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors text-lg"
-                  >
-                    ‹
-                  </button>
-
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={e =>
-                      setSelectedDate(
-                        e.target.value
-                      )
-                    }
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400"
-                  />
-
-                  <button
-                    onClick={() => goDay(1)}
-                    disabled={selectedDate >= today}
-                    className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30 text-lg"
-                  >
-                    ›
-                  </button>
-
-                  {selectedDate !== today && (
                     <button
-                      onClick={() =>
-                        setSelectedDate(today)
-                      }
-                      className="text-xs text-green-500 hover:underline font-medium px-1"
+                      onClick={openAddModal}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-honey px-4 py-2.5 text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none"
                     >
-                      今天
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      新增餵食
                     </button>
-                  )}
-
-                </div>
-
-                <button
-                  onClick={openAddModal}
-                  className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm"
-                >
-                  ＋ 新增餵食
-                </button>
-
-              </div>
-            </div>
-
+                </>
+              }
+            />
 
             {/* 分頁：今天／趨勢／AI 建議 */}
-            <div className="flex items-center gap-1 border-b border-gray-100 mb-5 overflow-x-auto overflow-y-hidden">
-
+            <div className="mb-5 flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-hair bg-plate p-1 shadow-card">
               {[
-                {
-                  key: 'today',
-                  label: '今天',
-                  count: healthAlertCount
-                },
+                { key: 'today', label: '今天', count: healthAlertCount },
                 { key: 'trends', label: '趨勢' },
                 { key: 'advice', label: 'AI 建議' }
               ].map(tab => (
@@ -1426,22 +1382,24 @@ export default function DietPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`relative flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition-colors ${
                     activeTab === tab.key
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-400 hover:text-gray-600'
+                      ? 'bg-pine-800 text-warm shadow-sm'
+                      : 'text-ink-soft hover:bg-plate hover:text-pine-900'
                   }`}
                 >
                   {tab.label}
-
                   {tab.count > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                    <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                      activeTab === tab.key
+                        ? 'bg-lime text-pine-900'
+                        : 'bg-honey-100 text-honey-text'
+                    }`}>
                       {tab.count}
                     </span>
                   )}
                 </button>
               ))}
-
             </div>
 
             {activeTab === 'today' && (
@@ -1524,9 +1482,9 @@ export default function DietPage() {
 
       {/* 新增餵食 Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-900/35 p-4 backdrop-blur-sm">
 
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100 max-h-[90vh] overflow-y-auto">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-hair bg-plate shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]">
 
             <div className="p-6">
 
@@ -1534,11 +1492,15 @@ export default function DietPage() {
               <div className="flex items-center justify-between mb-5">
 
                 <div>
-                  <h2 className="text-base font-bold text-gray-800">
-                    {editingRecord ? '編輯餵食紀錄' : '新增餵食紀錄'}
+                  <h2 className="font-brand text-lg font-extrabold text-pine-900">
+                    {editingRecord ? (
+                      <>編輯<span className="hl">餵食</span>紀錄</>
+                    ) : (
+                      <>新增<span className="hl">餵食</span>紀錄</>
+                    )}
                   </h2>
 
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-ink-faint mt-1">
                     {editingRecord
                       ? '修改後會更新同一筆紀錄，不會重複新增'
                       : '可以使用圖片辨識或手動輸入'}
@@ -1550,9 +1512,12 @@ export default function DietPage() {
                     setShowAddModal(false)
                     resetAddForm()
                   }}
-                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 text-sm"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-cream text-ink-mute transition-colors hover:bg-sand"
+                  aria-label="關閉"
                 >
-                  ✕
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
                 </button>
 
               </div>
@@ -1560,62 +1525,54 @@ export default function DietPage() {
               {/* 智慧推薦 */}
               <div className="mb-5">
                 {smartLoading && (
-                  <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
-                    <p className="text-sm font-semibold text-green-700">
-                      ✨ 正在分析最近飲食...
-                    </p>
-                    <p className="text-xs text-green-500 mt-1">
-                      系統會參考近期餵食、熱量與健康紀錄
-                    </p>
+                  <div className="flex items-start gap-2.5">
+                    <PixelAssistant tile size={34} mood="typing" />
+                    <div className="bubble-ai min-w-0 flex-1 px-4 py-3">
+                      <p className="text-sm font-bold text-pine-900">正在分析最近飲食…</p>
+                      <p className="mt-1 text-xs text-ink-soft">系統會參考近期餵食、熱量與健康紀錄</p>
+                    </div>
                   </div>
                 )}
 
                 {smartError && !smartLoading && (
-                  <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-                    <p className="text-xs text-red-500">
+                  <div className="rounded-2xl border-2 border-clay bg-clay-50 p-3">
+                    <p className="text-xs text-clay">
                       {smartError}
                     </p>
                   </div>
                 )}
 
                 {smartDiet?.recommendation && !smartLoading && (
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                        ✨
-                      </div>
+                  <div className="flex items-start gap-2.5">
+                      <PixelAssistant tile size={36} />
 
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-green-600">
-                          系統推薦
-                        </p>
+                      <div className="bubble-ai min-w-0 flex-1 p-3.5">
+                        <p className="font-mono text-[11px] font-bold tracking-[0.14em] text-honey-deep">系統推薦</p>
 
-                        <p className="text-sm font-bold text-gray-800 mt-1">
+                        <p className="mt-1 text-sm font-bold text-pine-900">
                           {smartDiet.recommendation.title}
                         </p>
 
-                        <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
+                        <p className="mt-1.5 text-sm leading-relaxed text-ink">
                           {smartDiet.recommendation.recommendation}
                         </p>
 
-                        <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+                        <p className="mt-2 text-xs leading-relaxed text-ink-soft">
                           原因：{smartDiet.recommendation.reason}
                         </p>
 
                         {smartDiet.history?.hasData && (
-                          <p className="text-[11px] text-gray-400 mt-3">
+                          <p className="mt-3 text-xs font-medium text-ink-soft">
                             已分析 {smartDiet.history.mealCount} 筆近期餵食紀錄
                           </p>
                         )}
-
                       </div>
                     </div>
-                  </div>
                 )}
               </div>
 
               {/* 模式切換 */}
-              <div className="grid grid-cols-2 bg-gray-100 rounded-xl p-1 mb-5">
+              <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-hair bg-cream p-1">
 
                 <button
                   type="button"
@@ -1623,13 +1580,14 @@ export default function DietPage() {
                     setInputMode('image')
                     setAiError('')
                   }}
-                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition-all ${
                     inputMode === 'image'
-                      ? 'bg-white text-green-600 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-pine-800 text-warm shadow-sm'
+                      : 'text-ink-mute hover:text-ink-body'
                   }`}
                 >
-                  📷 圖片辨識
+                  <PixelIcon name="camera" size={18} />
+                  圖片辨識
                 </button>
 
                 <button
@@ -1638,13 +1596,14 @@ export default function DietPage() {
                     setInputMode('manual')
                     setAiError('')
                   }}
-                  className={`py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition-all ${
                     inputMode === 'manual'
-                      ? 'bg-white text-green-600 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-pine-800 text-warm shadow-sm'
+                      : 'text-ink-mute hover:text-ink-body'
                   }`}
                 >
-                  ✏️ 手動輸入
+                  <PixelIcon name="note" size={18} />
+                  手動輸入
                 </button>
 
               </div>
@@ -1666,18 +1625,17 @@ export default function DietPage() {
                         onClick={() =>
                           fileInputRef.current?.click()
                         }
-                        className="w-full border-2 border-dashed border-gray-200 hover:border-green-300 hover:bg-green-50 rounded-xl p-8 transition-all"
+                        className="w-full rounded-2xl border-2 border-dashed border-hair-strong bg-cream p-8 transition-all hover:border-pine-200 hover:bg-pine-50"
                       >
+                        <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-hair bg-plate shadow-card">
+                          <PixelIcon name="camera" size={38} />
+                        </span>
 
-                        <div className="text-4xl mb-3">
-                          📷
-                        </div>
-
-                        <p className="text-sm font-semibold text-gray-700">
+                        <p className="text-sm font-semibold text-ink-body">
                           上傳食物圖片
                         </p>
 
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-ink-faint mt-1">
                           JPG、PNG，最大 10MB
                         </p>
 
@@ -1688,15 +1646,18 @@ export default function DietPage() {
                         <img
                           src={imagePreview}
                           alt="食物預覽"
-                          className="w-full h-48 object-cover rounded-xl border border-gray-200"
+                          className="h-48 w-full rounded-2xl border border-hair object-cover"
                         />
 
                         <button
                           type="button"
                           onClick={clearImage}
-                          className="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-full hover:bg-black/80"
+                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-pine-900/70 text-white transition-colors hover:bg-pine-900"
+                          aria-label="移除圖片"
                         >
-                          ✕
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" />
+                          </svg>
                         </button>
 
                       </div>
@@ -1715,34 +1676,34 @@ export default function DietPage() {
                         type="button"
                         onClick={handleImageAnalyze}
                         disabled={aiAnalyzing}
-                        className="w-full bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-pine-800 py-3 font-brand text-sm font-extrabold text-warm transition-colors hover:bg-pine-700 disabled:opacity-60"
                       >
-                        {aiAnalyzing
-                          ? '🤖 AI 正在辨識食物...'
-                          : '🤖 開始辨識食物與營養'}
+                        <PixelAssistant size={22} mood={aiAnalyzing ? 'typing' : 'idle'} />
+                        {aiAnalyzing ? 'AI 正在辨識食物…' : '開始辨識食物與營養'}
                       </button>
                     )}
 
                     {aiError && (
-                      <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-                        <p className="text-xs text-red-500">
+                      <div className="rounded-2xl border-2 border-clay bg-clay-50 p-3">
+                        <p className="text-xs text-clay">
                           {aiError}
                         </p>
                       </div>
                     )}
 
                     {aiResult && (
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                      <div className="rounded-2xl border border-hair bg-cream p-4">
 
                         <div className="flex items-center justify-between mb-3">
 
                           <div>
-                            <p className="text-xs font-semibold text-green-700">
-                              🤖 AI 辨識結果
+                            <p className="flex items-center gap-1.5 text-xs font-bold text-pine-800">
+                              <PixelAssistant size={20} />
+                              AI 辨識結果
                             </p>
 
                             {aiResult.confidence != null && (
-                              <p className="text-xs text-green-500 mt-0.5">
+                              <p className="text-xs text-pine-600 mt-0.5">
                                 信心度：
                                 {Math.round(
                                   Number(
@@ -1754,7 +1715,7 @@ export default function DietPage() {
 
                           </div>
 
-                          <span className="text-xs bg-white text-green-600 px-2 py-1 rounded-full">
+                          <span className="rounded-full bg-lime px-2 py-0.5 text-xs font-bold text-pine-900">
                             可修改
                           </span>
 
@@ -1762,25 +1723,25 @@ export default function DietPage() {
 
                         <div className="grid grid-cols-2 gap-2">
 
-                          <div className="bg-white rounded-lg p-2.5">
+                          <div className="col-span-2 rounded-xl border border-hair bg-plate p-2.5">
 
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-ink-faint">
                               食物
                             </p>
 
-                            <p className="text-sm font-bold text-gray-700">
+                            <p className="text-sm font-bold text-ink-body">
                               {aiResult.foodName || '未知'}
                             </p>
 
                           </div>
 
-                          <div className="bg-white rounded-lg p-2.5">
+                          <div className="rounded-xl border border-hair bg-plate p-2.5">
 
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-ink-faint">
                               估計份量
                             </p>
 
-                            <p className="text-sm font-bold text-gray-700">
+                            <p className="text-sm font-bold text-ink-body">
                               {aiResult.estimatedAmountG != null
                                 ? `${aiResult.estimatedAmountG} g`
                                 : '未估計'}
@@ -1788,57 +1749,15 @@ export default function DietPage() {
 
                           </div>
 
-                          <div className="bg-white rounded-lg p-2.5">
+                          <div className="rounded-xl border border-hair bg-plate p-2.5">
 
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-ink-faint">
                               熱量
                             </p>
 
-                            <p className="text-sm font-bold text-green-600">
+                            <p className="text-sm font-bold text-pine-700">
                               {aiResult.calories != null
                                 ? `${aiResult.calories} kcal`
-                                : '—'}
-                            </p>
-
-                          </div>
-
-                          <div className="bg-white rounded-lg p-2.5">
-
-                            <p className="text-xs text-gray-400">
-                              蛋白質
-                            </p>
-
-                            <p className="text-sm font-bold text-gray-700">
-                              {aiResult.proteinG != null
-                                ? `${aiResult.proteinG} g`
-                                : '—'}
-                            </p>
-
-                          </div>
-
-                          <div className="bg-white rounded-lg p-2.5">
-
-                            <p className="text-xs text-gray-400">
-                              脂肪
-                            </p>
-
-                            <p className="text-sm font-bold text-gray-700">
-                              {aiResult.fatG != null
-                                ? `${aiResult.fatG} g`
-                                : '—'}
-                            </p>
-
-                          </div>
-
-                          <div className="bg-white rounded-lg p-2.5">
-
-                            <p className="text-xs text-gray-400">
-                              碳水
-                            </p>
-
-                            <p className="text-sm font-bold text-gray-700">
-                              {aiResult.carbG != null
-                                ? `${aiResult.carbG} g`
                                 : '—'}
                             </p>
 
@@ -1847,7 +1766,7 @@ export default function DietPage() {
                         </div>
 
                         {aiResult.note && (
-                          <p className="text-xs text-green-600 mt-3">
+                          <p className="text-xs text-pine-700 mt-3">
                             {aiResult.note}
                           </p>
                         )}
@@ -1860,7 +1779,7 @@ export default function DietPage() {
                       <div className="space-y-3">
 
                         <div>
-                          <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                          <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                             食物名稱
                           </label>
 
@@ -1884,7 +1803,7 @@ export default function DietPage() {
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                          <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                             份量 (g)
                           </label>
 
@@ -1904,7 +1823,7 @@ export default function DietPage() {
                             className={inputCls}
                           />
 
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-ink-faint mt-1">
                             如果 AI 估算不準，可以在這裡修改。
                           </p>
                         </div>
@@ -1922,7 +1841,7 @@ export default function DietPage() {
                   <>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                         從食物資料庫選擇
                       </label>
 
@@ -1957,9 +1876,9 @@ export default function DietPage() {
 
                     <div>
 
-                      <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                      <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                         食物名稱 *
-                        <span className="ml-1 text-gray-300 font-normal">
+                        <span className="ml-1 text-ink-ghost font-normal">
                           （可手動輸入）
                         </span>
                       </label>
@@ -1996,11 +1915,11 @@ export default function DietPage() {
                               disabled={
                                 aiAnalyzing
                               }
-                              className="shrink-0 bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
+                              className="shrink-0 bg-pine-50 hover:bg-pine-100 text-pine-700 border border-pine-100 rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50"
                             >
                               {aiAnalyzing
                                 ? '...'
-                                : '🤖 AI'}
+                                : 'AI 估算'}
                             </button>
                           )}
 
@@ -2020,20 +1939,19 @@ export default function DietPage() {
 
                 {/* 飲食警訊 */}
                 {checkingFood && (
-                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-center">
-                    <p className="text-xs text-gray-500">
-                      🔎 正在檢查這個食物是否適合目前狀況...
-                    </p>
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-hair bg-cream p-3">
+                    <PixelAssistant size={26} mood="typing" />
+                    <p className="text-xs font-bold text-ink-mute">正在檢查這個食物是否適合目前狀況…</p>
                   </div>
                 )}
 
                 {ackWarnings.length > 0 && !checkingFood && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <div className="rounded-2xl border-2 border-honey-300 bg-honey-50 p-4">
                     <div className="flex items-start gap-2.5">
-                      <span className="text-xl">⚠️</span>
+                      <AlertIcon size={22} className="mt-0.5 text-honey-600" />
 
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-800">
+                        <p className="text-sm font-bold text-honey-brown">
                           飲食警訊
                         </p>
 
@@ -2041,18 +1959,18 @@ export default function DietPage() {
                           {ackWarnings.map((warning, index) => (
                             <div
                               key={`${warning.title}-${index}`}
-                              className="bg-white/70 rounded-lg p-3"
+                              className="rounded-xl bg-plate/80 p-3"
                             >
-                              <p className="text-xs font-bold text-gray-800">
+                              <p className="text-xs font-bold text-pine-900">
                                 {warning.title}
                               </p>
 
-                              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                              <p className="text-xs text-ink-soft mt-1 leading-relaxed">
                                 {warning.reason}
                               </p>
 
                               {warning.suggestion && (
-                                <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+                                <p className="text-xs text-honey-text mt-1.5 leading-relaxed">
                                   建議：{warning.suggestion}
                                 </p>
                               )}
@@ -2069,7 +1987,7 @@ export default function DietPage() {
                                 setWarningAccepted(false)
                                 setCheckedFoodKey('')
                               }}
-                              className="border border-amber-300 bg-white text-amber-700 rounded-lg py-2 text-xs font-semibold hover:bg-amber-50"
+                              className="rounded-xl border border-honey-300 bg-plate py-2.5 text-xs font-bold text-honey-text hover:bg-honey-50"
                             >
                               修改食物
                             </button>
@@ -2077,15 +1995,18 @@ export default function DietPage() {
                             <button
                               type="button"
                               onClick={() => setWarningAccepted(true)}
-                              className="bg-amber-500 hover:bg-amber-600 text-white rounded-lg py-2 text-xs font-semibold"
+                              className="rounded-xl bg-honey py-2.5 text-xs font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none"
                             >
                               仍要儲存
                             </button>
                           </div>
                         ) : (
-                          <div className="mt-3 bg-white/80 border border-amber-200 rounded-lg px-3 py-2">
-                            <p className="text-xs text-amber-700 font-medium">
-                              ✓ 已確認警訊，可繼續儲存此紀錄
+                          <div className="mt-3 rounded-xl border border-lime bg-lime/30 px-3 py-2">
+                            <p className="flex items-center gap-1.5 text-xs font-bold text-pine-900">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M5 12.5l4.5 4.5L19 7.5" />
+                              </svg>
+                              已確認警訊，可繼續儲存此紀錄
                             </p>
                           </div>
                         )}
@@ -2096,12 +2017,12 @@ export default function DietPage() {
 
                 {/* 健康提醒：只是提醒，不阻擋新增 */}
                 {advisoryWarnings.length > 0 && !checkingFood && (
-                  <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-4">
+                  <div className="rounded-2xl border border-honey-150 bg-honey-50/60 p-4">
                     <div className="flex items-start gap-2.5">
-                      <span className="text-xl">⚠️</span>
+                      <AlertIcon size={22} className="mt-0.5 text-honey-600" />
 
                       <div className="flex-1">
-                        <p className="text-sm font-bold text-amber-800">
+                        <p className="text-sm font-bold text-honey-brown">
                           健康提醒
                         </p>
 
@@ -2109,18 +2030,18 @@ export default function DietPage() {
                           {advisoryWarnings.map((warning, index) => (
                             <div
                               key={`${warning.title}-${index}`}
-                              className="bg-white/70 rounded-lg p-3"
+                              className="rounded-xl bg-plate/80 p-3"
                             >
-                              <p className="text-xs font-bold text-gray-800">
+                              <p className="text-xs font-bold text-pine-900">
                                 {warning.title}
                               </p>
 
-                              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                              <p className="text-xs text-ink-soft mt-1 leading-relaxed">
                                 {warning.reason}
                               </p>
 
                               {warning.suggestion && (
-                                <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+                                <p className="text-xs text-honey-text mt-1.5 leading-relaxed">
                                   建議：{warning.suggestion}
                                 </p>
                               )}
@@ -2128,7 +2049,7 @@ export default function DietPage() {
                           ))}
                         </div>
 
-                        <p className="text-xs text-amber-700/80 mt-2">
+                        <p className="text-xs text-honey-text/80 mt-2">
                           這只是提醒，仍可正常新增餵食紀錄。
                         </p>
                       </div>
@@ -2141,7 +2062,7 @@ export default function DietPage() {
 
                   <div>
 
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                    <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                       份量 (g) *
                     </label>
 
@@ -2166,7 +2087,7 @@ export default function DietPage() {
 
                   <div>
 
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                    <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                       餵食時間
                     </label>
 
@@ -2190,7 +2111,7 @@ export default function DietPage() {
                 {/* 餐次 */}
                 <div>
 
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                     餐次
                   </label>
 
@@ -2219,35 +2140,25 @@ export default function DietPage() {
 
                 {/* 營養結果 */}
                 {previewNutrition?.calories != null && (
-                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
-
-                    <div className="flex items-center justify-between mb-1.5">
-
-                      <p className="text-xs text-gray-500">
-                        {aiResult
-                          ? '🤖 AI 估算這餐熱量'
-                          : '📋 這餐熱量'}
+                  <div className="rounded-2xl bg-pine-800 px-4 py-3.5 text-paper">
+                    <div className="flex items-center justify-between">
+                      <p className="font-mono text-[11px] font-bold tracking-[0.14em] text-lime">
+                        {aiResult ? 'AI 估算這餐熱量' : '這餐熱量'}
                       </p>
-
-                      {aiResult && (
-                        <span className="text-xs text-gray-400">
-                          圖片估算
-                        </span>
-                      )}
-
+                      {aiResult && <span className="text-xs text-paper/60">圖片估算</span>}
                     </div>
-
-                    <p className="text-xl font-bold text-green-600">
-                      約 {previewNutrition.calories} kcal
+                    <p className="mt-1.5 font-brand text-3xl font-extrabold leading-none tabular-nums text-paper">
+                      <span className="text-base font-bold text-paper/70">約 </span>
+                      {previewNutrition.calories}
+                      <span className="ml-1 font-mono text-sm font-bold text-lime">kcal</span>
                     </p>
-
                   </div>
                 )}
 
                 {/* 備註 */}
                 <div>
 
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  <label className="mb-1.5 block text-xs font-bold text-ink-mute">
                     備注
                   </label>
 
@@ -2274,7 +2185,7 @@ export default function DietPage() {
                       setShowAddModal(false)
                       resetAddForm()
                     }}
-                    className="flex-1 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-500 hover:bg-gray-50 font-medium transition-colors"
+                    className="flex-1 rounded-xl border border-hair-strong bg-plate py-3 text-sm font-bold text-ink-soft transition-colors hover:bg-cream"
                   >
                     取消
                   </button>
@@ -2290,7 +2201,7 @@ export default function DietPage() {
                       !form.amountG ||
                       (ackWarnings.length > 0 && !warningAccepted)
                     }
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+                    className="flex-1 rounded-xl bg-honey py-3 font-brand text-sm font-extrabold text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
                   >
                     {addRecord.isPending || updateRecord.isPending
                       ? editingRecord
@@ -2299,7 +2210,7 @@ export default function DietPage() {
                       : checkingFood
                       ? '檢查中...'
                       : warningAccepted
-                      ? '⚠️ 確認儲存'
+                      ? '確認儲存'
                       : editingRecord
                       ? '儲存修改'
                       : '新增餵食紀錄'}

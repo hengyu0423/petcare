@@ -109,7 +109,8 @@ router.get('/summary', async (req, res) => {
 
   try {
     const result = await pool.query(`
-      SELECT mood, behavior, detected_type AS "detectedType", recorded_at AS "recordedAt"
+      SELECT mood, behavior, detected_type AS "detectedType",
+             confidence, recorded_at AS "recordedAt"
       FROM camera_records
       WHERE camera_id = $1
         AND recorded_at >= NOW() - ($2 * INTERVAL '1 minute')
@@ -139,6 +140,17 @@ router.get('/summary', async (req, res) => {
     const percentage = Math.round((count / records.length) * 100)
     const latest = records[records.length - 1]
 
+    // 信心度：平均與最新一筆（0–100），供前端標示辨識把握程度
+    const confidenceValues = records
+      .map(r => Number(r.confidence))
+      .filter(n => Number.isFinite(n))
+    const averageConfidence = confidenceValues.length
+      ? Math.round(confidenceValues.reduce((a, b) => a + b, 0) / confidenceValues.length)
+      : null
+    const latestConfidence = Number.isFinite(Number(latest.confidence))
+      ? Math.round(Number(latest.confidence))
+      : null
+
     res.json({
       success: true,
       cameraId,
@@ -146,6 +158,8 @@ router.get('/summary', async (req, res) => {
       mainMood,
       percentage,
       latestBehavior: latest.behavior,
+      latestConfidence,
+      averageConfidence,
       detectedType: latest.detectedType,
       samples: records.length,
       updatedAt: latest.recordedAt

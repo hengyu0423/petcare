@@ -19,17 +19,17 @@ export function PetDrawer({ open, onClose, widthClass = 'md:w-56', children }) {
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 md:hidden ${
+        className={`fixed inset-0 z-40 bg-pine-900/35 transition-opacity duration-200 md:hidden ${
           open ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
 
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col
+          fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-sand bg-plate
           transition-transform duration-200 ease-out
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
-          ${open ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
+          ${open ? 'translate-x-0 shadow-[0_30px_60px_-30px_rgba(87,54,17,0.55)]' : '-translate-x-full'}
           md:static md:z-auto ${widthClass} md:translate-x-0 md:shadow-none md:pt-0 md:pb-0 md:shrink-0
         `}
       >
@@ -37,9 +37,9 @@ export function PetDrawer({ open, onClose, widthClass = 'md:w-56', children }) {
         <button
           onClick={onClose}
           aria-label="關閉寵物選單"
-          className="md:hidden absolute top-3 right-3 z-10 p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+          className="absolute right-3 top-3 z-10 rounded-lg p-2 text-ink-soft transition-colors hover:bg-warm md:hidden"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
@@ -51,29 +51,30 @@ export function PetDrawer({ open, onClose, widthClass = 'md:w-56', children }) {
 
 /**
  * 手機上的細條：顯示目前選的寵物，點一下展開寵物清單（電腦版隱藏）
+ * icon 可传 React 节点（例如 <PetIcon />）；沒傳時退回 emoji。
  */
-export function PetPickerBar({ emoji, name, sub, onOpen }) {
+export function PetPickerBar({ emoji, icon, name, sub, onOpen }) {
   return (
-    <div className="md:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-gray-200 px-3 py-2">
+    <div className="sticky top-0 z-20 border-b border-sand bg-plate/95 px-3 py-2 backdrop-blur md:hidden">
       <button
         onClick={onOpen}
         aria-label="開啟寵物選單"
-        className="w-full flex items-center gap-3 px-2 py-1.5 rounded-xl hover:bg-gray-50 active:bg-gray-100 text-left"
+        className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-warm active:bg-warm-deep"
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-gray-600 shrink-0">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 text-pine-700" aria-hidden="true">
           <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
         {name ? (
           <>
-            <span className="text-xl leading-none">{emoji}</span>
+            {icon || <span className="text-xl leading-none">{emoji}</span>}
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-gray-800 truncate">{name}</span>
-              {sub && <span className="block text-xs text-gray-400 truncate">{sub}</span>}
+              <span className="block truncate text-sm font-bold text-pine-900">{name}</span>
+              {sub && <span className="block truncate text-xs text-ink-soft">{sub}</span>}
             </span>
-            <span className="text-xs text-green-600 font-medium shrink-0">切換寵物</span>
+            <span className="shrink-0 text-xs font-semibold text-pine-700">切換寵物</span>
           </>
         ) : (
-          <span className="text-sm font-medium text-gray-600">選擇寵物</span>
+          <span className="text-sm font-semibold text-ink-soft">選擇寵物</span>
         )}
       </button>
     </div>

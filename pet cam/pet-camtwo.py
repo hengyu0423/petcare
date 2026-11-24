@@ -423,7 +423,7 @@ def pick_roi(frame):
     frame_h, frame_w = frame.shape[:2]
     pick_window = "框出貓砂盆範圍（按 Enter 確認 / 按 C 取消）"
 
-    x, y, width, height = cv2.selectROI(pick_window, frame, showInfo=False)
+    x, y, width, height = cv2.selectROI(pick_window, frame)
     cv2.destroyWindow(pick_window)
 
     print("已關閉框選視窗，請用滑鼠點一下主視窗才能繼續操作按鍵。")

@@ -1,3 +1,4 @@
+import PixelIcon from '../brand/PixelIcon'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -35,19 +36,95 @@ import NotificationPreferencesModal from './NotificationPreferencesModal'
 // 完全不受父容器 transform / overflow 影響。
 // ======================================================
 
-const ICON = {
-  camera_missing: '📷',
-  camera_reappeared: '🐱',
-  health_alert: '🩺',
-  weekly_report_ready: '📋',
-  feeding_reminder: '🍽️'
+/* 通知類型圖示：與側邊欄同一套線條語言 */
+const TYPE_ICON = {
+  camera_missing: (
+    <>
+      <rect x="3" y="8" width="13" height="10" rx="2" />
+      <path d="M16 11l5-2.5v9L16 15" />
+    </>
+  ),
+  camera_reappeared: (
+    <>
+      <ellipse cx="7.6" cy="10" rx="1.9" ry="2.4" />
+      <ellipse cx="12" cy="7.6" rx="1.9" ry="2.4" />
+      <ellipse cx="16.4" cy="10" rx="1.9" ry="2.4" />
+      <ellipse cx="19.4" cy="14" rx="1.8" ry="2.2" />
+      <path d="M12.2 12.4c2.6 0 4.8 2 4.8 4.2 0 1.9-1.7 2.9-4.8 2.9s-4.8-1-4.8-2.9c0-2.2 2.2-4.2 4.8-4.2Z" />
+    </>
+  ),
+  health_alert: (
+    <>
+      <path d="M6 4v6a5 5 0 0 0 10 0V4" />
+      <path d="M6 4H4M18 4h-2" />
+      <path d="M11 15v2a4 4 0 0 0 8 0v-1" />
+      <circle cx="19" cy="13" r="1.6" />
+    </>
+  ),
+  weekly_report_ready: (
+    <>
+      <rect x="5.5" y="5" width="13" height="16" rx="2" />
+      <path d="M9 5V3.8A.8.8 0 0 1 9.8 3h4.4a.8.8 0 0 1 .8.8V5" />
+      <path d="M9.5 11h5M9.5 15h3.5" />
+    </>
+  ),
+  feeding_reminder: (
+    <>
+      <path d="M4 12h16" />
+      <path d="M5.5 12a6.5 6.5 0 0 0 13 0" />
+      <path d="M10 18.5h4" />
+    </>
+  ),
+  default: (
+    <>
+      <path d="M18 15.5V11a6 6 0 1 0-12 0v4.5L4.5 18h15L18 15.5Z" />
+      <path d="M10 21h4" />
+    </>
+  )
 }
 
 const SEVERITY_DOT = {
-  emergency: 'bg-red-500',
-  urgent: 'bg-amber-500',
-  warning: 'bg-amber-500',
-  info: 'bg-gray-300'
+  emergency: 'bg-alert',
+  urgent: 'bg-amber',
+  warning: 'bg-amber',
+  info: 'bg-line'
+}
+
+function TypeIcon({ type, size = 16 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {TYPE_ICON[type] || TYPE_ICON.default}
+    </svg>
+  )
+}
+
+function BellIcon({ size = 19 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M18 15.5V11a6 6 0 1 0-12 0v4.5L4.5 18h15L18 15.5Z" />
+      <path d="M10 21h4" />
+    </svg>
+  )
 }
 
 // 後端的保留策略：只有相機動態會到期（30 天），健康/週報/餵食提醒永久保留。
@@ -108,43 +185,43 @@ function NotificationRow({ notification, onOpen, onDelete }) {
 
   return (
     <div
-      className={`flex items-start gap-1 px-4 py-3 border-b border-gray-50 last:border-0 ${
-        n.isRead ? 'bg-white' : 'bg-green-50/40'
+      className={`flex items-start gap-1 border-b border-paper px-4 py-3 last:border-0 ${
+        n.isRead ? 'bg-plate' : 'bg-warm'
       }`}
     >
       <button
         type="button"
         onClick={() => onOpen(n)}
-        className="flex-1 min-w-0 text-left flex gap-2.5"
+        className="flex min-w-0 flex-1 gap-2.5 text-left"
         title="打開對應頁面"
       >
-        <span className="text-lg shrink-0">
-          {ICON[n.type] || '🔔'}
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warm text-honey-deep">
+          <TypeIcon type={n.type} />
         </span>
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                SEVERITY_DOT[n.severity] || 'bg-gray-300'
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                SEVERITY_DOT[n.severity] || 'bg-line'
               }`}
             />
-            <p className="text-sm font-semibold text-gray-800 truncate">
+            <p className="truncate text-sm font-semibold text-pine-900">
               {n.title}
             </p>
           </div>
 
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+          <p className="mt-0.5 line-clamp-2 text-xs text-ink-soft">
             {n.message}
           </p>
 
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-xs text-gray-400">
+          <div className="mt-1 flex items-center gap-2">
+            <p className="text-[11px] text-ink-soft/75">
               {n.petName ? `${n.petName}・` : ''}
               {timeAgo(n.createdAt)}
             </p>
 
-            <span className="ml-auto text-[11px] font-semibold text-green-600/70 shrink-0">
+            <span className="ml-auto shrink-0 text-[11px] font-semibold text-pine-700/80">
               查看 ›
             </span>
           </div>
@@ -156,11 +233,13 @@ function NotificationRow({ notification, onOpen, onDelete }) {
         onClick={() => {
           if (confirm('刪除這則通知？')) onDelete(n.id)
         }}
-        className="shrink-0 px-1 text-gray-300 hover:text-gray-500 text-sm leading-6"
+        className="shrink-0 rounded-lg p-1 text-ink-ghost transition-colors hover:bg-warm hover:text-ink-soft"
         title="刪除這則通知"
         aria-label="刪除這則通知"
       >
-        ✕
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
       </button>
     </div>
   )
@@ -302,13 +381,13 @@ export default function NotificationBell() {
         width: DROP_W,
         zIndex: 9999
       }}
-      className="bg-white rounded-xl shadow-lg border border-gray-100 max-h-[70vh] flex flex-col"
+      className="flex max-h-[70vh] flex-col rounded-3xl border border-hair bg-plate shadow-[0_24px_48px_-24px_rgba(87,54,17,0.45)]"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <p className="text-sm font-bold text-gray-800">
+      <div className="flex items-center justify-between border-b border-hair px-4 py-3">
+        <p className="text-sm font-bold text-pine-900">
           通知
           {unreadCount > 0 && (
-            <span className="ml-2 text-xs font-semibold text-red-500">
+            <span className="ml-2 text-xs font-semibold text-alert">
               {unreadCount} 則未讀
             </span>
           )}
@@ -319,7 +398,7 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={markAllRead}
-              className="text-xs text-green-600 font-semibold hover:underline"
+              className="text-xs font-semibold text-pine-700 hover:underline"
             >
               全部已讀
             </button>
@@ -331,25 +410,30 @@ export default function NotificationBell() {
               setOpen(false)
               setShowPrefs(true)
             }}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            className="rounded-lg p-1 text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
             title="通知設定"
+            aria-label="通知設定"
           >
-            ⚙️
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.2" />
+              <path d="M19.4 14a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 14a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.1a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+            </svg>
           </button>
         </div>
       </div>
 
-      <div className="overflow-y-auto flex-1">
+      <div className="flex-1 overflow-y-auto">
 
         {important.length === 0 && camera.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-10">
-            目前沒有通知
-          </p>
+          <div className="py-10 text-center">
+            <PixelIcon name="bell" size={40} className="mx-auto" />
+            <p className="mt-2 text-sm text-ink-soft">目前沒有通知</p>
+          </div>
         )}
 
         {/* 1. 重要提醒：健康/週報/餵食，永遠不會被自動刪除 */}
         {important.length > 0 && (
-          <p className="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 tracking-wide">
+          <p className="px-4 pb-1 pt-3 font-mono text-[11px] font-bold tracking-[0.14em] text-honey-deep">
             重要提醒
           </p>
         )}
@@ -365,31 +449,43 @@ export default function NotificationBell() {
 
         {/* 2. 相機動態：預設摺疊，只當記錄用 */}
         {camera.length > 0 && (
-          <div className="border-t border-gray-100 bg-gray-50/70">
+          <div className="border-t border-hair bg-cream">
             <button
               type="button"
               onClick={() => setShowCamera(v => !v)}
-              className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-gray-100/60 transition-colors"
+              className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left transition-colors hover:bg-warm"
             >
-              <span className="text-xs font-semibold text-gray-500">
-                📷 相機動態（{camera.length} 則
+              <span className="flex items-center gap-1.5 text-xs font-bold text-ink-soft">
+                <PixelIcon name="camera" size={16} />
+                相機動態（{camera.length} 則
                 {cameraUnread > 0 ? `・${cameraUnread} 則未讀` : ''}）
               </span>
 
-              <span className="text-xs text-gray-400 shrink-0">
-                {showCamera ? '收起 ▲' : '展開 ▼'}
-              </span>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className={`shrink-0 text-ink-faint transition-transform ${showCamera ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
 
             {showCamera && (
               <>
-                <div className="flex items-start justify-between gap-2 px-4 py-2 bg-gray-100/50">
-                  <p className="text-[11px] text-gray-400 leading-snug">
+                <div className="flex items-start justify-between gap-2 bg-paper px-4 py-2">
+                  <p className="text-[11px] leading-snug text-ink-soft">
                     只是鏡頭有沒有看到寵物的記錄，
                     超過 {CAMERA_RETENTION_DAYS} 天會自動清掉。
                     {camera.length >= CAMERA_LIST_LIMIT &&
                       ` 這裡只顯示最新 ${CAMERA_LIST_LIMIT} 則。`}
-                    不想收可以在 ⚙️ 通知設定關掉。
+                    不想收可以在「通知設定」關掉。
                   </p>
 
                   <button
@@ -399,7 +495,7 @@ export default function NotificationBell() {
                         clearCamera()
                       }
                     }}
-                    className="shrink-0 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+                    className="shrink-0 text-[11px] font-bold text-clay hover:underline"
                   >
                     清除全部
                   </button>
@@ -429,12 +525,12 @@ export default function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="relative w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition-colors hover:bg-warm hover:text-pine-900"
         aria-label="通知"
       >
-        🔔
+        <BellIcon />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber px-1 text-[10px] font-extrabold text-amber-ink">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}

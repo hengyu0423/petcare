@@ -39,9 +39,15 @@ export default function KnowledgeSources({ sources }) {
   if (groups.length === 0) return null
 
   return (
-    <details className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
-      <summary className="cursor-pointer select-none font-medium text-gray-500 hover:text-gray-700">
-        📚 參考來源（{groups.length}）
+    <details className="mt-3 border-t border-pine-100 pt-3 text-xs text-ink-soft">
+      <summary className="cursor-pointer select-none font-bold text-pine-700 transition-colors hover:text-honey-deep">
+        <span className="inline-flex items-center gap-1.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+            <path d="M5 4.5h6a2.5 2.5 0 0 1 2.5 2.5v12A2.5 2.5 0 0 0 11 16.5H5Z" />
+            <path d="M19 4.5h-6A2.5 2.5 0 0 0 10.5 7v12A2.5 2.5 0 0 1 13 16.5h6Z" />
+          </svg>
+          參考來源（{groups.length}）
+        </span>
       </summary>
 
       <ul className="mt-2 space-y-2">
@@ -51,13 +57,13 @@ export default function KnowledgeSources({ sources }) {
               href={group.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-green-600 hover:underline break-words"
+              className="break-words font-semibold text-pine-700 hover:underline"
             >
               {group.source}
             </a>
 
             {group.topics.length > 0 && (
-              <div className="text-gray-400">
+              <div className="text-ink-soft/80">
                 相關主題：{group.topics.join('、')}
               </div>
             )}
@@ -65,7 +71,7 @@ export default function KnowledgeSources({ sources }) {
         ))}
       </ul>
 
-      <p className="mt-2 text-gray-400">
+      <p className="mt-2 text-ink-soft/80">
         以上為資料整理，僅供參考，不能取代獸醫診斷。
       </p>
     </details>

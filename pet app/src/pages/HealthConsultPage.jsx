@@ -9,6 +9,9 @@ import {
 import { api } from '../lib/api'
 import { petAgeText } from '../lib/petAge'
 import { PetDrawer, PetPickerBar } from '../components/layout/PetDrawer'
+import PetIcon from '../components/brand/PetIcon'
+import PixelAssistant from '../components/brand/PixelAssistant'
+import LoadingState from '../components/ui/LoadingState'
 import PetEmotionPage from './PetEmotion'
 import KnowledgeSources from '../components/consult/KnowledgeSources'
 import QuickPrompts from '../components/consult/QuickPrompts'
@@ -21,50 +24,25 @@ import {
 
 
 // =====================================================
-// 寵物 Emoji
-// =====================================================
-
-const EMOJI = {
-  dog: '🐶',
-  cat: '🐱',
-  bird: '🐦',
-  rabbit: '🐰',
-  fish: '🐟',
-  other: '🐾'
-}
-
-
-// =====================================================
 // 嚴重程度
 // =====================================================
 
 const SEVERITY_CONFIG = {
   normal: {
     label: '一般健康建議',
-    icon: '🟢',
-    className:
-      'bg-green-50 text-green-600 border-green-200'
+    className: 'bg-pine-50 text-pine-700 border-pine-100'
   },
-
   urgent: {
     label: '建議儘快就醫',
-    icon: '🟡',
-    className:
-      'bg-amber-50 text-amber-600 border-amber-200'
+    className: 'bg-honey-50 text-honey-text border-honey-200'
   },
-
   emergency: {
     label: '緊急救護',
-    icon: '🚨',
-    className:
-      'bg-red-50 text-red-600 border-red-200'
+    className: 'bg-clay-50 text-clay border-clay-200'
   },
-
   unknown: {
     label: '尚未分級',
-    icon: '⚪',
-    className:
-      'bg-gray-50 text-gray-500 border-gray-200'
+    className: 'bg-cream text-ink-soft border-sand'
   }
 }
 
@@ -93,6 +71,50 @@ function formatAI(text) {
     .replace(/\n/g, '<br/>')
 }
 
+
+// =====================================================
+// UI icons
+// =====================================================
+
+const ICON = {
+  paw: <><ellipse cx="7" cy="8" rx="2" ry="2.4" /><ellipse cx="12" cy="5.8" rx="2" ry="2.4" /><ellipse cx="17" cy="8" rx="2" ry="2.4" /><path d="M12 11c-3 0-5.5 2.2-5.5 4.8 0 1.7 1.4 2.9 3 2.9 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5c1.6 0 3-1.2 3-2.9C17.5 13.2 15 11 12 11Z" /></>,
+  camera: <><path d="M4 8.5h3l1.5-2h7L17 8.5h3v10H4Z" /><circle cx="12" cy="13" r="3.5" /></>,
+  stethoscope: <><path d="M6 4v5a4 4 0 0 0 8 0V4" /><path d="M10 13v2.5a4.5 4.5 0 0 0 9 0V13" /><circle cx="19" cy="12" r="1.8" /></>,
+  trash: <><path d="M4.5 7h15" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.8 12h9.4l.8-12" /><path d="M10 10.5v5M14 10.5v5" /></>,
+  edit: <><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3Z" /><path d="M15 5l4 4" /></>,
+  send: <path d="M4 12h15M13 6l6 6-6 6" />,
+  alert: <><path d="M12 4.5 21 19.5H3L12 4.5Z" /><path d="M12 10v4M12 17h.01" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  question: <><circle cx="12" cy="12" r="8.5" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 1-1 1.7M12 16.5h.01" /></>,
+  shield: <><path d="M12 3.5 5 6v5.5c0 4.2 3 7.5 7 9 4-1.5 7-4.8 7-9V6l-7-2.5Z" /><path d="M9 12l2 2 4-4" /></>,
+  close: <path d="M6 6l12 12M18 6L6 18" />
+}
+
+function LineIcon({ name, size = 16, className = '' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={`shrink-0 ${className}`}
+    >
+      {ICON[name] || ICON.paw}
+    </svg>
+  )
+}
+
+const severityIconName = label => ({
+  '一般健康建議': 'check',
+  '建議儘快就醫': 'alert',
+  '緊急救護': 'alert',
+  '尚未分級': 'question'
+}[label] || 'shield')
 
 // =====================================================
 // HealthConsultPage
@@ -185,19 +207,17 @@ export default function HealthConsultPage() {
   // 要顯示的訊息 = 資料庫的紀錄 + 還沒存好的訊息
   // ===================================================
 
-  const displayMessages = useMemo(
-    () => mergeMessages(messages, pending, selectedPet?.id),
-    [messages, pending, selectedPet?.id]
+  // 資料庫已經追上的、或太舊的暫時訊息直接忽略；
+  // 用推導取代 effect 內 setState，避免多餘的連鎖渲染。
+  const activePending = useMemo(
+    () => prunePending(pending, messages, selectedPet?.id),
+    [pending, messages, selectedPet?.id]
   )
 
-  // 資料庫已經追上的、或太舊的暫時訊息，清掉
-  useEffect(() => {
-    if (pending.length === 0) return
-
-    setPending(list =>
-      prunePending(list, messages, selectedPet?.id)
-    )
-  }, [messages, selectedPet?.id])
+  const displayMessages = useMemo(
+    () => mergeMessages(messages, activePending, selectedPet?.id),
+    [messages, activePending, selectedPet?.id]
+  )
 
 
   // ===================================================
@@ -823,88 +843,45 @@ export default function HealthConsultPage() {
   // ===================================================
 
   return (
-    <div
-      className="flex h-full overflow-hidden"
-      style={{
-        height:
-          'calc(100vh - 0px)'
-      }}
-    >
-
+    <div className="flex h-full overflow-hidden">
       {/* ===============================================
           左側：寵物
       =============================================== */}
-
       <PetDrawer open={petOpen} onClose={() => setPetOpen(false)} widthClass="md:w-56">
-
-        <div className="px-4 py-4 border-b border-gray-100">
-
-          <h2 className="text-sm font-bold text-gray-800">
-            選擇寵物
-          </h2>
-
-          <p className="text-xs text-gray-400 mt-0.5">
-            選擇要諮詢的寵物
-          </p>
-
+        <div className="border-b border-hair px-4 py-5">
+          <h2 className="text-sm font-bold text-pine-900">選擇寵物</h2>
+          <p className="mt-1 text-xs text-ink-soft">選擇要諮詢的寵物</p>
         </div>
 
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {pets.length === 0 ? (
-
-            <p className="text-xs text-gray-400 text-center py-8">
-              還沒有寵物
-            </p>
-
+            <p className="py-8 text-center text-xs text-ink-soft">還沒有寵物</p>
           ) : (
-
             pets.map(pet => (
-
               <button
                 key={pet.id}
-
                 onClick={() => {
                   setSelectedPet(pet)
                   showConsult()
                   setPetOpen(false)
                 }}
-
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${view === 'consult' && selectedPet?.id === pet.id
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-gray-50 border-gray-100 hover:border-green-200 hover:bg-green-50'
-                  }`}
+                className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                  view === 'consult' && selectedPet?.id === pet.id
+                    ? 'border-pine-700/35 bg-pine-50'
+                    : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
+                }`}
               >
-
-                <span className="text-2xl">
-                  {EMOJI[pet.species] || '🐾'}
-                </span>
-
-
+                <PetIcon species={pet.species} breed={pet.breed} size={40} className="h-10 w-10 shrink-0" />
                 <div className="min-w-0">
-
-                  <p className="text-sm font-semibold text-gray-800 truncate">
-                    {pet.name}
-                  </p>
-
-                  <p className="text-xs text-gray-400 truncate">
-                    {pet.breed || pet.species}
-                  </p>
-
+                  <p className="truncate text-sm font-bold text-pine-900">{pet.name}</p>
+                  <p className="truncate text-xs text-ink-soft">{pet.breed || pet.species}</p>
                 </div>
-
               </button>
-
             ))
-
           )}
 
-          <div className="mt-4 border-t border-gray-100 pt-4">
-            <p className="px-1 pb-2 text-[11px] font-semibold text-gray-400">
-              其他功能
-            </p>
-
+          <div className="mt-4 border-t border-hair pt-4">
+            <p className="px-1 pb-2 text-[11px] font-bold text-ink-soft">其他功能</p>
             <button
               type="button"
               onClick={() => {
@@ -912,638 +889,305 @@ export default function HealthConsultPage() {
                 setPetOpen(false)
               }}
               aria-current={view === 'emotion' ? 'page' : undefined}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${view === 'emotion'
-                  ? 'bg-green-50 border-green-300'
-                  : 'bg-gray-50 border-gray-100 hover:border-green-200 hover:bg-green-50'
-                }`}
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                view === 'emotion'
+                  ? 'border-pine-700/35 bg-pine-50'
+                  : 'border-sand bg-cream hover:border-pine-700/30 hover:bg-warm'
+              }`}
             >
-              <span className="text-2xl">📷</span>
-
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-plate text-pine-700">
+                <LineIcon name="camera" size={19} />
+              </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-800 truncate">
-                  AI 心情辨識
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  拍照分析毛孩情緒
-                </p>
+                <p className="truncate text-sm font-bold text-pine-900">AI 心情辨識</p>
+                <p className="truncate text-xs text-ink-soft">拍照分析毛孩情緒</p>
               </div>
             </button>
           </div>
-
-
         </div>
-
       </PetDrawer>
 
       {/* ===============================================
           右側
       =============================================== */}
-
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PetPickerBar
-          emoji={view === 'emotion' ? '📷' : selectedPet ? (EMOJI[selectedPet.species] || '🐾') : ''}
+          icon={
+            view === 'emotion'
+              ? <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-pine-50 text-pine-700"><LineIcon name="camera" size={16} /></span>
+              : selectedPet
+                ? <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={28} className="h-7 w-7 shrink-0" />
+                : null
+          }
           name={view === 'emotion' ? 'AI 心情辨識' : selectedPet?.name}
           sub={view === 'emotion' ? '拍照分析毛孩情緒' : selectedPet ? (selectedPet.breed || selectedPet.species) : ''}
           onOpen={() => setPetOpen(true)}
         />
 
         {view === 'emotion' ? (
-
           // AI 心情辨識：直接顯示在右邊主畫面（跟選寵物一樣），不再另外彈出視窗
-          <div className="flex-1 min-h-0 flex flex-col">
-
-            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-3 shrink-0">
-              <span className="text-3xl">📷</span>
-
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex shrink-0 items-center gap-3 border-b border-sand bg-plate px-4 py-3 sm:px-6">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pine-50 text-pine-700">
+                <LineIcon name="camera" size={20} />
+              </span>
               <div>
-                <p className="text-sm font-bold text-gray-800">
-                  AI 心情辨識
-                </p>
-                <p className="text-xs text-gray-400">
-                  拍攝或上傳寵物照片，讓 AI 分析牠可能的心情
-                </p>
+                <p className="text-sm font-bold text-pine-900">AI 心情辨識</p>
+                <p className="text-xs text-ink-soft">拍攝或上傳寵物照片，讓 AI 分析牠可能的心情</p>
               </div>
             </div>
-
-            <div className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-cream">
               <PetEmotionPage embedded />
             </div>
-
           </div>
-
         ) : !selectedPet ? (
-
-          <div className="flex-1 flex items-center justify-center flex-col gap-3 text-gray-400">
-
-            <span className="text-6xl">
-              🏥
-            </span>
-
-            <p className="text-base font-semibold text-gray-500">
-              請先選擇要諮詢的寵物
-            </p>
-
-            <p className="text-sm">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            <span className="bubble-ai px-3 py-1.5 font-brand text-xs font-extrabold text-pine-900">先選一隻毛孩吧！</span>
+            <PixelAssistant size={64} />
+            <p className="font-bold text-pine-900">請先選擇要諮詢的寵物</p>
+            <p className="text-sm text-ink-soft">
               <span className="md:hidden">點上方選擇一隻寵物開始健康諮詢</span>
               <span className="hidden md:inline">從左側選擇一隻寵物開始健康諮詢</span>
             </p>
-
           </div>
-
         ) : (
-
           <>
-
-            {/* ===========================================
-                寵物 Header
-            =========================================== */}
-
-            <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-3 shrink-0">
-
-              <span className="text-3xl">
-                {EMOJI[selectedPet.species] || '🐾'}
+            {/* 寵物 Header */}
+            <div className="flex shrink-0 items-center gap-3 border-b border-sand bg-plate px-4 py-3 sm:px-6">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-pine-800 text-honey">
+                <PetIcon species={selectedPet.species} breed={selectedPet.breed} size={30} className="h-[30px] w-[30px]" />
               </span>
-
-
-              <div>
-
-                <p className="text-sm font-bold text-gray-800">
-                  {selectedPet.name}
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-pine-900">{selectedPet.name}</p>
+                <p className="truncate text-xs text-ink-soft">
+                  {selectedPet.breed || selectedPet.species}
+                  {selectedPet.weight ? ` · ${selectedPet.weight} kg` : ''}
+                  {selectedPet.birth_date ? ` · ${getAge(selectedPet.birth_date)}` : ''}
                 </p>
-
-
-                <p className="text-xs text-gray-400">
-
-                  {selectedPet.breed ||
-                    selectedPet.species}
-
-                  {selectedPet.weight
-                    ? ` · ${selectedPet.weight} kg`
-                    : ''}
-
-                  {selectedPet.birth_date
-                    ? ` · ${getAge(
-                      selectedPet.birth_date
-                    )}`
-                    : ''}
-
-                </p>
-
               </div>
-
-
               <div className="ml-auto flex items-center gap-3">
-
-                <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-1 rounded-full">
+                <span className="hidden rounded-full bg-pine-50 px-2.5 py-1 text-xs font-bold text-pine-700 sm:inline">
                   Powered by Groq
                 </span>
-
-
                 {displayMessages.length > 0 && (
-
                   <button
+                    type="button"
                     onClick={() => {
-
-                      if (
-                        confirm(
-                          '確定清除所有對話紀錄？'
-                        )
-                      ) {
-
-                        clearHistory.mutate(
-                          selectedPet.id
-                        )
-
+                      if (confirm('確定清除所有對話紀錄？')) {
+                        clearHistory.mutate(selectedPet.id)
                       }
-
                     }}
-
-                    className="text-xs text-gray-400 hover:text-red-400 transition-colors border border-gray-200 px-2 py-1 rounded-lg"
+                    className="inline-flex items-center gap-1 rounded-xl border border-sand bg-plate px-2.5 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:bg-warm hover:text-clay"
                   >
-                    🗑️ 清除紀錄
+                    <LineIcon name="trash" size={13} />
+                    清除紀錄
                   </button>
-
                 )}
-
               </div>
-
             </div>
 
-
-            {/* ===========================================
-                聊天訊息
-            =========================================== */}
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-
+            {/* 聊天訊息 */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {loadingHistory && displayMessages.length === 0 ? (
-
-                <div className="text-center py-12 text-gray-400 text-sm">
-                  載入對話紀錄中...
-                </div>
-
+                <LoadingState compact label="載入對話紀錄中…" />
               ) : displayMessages.length === 0 ? (
-
-                <div className="text-center py-12">
-
-                  <p className="text-4xl mb-3">
-                    🐾
-                  </p>
-
-                  <p className="text-gray-500 font-semibold mb-1">
-                    開始諮詢 {selectedPet.name} 的健康狀況
-                  </p>
-
-                  <p className="text-sm text-gray-400 mb-6">
-                    描述症狀或選擇常見問題快速開始
-                  </p>
-
-
-                  <QuickPrompts
-                    species={selectedPet?.species}
-                    onSelect={text => sendMessage(text)}
-                    disabled={loading}
-                  />
-
+                <div className="py-10 text-center">
+                  <span className="bubble-ai mx-auto inline-block px-3 py-1.5 font-brand text-xs font-extrabold text-pine-900">
+                    有什麼想問的嗎？
+                  </span>
+                  <span className="mt-2 flex justify-center">
+                    <PixelAssistant size={64} />
+                  </span>
+                  <p className="mt-4 font-bold text-pine-900">開始諮詢 {selectedPet.name} 的健康狀況</p>
+                  <p className="mt-1 text-sm text-ink-soft">描述症狀或選擇常見問題快速開始</p>
+                  <div className="mt-6">
+                    <QuickPrompts
+                      species={selectedPet?.species}
+                      onSelect={text => sendMessage(text)}
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
-
               ) : (
-
                 <>
+                  {displayMessages.map((msg, index) => {
+                    const isUser = msg.role === 'user'
+                    const severity =
+                      msg.severity && SEVERITY_CONFIG[msg.severity]
+                        ? SEVERITY_CONFIG[msg.severity]
+                        : SEVERITY_CONFIG.unknown
 
-                  {/* =====================================
-                      每一則訊息
-                  ===================================== */}
+                    // 這則提問正在重新編寫中（暫時訊息沒有 id，不能當成編輯中的提問）
+                    const isEditing =
+                      isUser && !!editing && !!msg.id && editing.id === msg.id
 
-                  {displayMessages.map(
-                    (
-                      msg,
-                      index
-                    ) => {
-
-                      const isUser =
-                        msg.role === 'user'
-
-                      // 這則提問正在編寫
-                      // （暫時顯示的訊息沒有 id，不能當成編輯中的提問）
-                      const isEditing =
-                        isUser &&
-                        !!editing &&
-                        !!msg.id &&
-                        editing.id === msg.id
-
-
-                      // ⭐ 不再預設 normal
-                      const severity =
-                        msg.severity &&
-                          SEVERITY_CONFIG[
-                          msg.severity
-                          ]
-                          ? SEVERITY_CONFIG[
-                          msg.severity
-                          ]
-                          : SEVERITY_CONFIG.unknown
-
-
-                      return (
-
-                        <div
-                          key={
-                            msg.key ||
-                            msg.id ||
-                            `${msg.created_at}-${index}`
-                          }
-
-                          className={`flex gap-3 ${isUser
-                              ? 'flex-row-reverse'
-                              : ''
-                            }`}
-                        >
-
-                          {/* Avatar */}
-
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${isUser
-                                ? 'bg-green-500 text-white font-bold'
-                                : 'bg-green-50 text-lg'
-                              }`}
-                          >
-
-                            {isUser
-                              ? '我'
-                              : '🐾'}
-
+                    return (
+                      <div
+                        key={msg.key || msg.id || `${msg.created_at}-${index}`}
+                        className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
+                      >
+                        {/* 頭像 */}
+                        {isUser ? (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-800 text-xs font-bold text-warm">
+                            我
                           </div>
-
-
-                          {/* Message */}
-
-                          <div
-                            className={`max-w-lg flex flex-col ${isUser
-                                ? 'items-end'
-                                : 'items-start'
-                              }`}
-                          >
-
-                            {/* =====================
-                                編寫提問
-                            ===================== */}
-
-                            {isEditing && (
-
-                              <div className="w-full sm:min-w-[22rem]">
-
-                                <textarea
-                                  autoFocus
-                                  rows={3}
-                                  maxLength={2000}
-                                  value={editing.text}
-                                  onChange={e =>
-                                    setEditing({
-                                      ...editing,
-                                      text: e.target.value
-                                    })
-                                  }
-                                  onKeyDown={e => {
-                                    if (e.key === 'Escape') {
-                                      setEditing(null)
-                                    }
-                                  }}
-                                  className="w-full px-3 py-2 text-sm rounded-xl border border-green-300 focus:outline-none focus:ring-2 focus:ring-green-200 resize-none"
-                                />
-
-                                <p className="text-xs text-gray-400 mt-1">
-                                  送出後，原本的 AI 回覆與相關健康紀錄會被刪除，並依新的問題重新回覆。
-                                </p>
-
-                                <div className="flex justify-end gap-2 mt-2">
-
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditing(null)}
-                                    disabled={loading}
-                                    className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                                  >
-                                    取消
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={submitEdit}
-                                    disabled={
-                                      loading ||
-                                      !editing.text.trim()
-                                    }
-                                    className="px-3 py-1.5 text-xs rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
-                                  >
-                                    重新送出
-                                  </button>
-
-                                </div>
-
-                              </div>
-
-                            )}
-
-                            {!isEditing && (
-
-                            <div
-                              className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${isUser
-                                  ? 'bg-green-500 text-white rounded-br-sm'
-                                  : 'bg-white border border-gray-200 text-gray-700 rounded-bl-sm'
-                                }`}
-                            >
-
-                              {isUser ? (
-
-                                msg.content
-
-                              ) : (
-
-                                <>
-
-                                  {/* =====================
-                                      Severity
-                                  ===================== */}
-
-                                  {!msg.content
-                                    ?.startsWith(
-                                      '❌'
-                                    ) && (
-
-                                      <div
-                                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border mb-3 ${severity.className}`}
-                                      >
-
-                                        <span>
-                                          {severity.icon}
-                                        </span>
-
-                                        <span>
-                                          {severity.label}
-                                        </span>
-
-                                      </div>
-
-                                    )}
-
-
-                                  {/* =====================
-                                      AI Content
-                                  ===================== */}
-
-                                  <div
-                                    dangerouslySetInnerHTML={{
-                                      __html:
-                                        formatAI(
-                                          msg.content
-                                        )
-                                    }}
-                                  />
-
-                                  {/* =====================
-                                      參考來源
-                                  ===================== */}
-
-                                  {!msg.content
-                                    ?.startsWith(
-                                      '❌'
-                                    ) && (
-                                      <KnowledgeSources
-                                        sources={msg.sources}
-                                      />
-                                    )}
-
-                                </>
-
-                              )}
-
-                            </div>
-
-                            )}
-
-
-                            {/* 時間 */}
-
-                            {/* 我的提問：日期時間改成「重新編寫」「刪除」圖示 */}
-
-                            {isUser && msg.id && !isEditing && (
-
-                              regeneratingId === msg.id ? (
-
-                                <p className="text-xs text-green-600 mt-1 px-1 animate-pulse">
-                                  AI 正在根據新的問題重新回覆…
-                                </p>
-
-                              ) : (
-
-                                <div className="flex items-center gap-1 mt-1 px-1">
-
-                                  <button
-                                    type="button"
-                                    title="重新編寫"
-                                    aria-label="重新編寫這則提問"
-                                    disabled={
-                                      loading ||
-                                      regeneratingId !== null ||
-                                      deleteQuestion.isPending
-                                    }
-                                    onClick={() =>
-                                      setEditing({
-                                        id: msg.id,
-                                        text: msg.content
-                                      })
-                                    }
-                                    className="p-1 rounded-md text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                                    </svg>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    title="刪除"
-                                    aria-label="刪除這則提問"
-                                    disabled={
-                                      loading ||
-                                      regeneratingId !== null ||
-                                      deleteQuestion.isPending
-                                    }
-                                    onClick={() =>
-                                      handleDeleteQuestion(msg)
-                                    }
-                                    className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <polyline points="3 6 5 6 21 6" />
-                                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                      <path d="M10 11v6" />
-                                      <path d="M14 11v6" />
-                                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                    </svg>
-                                  </button>
-
-                                </div>
-
-                              )
-
-                            )}
-
-
-                            {/* AI 回覆：維持顯示日期時間 */}
-
-                            {!isUser && msg.created_at && (
-
-                              <p className="text-xs text-gray-400 mt-1 px-1">
-
-                                {new Date(
-                                  msg.created_at
-                                ).toLocaleString(
-                                  'zh-TW',
-                                  {
-                                    month:
-                                      'numeric',
-
-                                    day:
-                                      'numeric',
-
-                                    hour:
-                                      '2-digit',
-
-                                    minute:
-                                      '2-digit'
-                                  }
-                                )}
-
-                              </p>
-
-                            )}
-
-                          </div>
-
-                        </div>
-
-                      )
-
-                    }
-                  )}
-
-
-                  {/* =====================================
-                      AI Loading
-                  ===================================== */}
-
-                  {showTyping && (
-
-                    <div className="flex gap-3">
-
-                      <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-lg shrink-0">
-                        🐾
-                      </div>
-
-
-                      <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3">
-
-                        <div className="flex gap-1.5 items-center h-5">
-
-                          {[0, 1, 2].map(
-                            i => (
-
-                              <div
-                                key={i}
-
-                                className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
-
-                                style={{
-                                  animationDelay:
-                                    `${i * 0.15}s`
+                        ) : (
+                          <PixelAssistant tile size={34} />
+                        )}
+
+                        <div className={`flex max-w-lg flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                          {isEditing && (
+                            <div className="w-full sm:min-w-[22rem]">
+                              <textarea
+                                autoFocus
+                                rows={3}
+                                maxLength={2000}
+                                value={editing.text}
+                                onChange={e => setEditing({ ...editing, text: e.target.value })}
+                                onKeyDown={e => {
+                                  if (e.key === 'Escape') setEditing(null)
                                 }}
+                                className="w-full resize-none rounded-xl border border-water-100 bg-cream px-3 py-2 text-sm text-ink focus:border-pine-700/40 focus:outline-none"
                               />
+                              <p className="mt-1 text-xs text-ink-soft">
+                                送出後，原本的 AI 回覆與相關健康紀錄會被刪除，並依新的問題重新回覆。
+                              </p>
+                              <div className="mt-2 flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing(null)}
+                                  disabled={loading}
+                                  className="rounded-lg border border-sand px-3 py-1.5 text-xs text-ink-soft transition-colors hover:bg-cream disabled:opacity-50"
+                                >
+                                  取消
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={submitEdit}
+                                  disabled={loading || !editing.text.trim()}
+                                  className="rounded-lg bg-pine-800 px-3 py-1.5 text-xs font-bold text-warm transition-colors hover:bg-pine-900 disabled:opacity-50"
+                                >
+                                  重新送出
+                                </button>
+                              </div>
+                            </div>
+                          )}
 
+                          {!isEditing && (
+                            <div
+                              className={`px-4 py-3 text-sm leading-relaxed ${
+                                isUser ? 'bubble-user' : 'bubble-ai text-ink'
+                              }`}
+                            >
+                              {isUser ? (
+                                msg.content
+                              ) : (
+                                <>
+                                  {!msg.content?.startsWith('❌') && (
+                                    <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${severity.className}`}>
+                                      <LineIcon name={severityIconName(severity.label)} size={13} />
+                                      {severity.label}
+                                    </div>
+                                  )}
+                                  <div dangerouslySetInnerHTML={{ __html: formatAI(msg.content) }} />
+                                  {!msg.content?.startsWith('❌') && <KnowledgeSources sources={msg.sources} />}
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {/* 我的提問：重新編寫 / 刪除；AI 回覆：顯示時間 */}
+                          {isUser && msg.id && !isEditing && (
+                            regeneratingId === msg.id ? (
+                              <p className="mt-1 animate-pulse px-1 text-xs text-pine-700">
+                                AI 正在根據新的問題重新回覆…
+                              </p>
+                            ) : (
+                              <div className="mt-1 flex items-center gap-1 px-1">
+                                <button
+                                  type="button"
+                                  title="重新編寫"
+                                  aria-label="重新編寫這則提問"
+                                  disabled={loading || regeneratingId !== null || deleteQuestion.isPending}
+                                  onClick={() => setEditing({ id: msg.id, text: msg.content })}
+                                  className="rounded-md p-1 text-ink-soft transition-colors hover:bg-pine-50 hover:text-pine-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <LineIcon name="edit" size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="刪除"
+                                  aria-label="刪除這則提問"
+                                  disabled={loading || regeneratingId !== null || deleteQuestion.isPending}
+                                  onClick={() => handleDeleteQuestion(msg)}
+                                  className="rounded-md p-1 text-ink-soft transition-colors hover:bg-clay-50 hover:text-clay disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  <LineIcon name="trash" size={15} />
+                                </button>
+                              </div>
                             )
                           )}
 
+                          {!isUser && msg.created_at && (
+                            <p className="mt-1 px-1 text-xs text-ink-soft/80">
+                              {new Date(msg.created_at).toLocaleString('zh-TW', {
+                                month: 'numeric',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          )}
                         </div>
-
                       </div>
+                    )
+                  })}
 
+                  {showTyping && (
+                    <div className="flex gap-3">
+                      <PixelAssistant tile size={34} mood="typing" />
+                      <div className="bubble-ai px-4 py-3">
+                        <div className="flex h-5 items-center gap-1.5">
+                          {[0, 1, 2].map(i => (
+                            <div key={i} className="h-2 w-2 animate-bounce rounded-[2px] bg-pine-700" style={{ animationDelay: `${i * 0.15}s` }} />
+                          ))}
+                        </div>
+                      </div>
                     </div>
-
                   )}
-
-
-                  <div
-                    ref={chatEndRef}
-                  />
-
+                  <div ref={chatEndRef} />
                 </>
-
               )}
-
             </div>
 
+            {/* 輸入區 */}
+            <div className="shrink-0 border-t border-sand bg-plate p-4">
+              {savedNotice && savedNotice.petId === selectedPet?.id && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-pine-100 bg-pine-50 px-3 py-2 text-xs text-pine-800">
+                  <span className="flex items-start gap-1.5">
+                    <LineIcon name="stethoscope" size={14} className="mt-0.5" />
+                    已將「{savedNotice.title}」{savedNotice.isUpdate ? '更新到' : '記錄到'}
+                    {selectedPet?.name}的健康紀錄
+                    {savedNotice.dietRelevant && '，飲食管理會參考這項資訊'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSavedNotice(null)}
+                    className="shrink-0 rounded-lg p-1 text-pine-700 transition-colors hover:bg-pine-100"
+                    aria-label="關閉"
+                  >
+                    <LineIcon name="close" size={13} />
+                  </button>
+                </div>
+              )}
 
-            {/* ===========================================
-                輸入區
-            =========================================== */}
-
-            <div className="bg-white border-t border-gray-200 p-4 shrink-0">
-
-              {savedNotice &&
-                savedNotice.petId === selectedPet?.id && (
-                  <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-lg bg-green-50 border border-green-200 text-xs text-green-700">
-
-                    <span>
-                      🩺 已將「{savedNotice.title}」
-                      {savedNotice.isUpdate
-                        ? '更新到'
-                        : '記錄到'}
-                      {selectedPet?.name}
-                      的健康紀錄
-                      {savedNotice.dietRelevant &&
-                        '，飲食管理會參考這項資訊'}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSavedNotice(null)
-                      }
-                      className="text-green-500 hover:text-green-700 shrink-0"
-                    >
-                      ✕
-                    </button>
-
-                  </div>
-                )}
-
-              {displayMessages.length > 0 &&
-                !loading &&
-                followups.petId === selectedPet?.id && (
-                  <FollowupSuggestions
-                    items={followups.items}
-                    onSelect={text => sendMessage(text)}
-                    disabled={loading}
-                  />
-                )}
+              {displayMessages.length > 0 && !loading && followups.petId === selectedPet?.id && (
+                <FollowupSuggestions
+                  items={followups.items}
+                  onSelect={text => sendMessage(text)}
+                  disabled={loading}
+                />
+              )}
 
               {displayMessages.length > 0 && (
                 <QuickPrompts
@@ -1554,73 +1198,39 @@ export default function HealthConsultPage() {
                 />
               )}
 
-
-              <div className="flex gap-3 items-end">
-
+              <div className="mt-3 flex items-end gap-3">
                 <textarea
                   value={input}
-
-                  onChange={e =>
-                    setInput(
-                      e.target.value
-                    )
-                  }
-
+                  onChange={e => setInput(e.target.value)}
                   onKeyDown={e => {
-
-                    if (
-                      e.key === 'Enter' &&
-                      !e.shiftKey
-                    ) {
-
+                    if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
-
                       sendMessage()
-
                     }
-
                   }}
-
                   placeholder={`描述 ${selectedPet.name} 的症狀或問題...`}
-
                   rows={2}
-
                   disabled={loading}
-
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all resize-none disabled:opacity-60"
+                  className="min-w-0 flex-1 resize-none rounded-xl border border-sand bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink-soft/60 transition-all focus:border-pine-700/40 focus:bg-plate focus:outline-none disabled:opacity-60"
                 />
-
-
                 <button
-                  onClick={() =>
-                    sendMessage()
-                  }
-
-                  disabled={
-                    loading ||
-                    !input.trim()
-                  }
-
-                  className="w-11 h-11 bg-green-500 hover:bg-green-600 text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 shrink-0 text-lg"
+                  onClick={() => sendMessage()}
+                  disabled={loading || !input.trim()}
+                  aria-label="送出"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-honey text-pine-900 shadow-press transition-all hover:bg-honey-hover active:translate-y-[3px] active:shadow-none disabled:opacity-40"
                 >
-                  ➤
+                  <LineIcon name="send" size={18} />
                 </button>
-
               </div>
 
-
-              <p className="text-xs text-gray-400 mt-2 text-center">
-                ⚠️ 此諮詢僅供參考，不能替代專業獸醫診斷
+              <p className="mt-2 flex items-center justify-center gap-1 text-xs text-ink-soft/80">
+                <LineIcon name="alert" size={12} />
+                此諮詢僅供參考，不能替代專業獸醫診斷
               </p>
-
             </div>
-
           </>
-
         )}
-
       </div>
-
     </div>
   )
 }

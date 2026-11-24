@@ -1,3 +1,5 @@
+import PixelIcon from '../brand/PixelIcon'
+import EmptyState from '../ui/EmptyState'
 import CalorieTrendChart from './CalorieTrendChart'
 
 // ======================================================
@@ -10,26 +12,19 @@ import CalorieTrendChart from './CalorieTrendChart'
 // ======================================================
 
 const STATUS = {
-  under: {
-    label: '低於範圍',
-    className: 'bg-amber-50 text-amber-700 border-amber-200'
-  },
-  in_range: {
-    label: '範圍內',
-    className: 'bg-green-50 text-green-700 border-green-200'
-  },
-  over: {
-    label: '超出範圍',
-    className: 'bg-red-50 text-red-600 border-red-200'
-  },
-  no_data: {
-    label: '無紀錄',
-    className: 'bg-gray-100 text-gray-500 border-gray-200'
-  },
-  no_target: {
-    label: '無建議範圍',
-    className: 'bg-gray-100 text-gray-500 border-gray-200'
-  }
+  under: { label: '低於範圍', className: 'bg-honey-50 text-honey-text border-honey-200' },
+  in_range: { label: '範圍內', className: 'bg-pine-50 text-pine-700 border-pine-100' },
+  over: { label: '超出範圍', className: 'bg-clay-50 text-clay border-clay-200' },
+  no_data: { label: '無紀錄', className: 'bg-cream text-ink-soft border-sand' },
+  no_target: { label: '無建議範圍', className: 'bg-cream text-ink-soft border-sand' }
+}
+
+const TICK_COLOR = {
+  under: '#c96f2e',
+  in_range: '#2c5a43',
+  over: '#b4552f',
+  no_data: '#8e978d',
+  no_target: '#8e978d'
 }
 
 function formatKcal(value) {
@@ -47,38 +42,32 @@ export default function DietTrendTab({
 }) {
   if (isLoading) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl p-6">
-        <div className="h-56 rounded-xl bg-gray-50 animate-pulse" />
+      <div className="rounded-3xl border border-hair shadow-card bg-plate p-6">
+        <div className="skeleton h-56" />
       </div>
     )
   }
 
   if (isError) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-        <p className="text-sm text-gray-500">
-          暫時無法取得熱量趨勢，請稍後再試。
-        </p>
-      </div>
+      <EmptyState icon="chart" title="暫時無法取得熱量趨勢" desc="請稍後再試。" />
     )
   }
 
   return (
     <div className="space-y-4">
-
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5">
-
-        <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-gray-800">
-              📈 一週熱量趨勢
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              實際攝取與每日建議範圍（最低～最高）
-            </p>
+      <div className="rounded-3xl border border-hair shadow-card bg-plate p-5 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <div className="flex items-start gap-2.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-honey-100">
+              <PixelIcon name="chart" size={28} />
+            </span>
+            <div>
+              <h2 className="font-brand text-lg font-extrabold text-pine-900">一週熱量<span className="hl">趨勢</span></h2>
+              <p className="mt-0.5 text-xs text-ink-soft">實際攝取與每日建議範圍（最低～最高）</p>
+            </div>
           </div>
-
-          <span className="text-[11px] text-gray-400">
+          <span className="text-[11px] text-ink-soft/80">
             {rangeRule || '建議範圍依體重與個別條件估算'}
           </span>
         </div>
@@ -88,74 +77,80 @@ export default function DietTrendTab({
           selectedDate={selectedDate}
           onSelectDate={onSelectDate}
         />
-
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h2 className="text-sm font-bold text-gray-800">
-            每日攝取與建議範圍
-          </h2>
+      <div className="overflow-hidden rounded-3xl border border-hair shadow-card bg-plate">
+        <div className="border-b border-hair px-5 py-3.5">
+          <h2 className="font-brand text-base font-extrabold text-pine-900">每日攝取與建議範圍</h2>
         </div>
-
-        <div className="divide-y divide-gray-50">
-
+        <div className="divide-y divide-hair">
           {days.map(day => {
             const info = STATUS[day.status] || STATUS.no_data
             const isSelected = day.date === selectedDate
-
+            const hasRange = day.minKcal !== null && day.maxKcal !== null
+            const actual = day.hasData ? Number(day.actualKcal) : null
+            const ceiling = hasRange
+              ? Math.max(Number(day.maxKcal) * 1.25, actual || 0, 1)
+              : Math.max(actual || 0, 1)
+            const pos = value => Math.min(100, Math.max(0, (Number(value) / ceiling) * 100))
             return (
               <button
                 key={day.date}
                 type="button"
                 onClick={() => onSelectDate(day.date)}
-                className={`w-full text-left px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 transition-colors ${
-                  isSelected
-                    ? 'bg-green-50/60'
-                    : 'hover:bg-gray-50'
+                className={`flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3 text-left transition-colors ${
+                  isSelected ? 'bg-lime/20' : 'hover:bg-cream'
                 }`}
               >
-
-                <span
-                  className={`text-sm font-semibold w-16 ${
-                    isSelected ? 'text-green-700' : 'text-gray-700'
-                  }`}
-                >
+                <span className="w-16 font-mono text-sm font-bold tabular-nums text-pine-900">
                   {day.date.slice(5).replace('-', '/')}
                 </span>
-
-                <span className="text-sm font-bold text-gray-800 w-24">
-                  {day.hasData
-                    ? `${formatKcal(day.actualKcal)} kcal`
-                    : '—'}
+                <span className="w-24 whitespace-nowrap">
+                  <span className="font-brand text-base font-extrabold tabular-nums text-pine-900">
+                    {day.hasData ? formatKcal(day.actualKcal) : '—'}
+                  </span>
+                  {day.hasData && <span className="ml-1 font-mono text-[10px] text-ink-mute">kcal</span>}
                 </span>
-
-                <span className="text-xs text-gray-400 flex-1 min-w-[130px]">
-                  {day.minKcal !== null && day.maxKcal !== null
-                    ? `${formatKcal(day.minKcal)}–${formatKcal(day.maxKcal)} kcal`
-                    : '無建議範圍'}
+                <span className="min-w-[130px] flex-1">
+                  <span className="block font-mono text-[11px] tabular-nums text-ink-soft">
+                    {hasRange
+                      ? `${formatKcal(day.minKcal)}–${formatKcal(day.maxKcal)} kcal`
+                      : '無建議範圍'}
+                  </span>
+                  <span className="relative mt-1.5 block h-2 rounded-full bg-hair" aria-hidden="true">
+                    {hasRange && (
+                      <span
+                        className="absolute inset-y-0 rounded-full bg-lime/70"
+                        style={{
+                          left: `${pos(day.minKcal)}%`,
+                          width: `${Math.max(pos(day.maxKcal) - pos(day.minKcal), 1)}%`
+                        }}
+                      />
+                    )}
+                    {actual !== null && (
+                      <span
+                        className="absolute top-1/2 h-4 w-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_2px_var(--color-plate)]"
+                        style={{
+                          left: `calc(${pos(actual)}% - 3px)`,
+                          backgroundColor: TICK_COLOR[day.status] || TICK_COLOR.no_data
+                        }}
+                      />
+                    )}
+                  </span>
                 </span>
-
-                <span
-                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${info.className}`}
-                >
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${info.className}`}>
                   {info.label}
                 </span>
-
               </button>
             )
           })}
-
         </div>
-
       </div>
 
-      <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
+      <p className="px-1 text-[11px] leading-relaxed text-ink-soft/80">
         沒有紀錄的日期會顯示「—／無紀錄」，不會被算成 0 kcal。
         歷史建議範圍會保留當時的計算基準，體重更新不會改寫過去的判斷。
       </p>
-
     </div>
   )
 }
