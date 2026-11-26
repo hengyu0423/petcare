@@ -1,6 +1,5 @@
 const express = require('express')
 const router = express.Router()
-const jwt = require('jsonwebtoken')
 const pool = require('../db')
 const requireAuth = require('../middleware/auth')
 const { ownsPet } = require('../services/dietInsights')
@@ -9,8 +8,6 @@ const {
   createNotification,
   getPreferences,
   savePreferences,
-  subscribe,
-  unsubscribe,
   schedulePrune,
   CAMERA_TYPES,
   CAMERA_RETENTION_DAYS
@@ -101,47 +98,21 @@ router.post('/', async (req, res) => {
 })
 
 // ------------------------------------------------------
-// 即時推播（SSE）
+// 即時推播（SSE）— 已停用
 //
-// EventSource 無法自訂 header，所以 token 用查詢字串帶入，
-// 這裡直接驗證 JWT，不走 requireAuth（它只認 Authorization header）。
+// 原本這裡用 EventSource 常駐連線即時推播通知。但 Vercel 的
+// function 是依「記憶體 × 執行時間」計費：一條 SSE 連線就是
+// 一個 instance 一直跑到 maxDuration（60 秒）被切斷，瀏覽器
+// 又自動重連，形成永動迴圈 —— 光是有人把分頁放著，一天就能
+// 燒掉約 48 GB-Hrs（2 GB × 24h）。
+//
+// 前端已改回 30 秒 polling（隱藏的分頁不會輪詢），通知照樣
+// 會到，只是最多晚 30 秒。這裡保留路由是為了讓還開著舊版頁面
+// 的分頁收到 204：依 EventSource 規範，204 會讓它停止重連，
+// 不會再繼續產生費用。
 // ------------------------------------------------------
-router.get('/stream', async (req, res) => {
-  let userId
-
-  try {
-    const payload = jwt.verify(
-      req.query.token,
-      process.env.JWT_SECRET || 'secret'
-    )
-    userId = payload.userId
-  } catch {
-    return res.status(401).end()
-  }
-
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache, no-transform',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  })
-
-  res.write(': connected\n\n')
-
-  const heartbeat = setInterval(() => {
-    try {
-      res.write(': ping\n\n')
-    } catch {
-      clearInterval(heartbeat)
-    }
-  }, 25000)
-
-  subscribe(userId, res)
-
-  req.on('close', () => {
-    clearInterval(heartbeat)
-    unsubscribe(userId, res)
-  })
+router.get('/stream', (req, res) => {
+  res.status(204).end()
 })
 
 

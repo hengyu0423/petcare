@@ -263,7 +263,7 @@ export default function NotificationBell() {
   const { data } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get('/notifications').then(r => r.data),
-    refetchInterval: 60000
+    refetchInterval: 30000
   })
 
   // 後端會回傳 important / camera 兩組；
@@ -317,25 +317,13 @@ export default function NotificationBell() {
     return () => window.removeEventListener('paw:open-notification-settings', openPrefs)
   }, [])
 
-  // SSE：有新通知就即時更新，不用等下一次 polling
-  useEffect(() => {
-    const token = localStorage.getItem('paw-token')
-    if (!token) return
-
-    const source = new EventSource(
-      `/api/notifications/stream?token=${encodeURIComponent(token)}`
-    )
-
-    source.addEventListener('notification', () => {
-      qc.invalidateQueries({ queryKey: ['notifications'] })
-    })
-
-    // 連線失敗（例如伺服器重啟）時，讓瀏覽器自動重連，
-    // 不特別處理，之後的 60 秒 polling 仍會保底同步狀態
-    source.onerror = () => {}
-
-    return () => source.close()
-  }, [qc])
+  // 通知改用 30 秒 polling（下面的 useQuery）。
+  //
+  // 原本這裡開了一條 EventSource 常駐連線，但那在 Vercel 上是
+  // 「記憶體 × 時間」計費：一條連線等於一個 function instance
+  // 24 小時不停跑，光是有人把分頁放著一天就燒掉約 48 GB-Hrs。
+  // 後端 /api/notifications/stream 現在直接回 204，讓還開著舊版
+  // 頁面的分頁停止重連。
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['notifications'] })
 
