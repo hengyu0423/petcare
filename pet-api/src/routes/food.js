@@ -25,19 +25,14 @@ const {
   formatKnowledgeForPrompt
 } = require('../services/knowledge')
 const { matchUnsafeFoodRules } = require('../services/foodSafety')
+const { generateGeminiText } = require('../services/geminiText')
 
 const DIET_TZ = process.env.APP_TIMEZONE || 'Asia/Taipei'
 const Groq = require('groq-sdk')
 const multer = require('multer')
 
-const { GoogleGenAI } = require('@google/genai')
-
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
-})
-
-const gemini = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY
 })
 
 const upload = multer({
@@ -524,10 +519,8 @@ async function detectFood(req) {
       )
 
 
-    const response =
-      await gemini.models.generateContent({
-        model: 'gemini-3.6-flash',
-
+    const { text } =
+      await generateGeminiText({
         contents: [
           {
             inlineData: {
@@ -573,7 +566,7 @@ async function detectFood(req) {
 
     const foodName =
       normalizeText(
-        response.text || ''
+        text || ''
       )
         .replace(
           /^食物(?:名稱)?[:：\s]*/i,
@@ -608,11 +601,15 @@ async function detectFood(req) {
 
   } catch (err) {
     console.error(
-      'Gemini Vision error:',
-      err
+      'Gemini Vision error（含備援模型都失敗）:',
+      err?.status || err
     )
 
-    return '未知食物'
+    /*
+     * null = 服務失敗（不是看不出這是什麼食物），
+     * 讓路由回明確錯誤，前端才能顯示「服務暫時忙，請重試」。
+     */
+    return null
   }
 }
 
@@ -1741,6 +1738,18 @@ router.post(
 
       const foodName =
         await detectFood(req)
+
+      // detectFood 回 null 代表 Gemini 失敗（服務暫時忙），
+      // 不要繼續硬湊成「未知食物」，直接請使用者稍後重試。
+      if (foodName === null) {
+        return res
+          .status(503)
+          .json({
+            success: false,
+            error:
+              '圖片辨識服務暫時用量飽和，等一下再按一次「開始辨識」即可'
+          })
+      }
 
 
       const nutrition =
