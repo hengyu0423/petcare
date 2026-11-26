@@ -24,6 +24,7 @@ const {
   retrieveKnowledge,
   formatKnowledgeForPrompt
 } = require('../services/knowledge')
+const { matchUnsafeFoodRules } = require('../services/foodSafety')
 
 const DIET_TZ = process.env.APP_TIMEZONE || 'Asia/Taipei'
 const Groq = require('groq-sdk')
@@ -542,7 +543,8 @@ async function detectFood(req) {
             text: `
 請辨識圖片中的主要食物。
 
-只回答食物名稱。
+只回答食物名稱，但名稱裡要包含看得得到的主要食材，
+這樣系統才能判斷有沒有對貓狗危險的成分（蔥、蒜、洋蔥、葡萄、巧克力、酒等）。
 
 不要解釋。
 不要輸出 JSON。
@@ -552,6 +554,10 @@ async function detectFood(req) {
 
 雞胸肉
 鮭魚
+洋蔥牛肉湯
+蒜炒青菜
+葡萄乾麵包
+帶骨炸雞
 狗乾糧
 貓罐頭
 南瓜
@@ -705,126 +711,10 @@ const DIET_RULES = {
 
 
 /* =========================================================
-   危險食物規則
+   危險食物規則已搬到 services/foodSafety.js
+   （貓／狗不能吃的完整清單在那裡：圖片辨識與手動輸入都走同一套規則）
+   呼叫 matchUnsafeFoodRules({ species, names }) 取得警訊。
 ========================================================= */
-
-const FOOD_SAFETY_RULES = [
-  {
-    species: [
-      '狗',
-      '犬',
-      'dog',
-      '貓',
-      'cat'
-    ],
-
-    keywords: [
-      '巧克力',
-      '可可',
-      'chocolate',
-      'cocoa'
-    ],
-
-    level: 'danger',
-
-    title:
-      '不建議餵食巧克力',
-
-    reason:
-      '巧克力含有可能對犬貓造成健康風險的成分。'
-  },
-
-  {
-    species: [
-      '狗',
-      '犬',
-      'dog',
-      '貓',
-      'cat'
-    ],
-
-    keywords: [
-      '洋蔥',
-      'onion'
-    ],
-
-    level: 'danger',
-
-    title:
-      '不建議餵食洋蔥',
-
-    reason:
-      '洋蔥可能對犬貓造成健康風險。'
-  },
-
-  {
-    species: [
-      '狗',
-      '犬',
-      'dog',
-      '貓',
-      'cat'
-    ],
-
-    keywords: [
-      '大蒜',
-      '蒜頭',
-      'garlic'
-    ],
-
-    level: 'danger',
-
-    title:
-      '不建議餵食大蒜',
-
-    reason:
-      '大蒜可能對犬貓造成健康風險。'
-  },
-
-  {
-    species: [
-      '狗',
-      '犬',
-      'dog'
-    ],
-
-    keywords: [
-      '葡萄',
-      '葡萄乾',
-      'grape',
-      'raisin'
-    ],
-
-    level: 'danger',
-
-    title:
-      '不建議犬隻食用葡萄',
-
-    reason:
-      '葡萄及葡萄乾可能對犬隻造成嚴重健康風險。'
-  },
-
-  {
-    species: [
-      '狗',
-      '犬',
-      'dog'
-    ],
-
-    keywords: [
-      '木糖醇',
-      'xylitol'
-    ],
-
-    level: 'danger',
-
-    title:
-      '不建議犬隻食用木糖醇',
-
-    reason:
-      '木糖醇可能對犬隻造成嚴重健康風險。'
-  }
-]
 
 
 /* =========================================================
@@ -1196,70 +1086,62 @@ function checkFoodWarning({
   pet,
   food,
   history,
-  healthSummary = ''
+  healthSummary = '',
+
+  /*
+   * 名稱除了營養分析回傳的 food_name，也要比對原本的輸入：
+   * 圖片辨識的名字、手動輸入的名字、資料庫的名字。
+   * （營養查詢有時把名字改寫，只比對它會躲過規則）
+   */
+  extraNames = []
 }) {
   const warnings = []
 
 
-  const species =
-    normalizeSpecies(
-      pet?.species
-    )
-
-
-  const foodName =
-    String(
-      food?.food_name || ''
-    ).toLowerCase()
-
-
   /*
    * 危險食物
+   * 完整清單與理由在 services/foodSafety.js（貓／狗不能吃的食物）。
+   * 那邊决定 level 與文字，這裡只負責放進統一的警告格式。
    */
 
   for (
-    const rule
-    of FOOD_SAFETY_RULES
+    const unsafe
+    of matchUnsafeFoodRules({
+      species:
+        pet?.species,
+
+      names: [
+        food?.food_name,
+        ...extraNames
+      ]
+    })
   ) {
-    const speciesMatch =
-      rule.species.some(
-        item =>
-          species.includes(
-            item.toLowerCase()
-          )
-      )
+    warnings.push({
+      level:
+        unsafe.level,
 
+      ...(
+        unsafe.requireAck === false
+          ? { requireAck: false }
+          : {}
+      ),
 
-    const foodMatch =
-      rule.keywords.some(
-        keyword =>
-          foodName.includes(
-            keyword.toLowerCase()
-          )
-      )
+      check: 'nutrition',
 
+      kind: 'unsafe_food',
 
-    if (
-      speciesMatch &&
-      foodMatch
-    ) {
-      warnings.push({
-        level: rule.level,
+      ruleId:
+        unsafe.id,
 
-        check: 'nutrition',
+      title:
+        unsafe.title,
 
-        kind: 'unsafe_food',
+      reason:
+        unsafe.reason,
 
-        title:
-          rule.title,
-
-        reason:
-          rule.reason,
-
-        suggestion:
-          '建議更換其他適合的食物。'
-      })
-    }
+      suggestion:
+        unsafe.suggestion
+    })
   }
 
 
@@ -2089,7 +1971,13 @@ router.post(
 
               history,
 
-              healthSummary
+              healthSummary,
+
+              // 使用者輸入的原名也要比對（nutrition 的名字可能被改寫）
+              extraNames: [
+                selectedFoodName,
+                selected.image_food_name
+              ]
             })
         }
       }
@@ -2308,7 +2196,17 @@ router.post(
 
           history,
 
-          healthSummary
+          healthSummary,
+
+          /*
+           * 營養查詢有時把名稱改寫（例如「洋蔥牛肉湯」變成「牛肉湯」），
+           * 只比對 nutrition.food_name 會躲過安全規則。
+           * 所以圖片辨識的名字（image_food_name）與使用者輸入的名字都要一起比對。
+           */
+          extraNames: [
+            foodName,
+            foodObject.image_food_name
+          ]
         })
 
 
